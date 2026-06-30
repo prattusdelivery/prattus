@@ -589,7 +589,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--cinza);color:v
 <div class="modal-overlay" id="modal-cat">
 <div class="modal">
   <div class="modal-header">
-    <div class="modal-titulo">Nova categoria</div>
+    <div class="modal-titulo" id="modal-cat-titulo">Nova categoria</div>
     <button class="modal-fechar" onclick="fecharModal('modal-cat')">×</button>
   </div>
   <div class="form-group">
@@ -597,6 +597,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--cinza);color:v
     <input type="text" id="cat-nome" placeholder="Ex: Lanches, Bebidas, Sobremesas">
   </div>
   <button class="btn btn-laranja" onclick="salvarCategoria()">Salvar categoria</button>
+  <input type="hidden" id="cat-id">
 </div>
 </div>
 
@@ -733,6 +734,22 @@ async function fazerCadastro() {
   msg.className = 'auth-msg';
   msg.textContent = 'Criando conta...';
 
+  if (!nome || !email || !senha) {
+    msg.className = 'auth-msg erro';
+    msg.textContent = 'Preencha todos os campos.';
+    return;
+  }
+
+  if (tipo === 'restaurante') {
+    const restNome = document.getElementById('cad-rest-nome').value;
+    const whatsapp = document.getElementById('cad-whatsapp').value;
+    if (!restNome || !whatsapp) {
+      msg.className = 'auth-msg erro';
+      msg.textContent = 'Preencha o nome do restaurante e WhatsApp.';
+      return;
+    }
+  }
+
   const { data, error } = await db.auth.signUp({ email, password: senha, options: { data: { nome, tipo } } });
   if (error) {
     msg.className = 'auth-msg erro';
@@ -742,16 +759,22 @@ async function fazerCadastro() {
 
   usuarioAtual = data.user;
 
-  if (tipo === 'restaurante') {
+  if (tipo === 'restaurante' && usuarioAtual) {
     const restNome = document.getElementById('cad-rest-nome').value;
     const whatsapp = document.getElementById('cad-whatsapp').value;
-    await db.from('restaurantes').insert({
+    const { error: restError } = await db.from('restaurantes').insert({
       nome: restNome, whatsapp, user_id: usuarioAtual.id
     });
+    if (restError) {
+      msg.className = 'auth-msg erro';
+      msg.textContent = 'Erro ao salvar restaurante: ' + restError.message;
+      return;
+    }
+    await carregarRestaurante();
+  } else {
+    msg.className = 'auth-msg ok';
+    msg.textContent = 'Conta criada com sucesso!';
   }
-
-  msg.className = 'auth-msg ok';
-  msg.textContent = 'Conta criada! Confirmação enviada para seu e-mail.';
 }
 
 async function sair() {
@@ -883,7 +906,13 @@ async function renderCardapio() {
     </div>
     ${(cats||[]).map(cat => `
       <div class="card" style="margin-bottom:16px;">
-        <div class="card-titulo">${cat.nome}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div class="card-titulo" style="margin-bottom:0;">${cat.nome}</div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn-sm" onclick="editarCategoria('${cat.id}','${cat.nome.replace(/'/g,"\\'")}')">Renomear</button>
+            <button class="btn-sm perigo" onclick="excluirCategoria('${cat.id}')">Excluir</button>
+          </div>
+        </div>
         ${(itens||[]).filter(i => i.categoria_id === cat.id).map(item => `
           <div class="item-card">
             <div class="item-foto">${item.foto_url ? `<img src="${item.foto_url}" onerror="this.parentElement.textContent='🍽️'">` : '🍽️'}</div>
@@ -960,12 +989,34 @@ async function excluirItem(id) {
 }
 
 async function salvarCategoria() {
+  const id = document.getElementById('cat-id').value;
   const nome = document.getElementById('cat-nome').value;
   if (!nome) return;
-  await db.from('categorias').insert({ restaurante_id: restauranteAtual.id, nome });
+  if (id) {
+    await db.from('categorias').update({ nome }).eq('id', id);
+  } else {
+    await db.from('categorias').insert({ restaurante_id: restauranteAtual.id, nome });
+  }
   fecharModal('modal-cat');
   document.getElementById('cat-nome').value = '';
-  toast('Categoria criada!', 'ok');
+  document.getElementById('cat-id').value = '';
+  document.getElementById('modal-cat-titulo').textContent = 'Nova categoria';
+  toast('Categoria salva!', 'ok');
+  renderCardapio();
+}
+
+function editarCategoria(id, nome) {
+  document.getElementById('cat-id').value = id;
+  document.getElementById('cat-nome').value = nome;
+  document.getElementById('modal-cat-titulo').textContent = 'Renomear categoria';
+  abrirModal('modal-cat');
+}
+
+async function excluirCategoria(id) {
+  if (!confirm('Excluir esta categoria? Os itens dentro dela também serão excluídos.')) return;
+  await db.from('itens').delete().eq('categoria_id', id);
+  await db.from('categorias').delete().eq('id', id);
+  toast('Categoria excluída!', 'ok');
   renderCardapio();
 }
 
@@ -1412,6 +1463,11 @@ function fecharModal(id) {
     document.getElementById('item-preco').value = '';
     document.getElementById('item-foto').value = '';
     document.getElementById('modal-item-titulo').textContent = 'Novo item';
+  }
+  if (id === 'modal-cat') {
+    document.getElementById('cat-id').value = '';
+    document.getElementById('cat-nome').value = '';
+    document.getElementById('modal-cat-titulo').textContent = 'Nova categoria';
   }
 }
 function toast(msg, tipo='') {
