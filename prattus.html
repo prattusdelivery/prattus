@@ -1302,19 +1302,57 @@ async function salvarConfig() {
 
 // ===== TELA PUBLICA (CLIENTE) =====
 async function carregarPublico(restId) {
-  const { data: rest } = await db.from('restaurantes').select('*').eq('id', restId).single();
-  if (!rest) { document.body.innerHTML = '<div style="text-align:center;padding:40px;font-size:18px;">Restaurante não encontrado.</div>'; return; }
+  let rest, cats, itens, fretes;
+  let usandoCache = false;
+
+  try {
+    const { data: restData, error: restErro } = await db.from('restaurantes').select('*').eq('id', restId).single();
+    if (restErro || !restData) throw new Error('Restaurante não encontrado');
+    rest = restData;
+
+    const [{ data: catsData }, { data: itensData }, { data: fretesData }] = await Promise.all([
+      db.from('categorias').select('*').eq('restaurante_id', restId).order('ordem'),
+      db.from('itens').select('*').eq('restaurante_id', restId).eq('disponivel', true),
+      db.from('fretes').select('*').eq('restaurante_id', restId)
+    ]);
+    cats = catsData || [];
+    itens = itensData || [];
+    fretes = fretesData || [];
+
+    // Salva cache local para uso em caso de instabilidade futura
+    try {
+      localStorage.setItem('prattus_cache_' + restId, JSON.stringify({ rest, cats, itens, fretes, salvoEm: Date.now() }));
+    } catch(e) {}
+
+  } catch (err) {
+    // Tenta usar cache salvo anteriormente
+    try {
+      const cache = JSON.parse(localStorage.getItem('prattus_cache_' + restId));
+      if (cache) {
+        rest = cache.rest; cats = cache.cats; itens = cache.itens; fretes = cache.fretes;
+        usandoCache = true;
+      }
+    } catch(e) {}
+
+    if (!rest) {
+      mostrarErroConexao(restId);
+      return;
+    }
+  }
+
   restPublico = rest;
+  categorias = cats || [];
 
   document.getElementById('pub-rest-nome').textContent = rest.nome;
   document.getElementById('pub-rest-sub').textContent = rest.descricao || 'Delivery';
   document.title = rest.nome + ' — Prattus';
 
-  const { data: cats } = await db.from('categorias').select('*').eq('restaurante_id', restId).order('ordem');
-  const { data: itens } = await db.from('itens').select('*').eq('restaurante_id', restId).eq('disponivel', true);
-  const { data: fretes } = await db.from('fretes').select('*').eq('restaurante_id', restId);
-
-  categorias = cats || [];
+  if (usandoCache) {
+    const banner = document.createElement('div');
+    banner.style.cssText = 'background:#FAEEDA;color:#854F0B;font-size:12px;text-align:center;padding:8px 16px;';
+    banner.textContent = 'Conexão instável — mostrando cardápio salvo anteriormente. Os preços podem estar desatualizados.';
+    document.querySelector('.pub-banner').after(banner);
+  }
 
   // Categorias
   const catsEl = document.getElementById('pub-cats');
@@ -1335,6 +1373,32 @@ async function carregarPublico(restId) {
   }
 
   mostrarTela('cliente');
+}
+
+function mostrarErroConexao(restId) {
+  let whatsapp = null;
+  try {
+    const cache = JSON.parse(localStorage.getItem('prattus_cache_' + restId));
+    if (cache && cache.rest) whatsapp = cache.rest.whatsapp;
+  } catch(e) {}
+
+  document.body.innerHTML = `
+    <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;background:var(--cinza);">
+      <div style="font-size:56px;margin-bottom:16px;">📵</div>
+      <div style="font-size:18px;font-weight:700;color:var(--texto);margin-bottom:8px;">Não foi possível carregar o cardápio</div>
+      <div style="font-size:14px;color:var(--texto-muted);margin-bottom:24px;max-width:340px;">
+        Estamos com instabilidade temporária na conexão. Tente novamente em alguns instantes${whatsapp ? ', ou entre em contato direto pelo WhatsApp do restaurante.' : '.'}
+      </div>
+      <button onclick="window.location.reload()" style="background:var(--laranja);color:#fff;border:none;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:12px;">
+        Tentar novamente
+      </button>
+      ${whatsapp ? `
+        <a href="https://wa.me/${whatsapp}" target="_blank" style="display:inline-flex;align-items:center;gap:8px;background:#1D9E75;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:600;">
+          Chamar no WhatsApp
+        </a>
+      ` : ''}
+    </div>
+  `;
 }
 
 function renderItensPublico(itens) {
