@@ -341,6 +341,23 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--cinza);color:v
   display:flex;align-items:center;justify-content:center;
 }
 .carr-btn:hover{border-color:var(--laranja);color:var(--laranja);}
+.carr-item-foto{
+  width:54px;height:54px;border-radius:10px;background:var(--cinza);
+  display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;
+  overflow:hidden;
+}
+.carr-item-foto img{width:100%;height:100%;object-fit:cover;}
+.carr-remove{
+  width:22px;height:22px;border-radius:50%;border:none;background:var(--cinza);
+  color:var(--texto-muted);font-size:16px;cursor:pointer;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;line-height:1;
+}
+.carr-remove:hover{background:#FCEBEB;color:var(--vermelho);}
+.carr-obs-input{
+  width:100%;padding:7px 10px;border:1px solid var(--cinza-borda);border-radius:7px;
+  font-size:12px;outline:none;transition:border-color 0.2s;
+}
+.carr-obs-input:focus{border-color:var(--laranja);}
 </style>
 </head>
 <body>
@@ -1330,7 +1347,7 @@ function renderItensPublico(itens) {
         <div class="pub-item-desc">${item.descricao||''}</div>
         <div class="pub-item-preco">R$ ${parseFloat(item.preco).toFixed(2).replace('.',',')}</div>
       </div>
-      <button class="pub-add" onclick='adicionarItem(${JSON.stringify({id:item.id,nome:item.nome,preco:item.preco})})'>+</button>
+      <button class="pub-add" onclick='adicionarItem(${JSON.stringify({id:item.id,nome:item.nome,preco:item.preco,foto:item.foto_url||''})})'>+</button>
     </div>
   `).join('') || '<div class="empty"><div class="empty-ico">🍽️</div><div class="empty-txt">Nenhum item nesta categoria</div></div>';
 }
@@ -1374,21 +1391,43 @@ function abrirCarrinho() {
   document.getElementById('carr-sub').textContent = 'R$ ' + sub.toFixed(2).replace('.',',');
   document.getElementById('carr-frete-val').textContent = 'R$ ' + fretesSelecionado.toFixed(2).replace('.',',');
   document.getElementById('carr-total-val').textContent = 'R$ ' + (sub + fretesSelecionado).toFixed(2).replace('.',',');
-  document.getElementById('carr-lista').innerHTML = carrinho.map((item,idx) => `
-    <div class="carr-item">
-      <div style="flex:1;">
-        <div style="font-size:14px;font-weight:500;">${item.nome}</div>
-        <div style="font-size:12px;color:var(--texto-muted);">R$ ${parseFloat(item.preco).toFixed(2).replace('.',',')}</div>
+
+  if (carrinho.length === 0) {
+    document.getElementById('carr-lista').innerHTML = '<div class="empty"><div class="empty-ico">🛒</div><div class="empty-txt">Seu carrinho está vazio</div></div>';
+  } else {
+    document.getElementById('carr-lista').innerHTML = carrinho.map((item,idx) => `
+      <div class="carr-item">
+        <div class="carr-item-foto">${item.foto ? `<img src="${item.foto}" onerror="this.parentElement.textContent='🍽️'">` : '🍽️'}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+            <div style="font-size:14px;font-weight:600;">${item.nome}</div>
+            <button class="carr-remove" onclick="removerItem(${idx})" title="Remover">×</button>
+          </div>
+          <div style="font-size:12px;color:var(--texto-muted);margin:2px 0 8px;">R$ ${parseFloat(item.preco).toFixed(2).replace('.',',')} cada</div>
+          <input type="text" class="carr-obs-input" placeholder="Observação (ex: sem cebola)" value="${item.obs||''}" onchange="atualizarObsItem(${idx}, this.value)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+            <div class="carr-qty-ctrl">
+              <button class="carr-btn" onclick="mudarQtd(${idx},-1)">−</button>
+              <span style="font-size:14px;font-weight:600;min-width:20px;text-align:center;">${item.qtd}</span>
+              <button class="carr-btn" onclick="mudarQtd(${idx},1)">+</button>
+            </div>
+            <div style="font-size:15px;font-weight:700;color:var(--laranja);">R$ ${(parseFloat(item.preco)*item.qtd).toFixed(2).replace('.',',')}</div>
+          </div>
+        </div>
       </div>
-      <div class="carr-qty-ctrl">
-        <button class="carr-btn" onclick="mudarQtd(${idx},-1)">−</button>
-        <span style="font-size:14px;font-weight:600;min-width:20px;text-align:center;">${item.qtd}</span>
-        <button class="carr-btn" onclick="mudarQtd(${idx},1)">+</button>
-      </div>
-      <div style="font-size:14px;font-weight:700;color:var(--laranja);min-width:64px;text-align:right;">R$ ${(parseFloat(item.preco)*item.qtd).toFixed(2).replace('.',',')}</div>
-    </div>
-  `).join('');
+    `).join('');
+  }
   abrirModal('modal-carrinho');
+}
+
+function atualizarObsItem(idx, valor) {
+  if (carrinho[idx]) carrinho[idx].obs = valor;
+}
+
+function removerItem(idx) {
+  carrinho.splice(idx, 1);
+  atualizarCarrinho();
+  abrirCarrinho();
 }
 
 function mudarQtd(idx, delta) {
@@ -1431,7 +1470,7 @@ async function finalizarPedido() {
   }
 
   // Monta mensagem WhatsApp
-  const itensMsg = carrinho.map(i => `${i.qtd}x ${i.nome} — R$ ${(parseFloat(i.preco)*i.qtd).toFixed(2)}`).join('\n');
+  const itensMsg = carrinho.map(i => `${i.qtd}x ${i.nome}${i.obs ? ' (Obs: '+i.obs+')' : ''} — R$ ${(parseFloat(i.preco)*i.qtd).toFixed(2)}`).join('\n');
   const msg = encodeURIComponent(
     `🛵 *Novo pedido — ${restPublico.nome}*\n\n` +
     `*Cliente:* ${nome}\n` +
