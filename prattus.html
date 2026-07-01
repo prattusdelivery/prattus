@@ -429,6 +429,26 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
   font-size:12px;outline:none;transition:border-color 0.2s;
 }
 .carr-obs-input:focus{border-color:var(--laranja);}
+
+/* ===== MODO ESCURO CARDAPIO PUBLICO ===== */
+.dark-mode .pub-wrap{background:#181818;}
+.dark-mode .pub-banner{background:linear-gradient(160deg,#1a1a1a,#2a1a0f);}
+.dark-mode .pub-card{background:#242424;}
+.dark-mode .pub-item{border-bottom-color:#333;}
+.dark-mode .pub-item-nome{color:#f0f0f0;}
+.dark-mode .pub-item-desc{color:#999;}
+.dark-mode .pub-item-foto{background:#333;}
+.dark-mode .pub-cat{background:#2a2a2a;border-color:#444;color:#999;}
+.dark-mode .pub-cat.ativo{background:var(--laranja);color:#fff;border-color:var(--laranja);}
+.dark-mode #pub-busca{background:#2a2a2a;border-color:#444;color:#f0f0f0;}
+.dark-mode #btn-modo-escuro{background:#2a2a2a;border-color:#444;color:#aaa;}
+.dark-mode .carrinho-bar{background:#1a1a1a;}
+.modo-btn{
+  padding:8px 14px;border-radius:10px;font-size:13px;font-weight:500;cursor:pointer;
+  border:1px solid var(--creme-borda);background:var(--branco);color:var(--texto-muted);
+  transition:all 0.15s;user-select:none;
+}
+.modo-btn.ativo{background:var(--laranja);color:var(--branco);border-color:var(--laranja);}
 </style>
 </head>
 <body>
@@ -588,6 +608,18 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
     <div id="pub-fechado" style="display:none;background:rgba(0,0,0,0.5);border-radius:8px;padding:8px 16px;margin-top:10px;font-size:13px;color:#fff;">🔴 Fechado no momento</div>
   </div>
   <div class="pub-card">
+    <!-- BUSCA -->
+    <div style="position:relative;margin-bottom:14px;">
+      <input type="text" id="pub-busca" placeholder="🔍 Buscar no cardápio..." oninput="buscarItens(this.value)"
+        style="width:100%;padding:10px 14px;border:1px solid var(--creme-borda);border-radius:10px;font-size:14px;outline:none;background:var(--creme);">
+    </div>
+    <!-- MODO ESCURO -->
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+      <button onclick="alternarModoEscuro()" id="btn-modo-escuro"
+        style="background:none;border:1px solid var(--creme-borda);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;color:var(--texto-muted);">
+        🌙 Modo escuro
+      </button>
+    </div>
     <div class="pub-cats" id="pub-cats"></div>
     <div id="pub-itens"></div>
   </div>
@@ -603,42 +635,80 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
 
 <!-- MODAL: CARRINHO -->
 <div class="modal-overlay" id="modal-carrinho">
-<div class="modal">
+<div class="modal" style="max-width:520px;">
   <div class="modal-header">
     <div class="modal-titulo">Meu carrinho</div>
     <button class="modal-fechar" onclick="fecharModal('modal-carrinho')">×</button>
   </div>
   <div id="carr-lista"></div>
-  <div style="margin-top:16px;border-top:1px solid var(--cinza-borda);padding-top:12px;">
-    <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--texto-muted);margin-bottom:6px;">
+
+  <!-- RESUMO -->
+  <div style="margin-top:14px;border-top:1px solid var(--creme-borda);padding-top:12px;">
+    <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--texto-muted);margin-bottom:4px;">
       <span>Subtotal</span><span id="carr-sub">R$ 0,00</span>
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--texto-muted);margin-bottom:12px;">
+    <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--texto-muted);margin-bottom:4px;">
       <span>Frete</span><span id="carr-frete-val">R$ 0,00</span>
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:700;margin-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--verde);margin-bottom:4px;display:none;" id="carr-desconto-row">
+      <span>Cupom</span><span id="carr-desconto-val">- R$ 0,00</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:700;margin-bottom:14px;padding-top:8px;border-top:1px solid var(--creme-borda);">
       <span>Total</span><span id="carr-total-val" style="color:var(--laranja)">R$ 0,00</span>
     </div>
+
+    <!-- MODO DE RECEBIMENTO -->
     <div class="form-group">
-      <label>Seu nome</label>
-      <input type="text" id="ped-nome" placeholder="Nome completo">
+      <label>Como deseja receber seu pedido?</label>
+      <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
+        <label class="modo-btn ativo" id="modo-delivery" onclick="selecionarModo('delivery')">🛵 Delivery</label>
+        <label class="modo-btn" id="modo-retirada" onclick="selecionarModo('retirada')">🏃 Retirar no local</label>
+        <label class="modo-btn" id="modo-local" onclick="selecionarModo('local')">🍽️ Consumir no local</label>
+      </div>
     </div>
+
+    <!-- DADOS PESSOAIS -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-group"><label>Nome completo</label><input type="text" id="ped-nome" placeholder="Seu nome"></div>
+      <div class="form-group"><label>Telefone (com DDD)</label><input type="text" id="ped-telefone" placeholder="55999999999"></div>
+    </div>
+
+    <!-- ENDERECO (só delivery) -->
+    <div id="bloco-endereco">
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;">
+        <div class="form-group"><label>Rua</label><input type="text" id="ped-rua" placeholder="Nome da rua"></div>
+        <div class="form-group"><label>Número</label><input type="text" id="ped-numero" placeholder="Nº"></div>
+        <div class="form-group"><label>Complemento</label><input type="text" id="ped-complemento" placeholder="Apto, casa..."></div>
+      </div>
+      <div class="form-group">
+        <label>Bairro</label>
+        <select id="ped-bairro" onchange="calcFrete()"></select>
+      </div>
+      <div class="form-group">
+        <label>Ponto de referência (opcional)</label>
+        <input type="text" id="ped-referencia" placeholder="Ex: descendo ao posto de saúde">
+      </div>
+    </div>
+
+    <!-- AGENDAMENTO (só retirada) -->
+    <div id="bloco-agendamento" style="display:none;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="form-group"><label>Data para retirada</label><input type="date" id="ped-data"></div>
+        <div class="form-group"><label>Horário</label><input type="time" id="ped-hora"></div>
+      </div>
+    </div>
+
+    <!-- CUPOM -->
     <div class="form-group">
-      <label>Seu telefone (com DDD)</label>
-      <input type="text" id="ped-telefone" placeholder="55999999999">
+      <label>Cupom de desconto (opcional)</label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="ped-cupom" placeholder="Código do cupom" style="flex:1;text-transform:uppercase;">
+        <button class="btn-sm" style="padding:10px 16px;white-space:nowrap;" onclick="aplicarCupom()">Aplicar</button>
+      </div>
+      <div id="cupom-msg" style="font-size:12px;margin-top:4px;"></div>
     </div>
-    <div class="form-group">
-      <label>Endereço de entrega</label>
-      <input type="text" id="ped-endereco" placeholder="Rua, número, complemento">
-    </div>
-    <div class="form-group">
-      <label>Ponto de referência (opcional)</label>
-      <input type="text" id="ped-referencia" placeholder="Ex: descendo ao posto de saúde">
-    </div>
-    <div class="form-group">
-      <label>Bairro</label>
-      <select id="ped-bairro" onchange="calcFrete()"></select>
-    </div>
+
+    <!-- PAGAMENTO -->
     <div class="form-group">
       <label>Forma de pagamento</label>
       <select id="ped-pagamento" onchange="alternarPix()">
@@ -648,17 +718,25 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
       </select>
     </div>
     <div class="form-group" id="campo-pix" style="display:none;">
-      <label>Chave Pix do restaurante</label>
-      <div id="pix-chave-display" style="background:var(--creme);padding:10px 14px;border-radius:8px;font-size:13px;font-family:monospace;word-break:break-all;margin-bottom:8px;"></div>
-      <div style="font-size:12px;color:var(--texto-muted);">Faça o Pix e envie o comprovante diretamente no WhatsApp após confirmar o pedido.</div>
+      <div style="background:var(--creme);border:1px solid var(--creme-borda);border-radius:8px;padding:12px;">
+        <div style="font-size:11px;color:var(--texto-muted);margin-bottom:4px;">Chave Pix do restaurante:</div>
+        <div id="pix-chave-display" style="font-size:14px;font-weight:600;font-family:monospace;word-break:break-all;"></div>
+      </div>
+      <div style="font-size:12px;color:var(--texto-muted);margin-top:6px;">Faça o Pix e envie o comprovante no WhatsApp após confirmar o pedido.</div>
     </div>
+
+    <!-- OBSERVACAO -->
     <div class="form-group">
-      <label>Observação (opcional)</label>
-      <input type="text" id="ped-obs" placeholder="Ex: sem cebola">
+      <label>Observações gerais (opcional)</label>
+      <input type="text" id="ped-obs" placeholder="Alguma informação adicional...">
     </div>
+
     <button class="btn btn-laranja" onclick="finalizarPedido()" style="margin-top:8px">
-      Enviar pedido via WhatsApp
+      Fechar pedido via WhatsApp
     </button>
+    <div style="text-align:center;font-size:12px;color:var(--texto-muted);margin-top:10px;">
+      Não esqueça de concluir o envio do seu pedido pelo WhatsApp. Basta enviar a mensagem.
+    </div>
   </div>
 </div>
 </div>
@@ -834,14 +912,82 @@ function pararAutoRefresh() {
 }
 
 // ===== INIT =====
+const ADMIN_EMAIL = 'alessandro.reval@hotmail.com';
+
 async function init() {
   const { data: { session } } = await db.auth.getSession();
   if (session) {
     usuarioAtual = session.user;
-    await carregarRestaurante();
+    if (usuarioAtual.email === ADMIN_EMAIL) {
+      await carregarSuperAdmin();
+    } else {
+      await carregarRestaurante();
+    }
   } else {
     mostrarTela('auth');
   }
+}
+
+async function carregarSuperAdmin() {
+  const { data: restaurantes } = await db.from('restaurantes').select('*').order('criado_em', {ascending: false});
+  const { data: pedidos } = await db.from('pedidos').select('total,criado_em,restaurante_id');
+
+  const totalRest = (restaurantes||[]).length;
+  const totalPedidos = (pedidos||[]).length;
+  const totalFat = (pedidos||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
+
+  document.body.innerHTML = `
+    <div style="min-height:100vh;background:var(--preto);font-family:var(--font-body);">
+      <div style="background:#1a1a1a;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.08);">
+        <div style="font-family:var(--font-display);font-size:22px;font-weight:600;color:var(--branco);">Pratt<span style="color:var(--laranja);">us</span> <span style="font-size:13px;color:rgba(255,255,255,0.4);font-family:var(--font-body);font-weight:400;">Super Admin</span></div>
+        <button onclick="db.auth.signOut().then(()=>location.reload())" style="background:none;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.5);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:13px;">Sair</button>
+      </div>
+      <div style="padding:28px;max-width:1100px;margin:0 auto;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:28px;">
+          <div style="background:#232323;border-radius:14px;padding:20px;border:1px solid rgba(255,255,255,0.06);">
+            <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:6px;">Restaurantes</div>
+            <div style="font-size:28px;font-weight:700;color:var(--branco);">${totalRest}</div>
+          </div>
+          <div style="background:#232323;border-radius:14px;padding:20px;border:1px solid rgba(255,255,255,0.06);">
+            <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:6px;">Total de pedidos</div>
+            <div style="font-size:28px;font-weight:700;color:var(--branco);">${totalPedidos}</div>
+          </div>
+          <div style="background:#232323;border-radius:14px;padding:20px;border:1px solid rgba(255,255,255,0.06);">
+            <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:6px;">Faturamento total</div>
+            <div style="font-size:28px;font-weight:700;color:var(--laranja);">R$ ${totalFat.toFixed(2).replace('.',',')}</div>
+          </div>
+          <div style="background:#232323;border-radius:14px;padding:20px;border:1px solid rgba(255,255,255,0.06);">
+            <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:6px;">Ticket médio global</div>
+            <div style="font-size:28px;font-weight:700;color:var(--branco);">R$ ${totalPedidos ? (totalFat/totalPedidos).toFixed(2).replace('.',',') : '0,00'}</div>
+          </div>
+        </div>
+
+        <div style="background:#232323;border-radius:14px;border:1px solid rgba(255,255,255,0.06);overflow:hidden;">
+          <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06);font-size:13px;font-weight:600;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.5px;">Restaurantes cadastrados</div>
+          ${(restaurantes||[]).map(r => {
+            const pedRest = (pedidos||[]).filter(p => p.restaurante_id === r.id);
+            const fatRest = pedRest.reduce((s,p) => s + parseFloat(p.total||0), 0);
+            return `
+              <div style="display:flex;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.04);">
+                <div style="width:38px;height:38px;border-radius:50%;background:var(--laranja);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex-shrink:0;">${r.nome.charAt(0).toUpperCase()}</div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:14px;font-weight:600;color:var(--branco);">${r.nome}</div>
+                  <div style="font-size:12px;color:rgba(255,255,255,0.4);">WhatsApp: ${r.whatsapp||'—'} · Cadastrado em ${new Date(r.criado_em).toLocaleDateString('pt-BR')}</div>
+                </div>
+                <div style="text-align:right;flex-shrink:0;">
+                  <div style="font-size:14px;font-weight:700;color:var(--laranja);">R$ ${fatRest.toFixed(2).replace('.',',')}</div>
+                  <div style="font-size:12px;color:rgba(255,255,255,0.4);">${pedRest.length} pedidos</div>
+                </div>
+                <div style="display:flex;gap:6px;">
+                  <a href="?rest=${r.id}" target="_blank" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);text-decoration:none;">Ver cardápio</a>
+                </div>
+              </div>
+            `;
+          }).join('') || '<div style="padding:40px;text-align:center;color:rgba(255,255,255,0.3);">Nenhum restaurante cadastrado</div>'}
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 async function carregarRestaurante() {
@@ -1438,7 +1584,67 @@ function exportarRelatorio() {
   toast('Exportação em desenvolvimento...', 'ok');
 }
 
-// ===== FRETES =====
+// ===== BACKUP E EMERGENCIA =====
+async function baixarBackup() {
+  if (!restauranteAtual) return;
+  toast('Gerando backup...', 'ok');
+  const rid = restauranteAtual.id;
+
+  const [{ data: cats }, { data: itens }, { data: fretes }, { data: cupons }, { data: clientes }, { data: pedidos }] = await Promise.all([
+    db.from('categorias').select('*').eq('restaurante_id', rid),
+    db.from('itens').select('*').eq('restaurante_id', rid),
+    db.from('fretes').select('*').eq('restaurante_id', rid),
+    db.from('cupons').select('*').eq('restaurante_id', rid),
+    db.from('clientes').select('*').eq('restaurante_id', rid),
+    db.from('pedidos').select('*').eq('restaurante_id', rid).order('criado_em', {ascending: false}).limit(500)
+  ]);
+
+  const backup = {
+    restaurante: restauranteAtual,
+    categorias: cats || [],
+    itens: itens || [],
+    fretes: fretes || [],
+    cupons: cupons || [],
+    clientes: clientes || [],
+    pedidos: pedidos || [],
+    geradoEm: new Date().toLocaleString('pt-BR'),
+    versao: '1.0'
+  };
+
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `prattus-backup-${restauranteAtual.nome.replace(/\s+/g,'-')}-${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Backup baixado com sucesso!', 'ok');
+}
+
+async function cardapioEmergencia() {
+  if (!restauranteAtual) return;
+  const { data: cats } = await db.from('categorias').select('*').eq('restaurante_id', restauranteAtual.id).order('ordem');
+  const { data: itens } = await db.from('itens').select('*').eq('restaurante_id', restauranteAtual.id).eq('disponivel', true).order('criado_em');
+
+  let msg = `🍽️ *Cardápio — ${restauranteAtual.nome}*\n\n`;
+
+  (cats||[]).forEach(cat => {
+    const itensCat = (itens||[]).filter(i => i.categoria_id === cat.id);
+    if (!itensCat.length) return;
+    msg += `*${cat.nome.toUpperCase()}*\n`;
+    itensCat.forEach(item => {
+      msg += `• ${item.nome} — R$ ${parseFloat(item.preco).toFixed(2).replace('.',',')}`;
+      if (item.descricao) msg += ` _(${item.descricao})_`;
+      msg += '\n';
+    });
+    msg += '\n';
+  });
+
+  msg += `📲 Para pedir, responda com os itens, seu nome e endereço.`;
+
+  window.open(`https://wa.me/${restauranteAtual.whatsapp}?text=${encodeURIComponent(msg)}`, '_blank');
+  toast('Cardápio de emergência aberto!', 'ok');
+}
 async function renderFretes() {
   if (!restauranteAtual) return;
   const { data: fretes } = await db.from('fretes').select('*').eq('restaurante_id', restauranteAtual.id).order('bairro');
@@ -1566,9 +1772,41 @@ async function renderConfig() {
       <button class="btn btn-laranja" onclick="salvarConfig()">Salvar configurações</button>
 
       <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--creme-borda);">
-        <div style="font-size:13px;color:var(--texto-muted);margin-bottom:8px;">Link público do seu cardápio:</div>
-        <div style="background:var(--creme);padding:10px 14px;border-radius:8px;font-size:13px;font-family:monospace;word-break:break-all;">
+        <div style="font-size:13px;color:var(--texto-muted);margin-bottom:6px;">🍽️ Link do cardápio (compartilhe com clientes):</div>
+        <div style="background:var(--creme);padding:10px 14px;border-radius:8px;font-size:13px;font-family:monospace;word-break:break-all;margin-bottom:12px;">
           ${window.location.href.split('?')[0]}?rest=${r.id}
+        </div>
+        <div style="font-size:13px;color:var(--texto-muted);margin-bottom:6px;">⭐ Link de fidelidade (pontos dos clientes):</div>
+        <div style="background:var(--creme);padding:10px 14px;border-radius:8px;font-size:13px;font-family:monospace;word-break:break-all;margin-bottom:12px;">
+          ${window.location.href.split('?')[0]}?fidelidade=${r.id}
+        </div>
+        <div style="font-size:13px;color:var(--texto-muted);margin-bottom:6px;">📱 Mensagem automática para WhatsApp Business:</div>
+        <div style="background:var(--creme);padding:10px 14px;border-radius:8px;font-size:13px;white-space:pre-wrap;word-break:break-all;">Olá! 👋 Obrigado por entrar em contato com ${r.nome}.
+
+Faça seu pedido pelo nosso cardápio digital:
+${window.location.href.split('?')[0]}?rest=${r.id}
+
+Consulte seus pontos de fidelidade:
+${window.location.href.split('?')[0]}?fidelidade=${r.id}
+
+Não atendemos pedidos por aqui. Use o link acima 😊</div>
+        <div style="font-size:11px;color:var(--texto-muted);margin-top:6px;">Cole essa mensagem como resposta automática no WhatsApp Business.</div>
+      </div>
+
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--creme-borda);">
+        <div style="font-size:15px;font-weight:600;margin-bottom:6px;">🛡️ Segurança e emergência</div>
+        <div style="font-size:13px;color:var(--texto-muted);margin-bottom:14px;">Proteja seus dados e mantenha os pedidos funcionando mesmo se o sistema sair do ar.</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button onclick="baixarBackup()" class="btn btn-outline" style="width:auto;padding:10px 18px;display:flex;align-items:center;gap:8px;">
+            💾 Baixar backup completo
+          </button>
+          <button onclick="cardapioEmergencia()" class="btn btn-outline" style="width:auto;padding:10px 18px;display:flex;align-items:center;gap:8px;border-color:var(--verde);color:var(--verde);">
+            🆘 Cardápio de emergência via WhatsApp
+          </button>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--texto-muted);background:var(--creme);padding:10px 14px;border-radius:8px;line-height:1.6;">
+          <strong>💾 Backup:</strong> Baixa todos os seus dados (cardápio, clientes, pedidos) em arquivo JSON seguro.<br>
+          <strong>🆘 Emergência:</strong> Abre o WhatsApp já com seu cardápio completo em texto, pronto para enviar manualmente aos clientes.
         </div>
       </div>
     </div>
@@ -1689,6 +1927,7 @@ async function carregarPublico(restId) {
     (cats||[]).map(c => `<div class="pub-cat" onclick="filtrarCat('${c.id}',this)">${c.nome}</div>`).join('');
 
   // Itens
+  todosItensPublico = itens || [];
   renderItensPublico(itens||[]);
 
   // Fretes no select
@@ -1769,7 +2008,84 @@ function filtrarCat(catId, el) {
   catAtiva = catId;
   document.querySelectorAll('.pub-cat').forEach(e => e.classList.remove('ativo'));
   el.classList.add('ativo');
+  document.getElementById('pub-busca').value = '';
   db.from('itens').select('*').eq('restaurante_id', restPublico.id).eq('disponivel', true).then(({data}) => renderItensPublico(data||[]));
+}
+
+let todosItensPublico = [];
+function buscarItens(termo) {
+  if (!termo.trim()) { renderItensPublico(todosItensPublico); return; }
+  const t = termo.toLowerCase();
+  const filtrados = todosItensPublico.filter(i =>
+    i.nome.toLowerCase().includes(t) || (i.descricao||'').toLowerCase().includes(t)
+  );
+  renderItensPublico(filtrados, true);
+}
+
+let modoEscuroAtivo = false;
+function alternarModoEscuro() {
+  modoEscuroAtivo = !modoEscuroAtivo;
+  document.getElementById('tela-cliente').classList.toggle('dark-mode', modoEscuroAtivo);
+  const btn = document.getElementById('btn-modo-escuro');
+  if (btn) btn.textContent = modoEscuroAtivo ? '☀️ Modo claro' : '🌙 Modo escuro';
+}
+
+// ===== ACOMPANHAMENTO DO PEDIDO =====
+async function mostrarAcompanhamento(pedidoId) {
+  const { data: pedido } = await db.from('pedidos')
+    .select('*,pedido_itens(nome,quantidade,preco,observacao)')
+    .eq('id', pedidoId).single();
+
+  const statusMap = {
+    novo: { label: 'Pedido recebido', icon: '📥', pct: 25 },
+    preparando: { label: 'Em preparo', icon: '👨‍🍳', pct: 55 },
+    entrega: { label: 'Saiu para entrega', icon: '🛵', pct: 80 },
+    entregue: { label: 'Entregue!', icon: '✅', pct: 100 },
+    cancelado: { label: 'Cancelado', icon: '❌', pct: 0 },
+  };
+
+  const s = statusMap[pedido?.status] || statusMap.novo;
+  const etapas = ['novo', 'preparando', 'entrega', 'entregue'];
+  const idxAtual = etapas.indexOf(pedido?.status);
+
+  document.body.innerHTML = `
+    <div style="max-width:440px;margin:0 auto;padding:28px 20px;font-family:var(--font-body);">
+      <div style="text-align:center;margin-bottom:24px;">
+        <div style="font-family:var(--font-display);font-size:22px;font-weight:600;color:var(--laranja);">Prattus</div>
+        <div style="font-size:14px;color:var(--texto-muted);margin-top:2px;">Acompanhamento do pedido</div>
+      </div>
+
+      <div style="background:var(--branco);border-radius:16px;padding:20px;border:1px solid var(--creme-borda);margin-bottom:16px;text-align:center;">
+        <div style="font-size:48px;margin-bottom:8px;">${s.icon}</div>
+        <div style="font-family:var(--font-display);font-size:20px;font-weight:600;">${s.label}</div>
+        <div style="font-size:13px;color:var(--texto-muted);margin-top:4px;">Pedido #${pedido?.id.slice(-6).toUpperCase()}</div>
+        <div style="background:var(--creme);border-radius:10px;height:8px;margin:16px 0 8px;overflow:hidden;">
+          <div style="height:100%;background:var(--laranja);border-radius:10px;width:${s.pct}%;transition:width 0.5s;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--texto-muted);">
+          ${etapas.map((e,i) => `<span style="color:${i<=idxAtual?'var(--laranja)':'var(--texto-muted)'};">${statusMap[e].icon}</span>`).join('')}
+        </div>
+      </div>
+
+      <div style="background:var(--branco);border-radius:16px;padding:20px;border:1px solid var(--creme-borda);margin-bottom:16px;">
+        <div style="font-size:13px;font-weight:600;color:var(--texto-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Itens do pedido</div>
+        ${(pedido?.pedido_itens||[]).map(i => `
+          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--creme-borda);font-size:13px;">
+            <span>${i.quantidade}x ${i.nome}${i.observacao?' ('+i.observacao+')':''}</span>
+            <span style="color:var(--laranja);font-weight:600;">R$ ${(parseFloat(i.preco)*i.quantidade).toFixed(2).replace('.',',')}</span>
+          </div>
+        `).join('')}
+        <div style="display:flex;justify-content:space-between;padding:10px 0 0;font-size:15px;font-weight:700;">
+          <span>Total</span>
+          <span style="color:var(--laranja);">R$ ${parseFloat(pedido?.total||0).toFixed(2).replace('.',',')}</span>
+        </div>
+      </div>
+
+      <button onclick="window.location.reload()" style="width:100%;background:var(--creme);border:1px solid var(--creme-borda);border-radius:10px;padding:12px;font-size:13px;cursor:pointer;color:var(--texto-muted);">
+        🔄 Atualizar status
+      </button>
+    </div>
+  `;
 }
 
 function adicionarItem(item) {
@@ -1788,15 +2104,63 @@ function atualizarCarrinho() {
   document.getElementById('carrinho-bar').className = 'carrinho-bar' + (qtd > 0 ? ' visivel' : '');
 }
 
+let modoAtual = 'delivery';
+let descontoAtual = 0;
+let cupomAplicado = null;
+
+function selecionarModo(modo) {
+  modoAtual = modo;
+  ['delivery','retirada','local'].forEach(m => {
+    document.getElementById('modo-'+m)?.classList.remove('ativo');
+  });
+  document.getElementById('modo-'+modo)?.classList.add('ativo');
+  const blocoEndereco = document.getElementById('bloco-endereco');
+  const blocoAgendamento = document.getElementById('bloco-agendamento');
+  if (blocoEndereco) blocoEndereco.style.display = modo === 'delivery' ? 'block' : 'none';
+  if (blocoAgendamento) blocoAgendamento.style.display = modo === 'retirada' ? 'block' : 'none';
+  if (modo !== 'delivery') { fretesSelecionado = 0; atualizarTotalCarrinho(); }
+}
+
+async function aplicarCupom() {
+  const codigo = document.getElementById('ped-cupom').value.toUpperCase().trim();
+  const msg = document.getElementById('cupom-msg');
+  if (!codigo) { msg.style.color = 'var(--vermelho)'; msg.textContent = 'Digite um código de cupom.'; return; }
+  const { data } = await db.from('cupons').select('*')
+    .eq('restaurante_id', restPublico.id).eq('codigo', codigo).eq('ativo', true).maybeSingle();
+  if (!data) {
+    msg.style.color = 'var(--vermelho)'; msg.textContent = 'Cupom inválido ou expirado.';
+    descontoAtual = 0; cupomAplicado = null;
+  } else {
+    cupomAplicado = data;
+    const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
+    if (data.desconto_percent) descontoAtual = sub * (data.desconto_percent / 100);
+    else if (data.desconto_fixo) descontoAtual = parseFloat(data.desconto_fixo);
+    msg.style.color = 'var(--verde)'; msg.textContent = `Cupom aplicado! Desconto de R$ ${descontoAtual.toFixed(2).replace('.',',')}`;
+  }
+  atualizarTotalCarrinho();
+}
+
+function atualizarTotalCarrinho() {
+  const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
+  const total = Math.max(0, sub + fretesSelecionado - descontoAtual);
+  const subEl = document.getElementById('carr-sub');
+  const freteEl = document.getElementById('carr-frete-val');
+  const totalEl = document.getElementById('carr-total-val');
+  const descRow = document.getElementById('carr-desconto-row');
+  const descVal = document.getElementById('carr-desconto-val');
+  if (subEl) subEl.textContent = 'R$ ' + sub.toFixed(2).replace('.',',');
+  if (freteEl) freteEl.textContent = fretesSelecionado === 0 ? 'Grátis' : 'R$ ' + fretesSelecionado.toFixed(2).replace('.',',');
+  if (totalEl) totalEl.textContent = 'R$ ' + total.toFixed(2).replace('.',',');
+  if (descRow) descRow.style.display = descontoAtual > 0 ? 'flex' : 'none';
+  if (descVal) descVal.textContent = '- R$ ' + descontoAtual.toFixed(2).replace('.',',');
+}
+
 function calcFrete() {
   const sel = document.getElementById('ped-bairro');
-  const opt = sel.options[sel.selectedIndex];
+  const opt = sel?.options[sel.selectedIndex];
   fretesSelecionado = parseFloat(opt?.dataset.val || 0);
   atualizarCarrinho();
-  const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
-  document.getElementById('carr-sub').textContent = 'R$ ' + sub.toFixed(2).replace('.',',');
-  document.getElementById('carr-frete-val').textContent = 'R$ ' + fretesSelecionado.toFixed(2).replace('.',',');
-  document.getElementById('carr-total-val').textContent = 'R$ ' + (sub + fretesSelecionado).toFixed(2).replace('.',',');
+  atualizarTotalCarrinho();
 }
 
 function alternarPix() {
@@ -1811,10 +2175,7 @@ function alternarPix() {
 }
 
 function abrirCarrinho() {
-  const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
-  document.getElementById('carr-sub').textContent = 'R$ ' + sub.toFixed(2).replace('.',',');
-  document.getElementById('carr-frete-val').textContent = 'R$ ' + fretesSelecionado.toFixed(2).replace('.',',');
-  document.getElementById('carr-total-val').textContent = 'R$ ' + (sub + fretesSelecionado).toFixed(2).replace('.',',');
+  atualizarTotalCarrinho();
 
   if (carrinho.length === 0) {
     document.getElementById('carr-lista').innerHTML = '<div class="empty"><div class="empty-ico">🛒</div><div class="empty-txt">Seu carrinho está vazio</div></div>';
@@ -1864,25 +2225,36 @@ function mudarQtd(idx, delta) {
 async function finalizarPedido() {
   const nome = document.getElementById('ped-nome').value;
   const telefone = document.getElementById('ped-telefone').value;
-  const endereco = document.getElementById('ped-endereco').value;
-  const referencia = document.getElementById('ped-referencia').value;
-  const bairro = document.getElementById('ped-bairro').value;
   const pagamento = document.getElementById('ped-pagamento').value;
   const obs = document.getElementById('ped-obs').value;
-  if (!nome || !telefone || !endereco || !bairro) { toast('Preencha todos os campos!', 'erro'); return; }
 
+  // Dados conforme modo
+  let rua = '', numero = '', complemento = '', referencia = '', bairro = '', agendamento = '';
+  if (modoAtual === 'delivery') {
+    rua = document.getElementById('ped-rua').value;
+    numero = document.getElementById('ped-numero').value;
+    complemento = document.getElementById('ped-complemento').value;
+    referencia = document.getElementById('ped-referencia').value;
+    bairro = document.getElementById('ped-bairro').value;
+    if (!rua || !numero || !bairro) { toast('Preencha rua, número e bairro!', 'erro'); return; }
+  } else if (modoAtual === 'retirada') {
+    const data = document.getElementById('ped-data').value;
+    const hora = document.getElementById('ped-hora').value;
+    agendamento = data && hora ? `${data} às ${hora}` : '';
+  }
+
+  if (!nome || !telefone) { toast('Preencha nome e telefone!', 'erro'); return; }
+
+  const endereco = modoAtual === 'delivery' ? `${rua}, ${numero}${complemento ? ', '+complemento : ''}` : '';
   const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
-  const total = sub + fretesSelecionado;
+  const frete = modoAtual === 'delivery' ? fretesSelecionado : 0;
+  const total = Math.max(0, sub + frete - descontoAtual);
 
   // Busca cliente existente pelo telefone, ou cria um novo
   let clienteId = null;
   try {
     const { data: clienteExistente } = await db.from('clientes')
-      .select('*')
-      .eq('restaurante_id', restPublico.id)
-      .eq('telefone', telefone)
-      .maybeSingle();
-
+      .select('*').eq('restaurante_id', restPublico.id).eq('telefone', telefone).maybeSingle();
     if (clienteExistente) {
       clienteId = clienteExistente.id;
       await db.from('clientes').update({
@@ -1893,76 +2265,75 @@ async function finalizarPedido() {
       }).eq('id', clienteId);
     } else {
       const { data: novoCliente } = await db.from('clientes').insert({
-        restaurante_id: restPublico.id,
-        nome, telefone,
-        total_gasto: total,
-        total_pedidos: 1,
-        pontos: Math.floor(total)
+        restaurante_id: restPublico.id, nome, telefone,
+        total_gasto: total, total_pedidos: 1, pontos: Math.floor(total)
       }).select().single();
       if (novoCliente) clienteId = novoCliente.id;
     }
-  } catch (e) {
-    // Se falhar o cadastro do cliente, segue com o pedido mesmo assim
-  }
+  } catch (e) {}
 
   // Salva pedido no banco
-  const enderecoCompleto = referencia ? `${endereco} (Ref: ${referencia})` : endereco;
+  const enderecoCompleto = modoAtual === 'delivery'
+    ? (referencia ? `${endereco} (Ref: ${referencia})` : endereco)
+    : (modoAtual === 'retirada' ? `Retirada no local${agendamento ? ' — '+agendamento : ''}` : 'Consumir no local');
+
+  const modoLabel = {delivery:'🛵 Delivery', retirada:'🏃 Retirar no local', local:'🍽️ Consumir no local'}[modoAtual];
+
   const { data: pedido } = await db.from('pedidos').insert({
-    restaurante_id: restPublico.id,
-    cliente_id: clienteId,
-    status: 'novo',
-    endereco: enderecoCompleto, bairro,
-    frete: fretesSelecionado,
-    subtotal: sub,
-    total,
-    observacao: obs ? `Nome: ${nome}\nTelefone: ${telefone}\nPagamento: ${pagamento}\nObs: ${obs}` : `Nome: ${nome}\nTelefone: ${telefone}\nPagamento: ${pagamento}`
+    restaurante_id: restPublico.id, cliente_id: clienteId,
+    status: 'novo', endereco: enderecoCompleto, bairro,
+    frete, subtotal: sub, total,
+    observacao: `Nome: ${nome}\nTelefone: ${telefone}\nModo: ${modoLabel}\nPagamento: ${pagamento}${obs ? '\nObs: '+obs : ''}`
   }).select().single();
 
   if (pedido) {
     await db.from('pedido_itens').insert(carrinho.map(i => ({
-      pedido_id: pedido.id,
-      item_id: i.id,
-      nome: i.nome,
-      preco: i.preco,
-      quantidade: i.qtd,
-      observacao: i.obs || null
+      pedido_id: pedido.id, item_id: i.id, nome: i.nome,
+      preco: i.preco, quantidade: i.qtd, observacao: i.obs || null
     })));
   }
 
-  // Salva dados do recibo para a página imprimível
+  // Salva recibo local
   if (pedido) {
     try {
       localStorage.setItem('prattus_recibo_' + pedido.id, JSON.stringify({
-        restNome: restPublico.nome, restWhats: restPublico.whatsapp,
-        pedidoNum: pedido.id.slice(-6).toUpperCase(),
-        data: new Date().toLocaleString('pt-BR'),
-        nome, telefone, endereco, referencia, bairro, pagamento, obs,
-        itens: carrinho.map(i => ({ nome: i.nome, qtd: i.qtd, preco: i.preco, obs: i.obs })),
-        sub, frete: fretesSelecionado, total
+        restNome: restPublico.nome, pedidoNum: pedido.id.slice(-6).toUpperCase(),
+        data: new Date().toLocaleString('pt-BR'), nome, telefone,
+        endereco: enderecoCompleto, bairro, pagamento, obs, modo: modoLabel,
+        itens: carrinho.map(i => ({ nome: i.nome, variacao: i.variacao, qtd: i.qtd, preco: i.preco, obs: i.obs })),
+        sub, frete, desconto: descontoAtual, total
       }));
     } catch(e) {}
   }
 
   // Monta mensagem WhatsApp
-  const itensMsg = carrinho.map(i => `${i.qtd}x ${i.nome}${i.variacao ? ' ('+i.variacao+')' : ''}${i.obs ? ' - Obs: '+i.obs : ''} — R$ ${(parseFloat(i.preco)*i.qtd).toFixed(2)}`).join('\n');
+  const itensMsg = carrinho.map(i => `${i.qtd}x ${i.nome}${i.variacao ? ' ('+i.variacao+')' : ''}${i.obs ? ' - '+i.obs : ''} — R$ ${(parseFloat(i.preco)*i.qtd).toFixed(2)}`).join('\n');
   const linkRecibo = pedido ? `${window.location.href.split('?')[0]}?recibo=${pedido.id}` : '';
+  const linkAcomp = pedido ? `${window.location.href.split('?')[0]}?acompanhar=${pedido.id}` : '';
   const msg = encodeURIComponent(
-    `🛵 *Novo pedido — ${restPublico.nome}*\n\n` +
+    `${modoAtual === 'delivery' ? '🛵' : modoAtual === 'retirada' ? '🏃' : '🍽️'} *Novo pedido — ${restPublico.nome}*\n\n` +
     `*Pedido:* #${pedido ? pedido.id.slice(-6).toUpperCase() : ''}\n` +
+    `*Modo:* ${modoLabel}\n` +
     `*Cliente:* ${nome}\n` +
     `*Telefone:* ${telefone}\n` +
-    `*Endereço:* ${endereco}, ${bairro}` + (referencia ? `\n*Referência:* ${referencia}` : '') + `\n\n` +
-    `*Itens:*\n${itensMsg}\n\n` +
+    (modoAtual === 'delivery' ? `*Endereço:* ${endereco}, ${bairro}${referencia ? '\n*Referência:* '+referencia : ''}\n` : '') +
+    (agendamento ? `*Agendado para:* ${agendamento}\n` : '') +
+    `\n*Itens:*\n${itensMsg}\n\n` +
     `*Subtotal:* R$ ${sub.toFixed(2)}\n` +
-    `*Frete:* R$ ${fretesSelecionado.toFixed(2)}\n` +
+    (frete > 0 ? `*Frete:* R$ ${frete.toFixed(2)}\n` : '') +
+    (descontoAtual > 0 ? `*Desconto (cupom):* - R$ ${descontoAtual.toFixed(2)}\n` : '') +
     `*Total:* R$ ${total.toFixed(2)}\n` +
     `*Pagamento:* ${pagamento}\n` +
     (obs ? `*Obs:* ${obs}\n` : '') +
+    (linkAcomp ? `\n📦 Acompanhar pedido: ${linkAcomp}` : '') +
     (linkRecibo ? `\n📄 Recibo: ${linkRecibo}` : '')
   );
 
   window.open(`https://wa.me/${restPublico.whatsapp}?text=${msg}`, '_blank');
   carrinho = [];
+  descontoAtual = 0;
+  cupomAplicado = null;
+  modoAtual = 'delivery';
   atualizarCarrinho();
   fecharModal('modal-carrinho');
   toast('Pedido enviado!', 'ok');
@@ -2044,13 +2415,93 @@ function toast(msg, tipo='') {
 const params = new URLSearchParams(window.location.search);
 const restParam = params.get('rest');
 const reciboParam = params.get('recibo');
+const acompParam = params.get('acompanhar');
+const fidelidadeParam = params.get('fidelidade');
 if (reciboParam) {
   mostrarRecibo(reciboParam);
+} else if (acompParam) {
+  mostrarAcompanhamento(acompParam);
+} else if (fidelidadeParam) {
+  mostrarFidelidade(fidelidadeParam);
 } else if (restParam) {
   mostrarTela('cliente');
   carregarPublico(restParam);
 } else {
   init();
+}
+
+async function mostrarFidelidade(restId) {
+  const { data: rest } = await db.from('restaurantes').select('nome,logo_url,cor_primaria').eq('id', restId).single();
+  if (!rest) { document.body.innerHTML = '<div style="text-align:center;padding:60px;color:#999;">Restaurante não encontrado.</div>'; return; }
+
+  const cor = rest.cor_primaria || '#E86339';
+
+  document.body.innerHTML = `
+    <div style="max-width:440px;margin:0 auto;padding:0;font-family:var(--font-body);">
+      <div style="background:${cor};padding:32px 20px 48px;text-align:center;">
+        ${rest.logo_url ? `<img src="${rest.logo_url}" style="width:64px;height:64px;border-radius:50%;margin-bottom:12px;border:3px solid rgba(255,255,255,0.3);">` : ''}
+        <div style="font-family:var(--font-display);font-size:22px;font-weight:600;color:#fff;">${rest.nome}</div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-top:4px;">Programa de Fidelidade</div>
+      </div>
+      <div style="background:#fff;border-radius:22px 22px 0 0;margin-top:-24px;padding:24px 20px;min-height:60vh;">
+        <div id="fid-conteudo">
+          <div style="font-size:15px;font-weight:600;margin-bottom:14px;">Consultar meus pontos</div>
+          <div class="form-group">
+            <label>Seu telefone (com DDD)</label>
+            <input type="text" id="fid-tel" placeholder="55999999999" style="width:100%;padding:11px 14px;border:1px solid var(--creme-borda);border-radius:8px;font-size:14px;outline:none;">
+          </div>
+          <button onclick="consultarFidelidade('${restId}')" style="width:100%;background:${cor};color:#fff;border:none;padding:13px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-top:4px;">Consultar pontos</button>
+          <div id="fid-resultado" style="margin-top:20px;"></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function consultarFidelidade(restId) {
+  const tel = document.getElementById('fid-tel').value.trim();
+  if (!tel) { document.getElementById('fid-resultado').innerHTML = '<div style="color:var(--vermelho);font-size:13px;">Digite seu telefone.</div>'; return; }
+
+  const { data: cliente } = await db.from('clientes').select('*').eq('restaurante_id', restId).eq('telefone', tel).maybeSingle();
+  const res = document.getElementById('fid-resultado');
+
+  if (!cliente) {
+    res.innerHTML = '<div style="text-align:center;padding:20px;color:var(--texto-muted);font-size:14px;">Telefone não encontrado. Faça seu primeiro pedido para começar a acumular pontos!</div>';
+    return;
+  }
+
+  const nivel = cliente.pontos >= 500 ? '🥇 Ouro' : cliente.pontos >= 200 ? '🥈 Prata' : '🥉 Bronze';
+  const proxNivel = cliente.pontos >= 500 ? null : cliente.pontos >= 200 ? 500 : 200;
+  const pct = proxNivel ? Math.min(100, (cliente.pontos / proxNivel) * 100) : 100;
+
+  res.innerHTML = `
+    <div style="background:var(--creme);border-radius:14px;padding:20px;text-align:center;margin-bottom:16px;">
+      <div style="font-size:32px;margin-bottom:8px;">${nivel}</div>
+      <div style="font-size:13px;color:var(--texto-muted);margin-bottom:4px;">Olá, ${cliente.nome}!</div>
+      <div style="font-family:var(--font-display);font-size:36px;font-weight:600;color:var(--laranja);">${cliente.pontos}</div>
+      <div style="font-size:13px;color:var(--texto-muted);">pontos acumulados</div>
+      ${proxNivel ? `
+        <div style="margin-top:14px;">
+          <div style="font-size:12px;color:var(--texto-muted);margin-bottom:6px;">Progresso para o próximo nível (${proxNivel} pts)</div>
+          <div style="background:#e0e0e0;border-radius:10px;height:8px;overflow:hidden;">
+            <div style="height:100%;background:var(--laranja);border-radius:10px;width:${pct}%;"></div>
+          </div>
+          <div style="font-size:12px;color:var(--texto-muted);margin-top:4px;">${proxNivel - cliente.pontos} pontos para o próximo nível</div>
+        </div>
+      ` : '<div style="font-size:12px;color:var(--verde);margin-top:8px;">🏆 Você atingiu o nível máximo!</div>'}
+    </div>
+    <div style="background:#fff;border-radius:14px;padding:16px;border:1px solid var(--creme-borda);">
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--creme-borda);font-size:14px;">
+        <span style="color:var(--texto-muted);">Total de pedidos</span>
+        <span style="font-weight:600;">${cliente.total_pedidos}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;">
+        <span style="color:var(--texto-muted);">Total gasto</span>
+        <span style="font-weight:600;color:var(--laranja);">R$ ${parseFloat(cliente.total_gasto||0).toFixed(2).replace('.',',')}</span>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--texto-muted);text-align:center;margin-top:12px;">1 ponto por R$ 1 gasto · Bronze: 0+ pts · Prata: 200+ pts · Ouro: 500+ pts</div>
+  `;
 }
 
 // Adiciona user_id na tabela restaurantes se não existir
