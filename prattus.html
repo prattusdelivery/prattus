@@ -817,8 +817,40 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
     <input type="text" id="item-variacoes" placeholder="Ex: Simples, Duplo, Triplo">
     <div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Separe as opções por vírgula. O cliente vai escolher uma ao adicionar ao carrinho.</div>
   </div>
+  <div class="form-group">
+    <label>Adicionais pagos (opcional)</label>
+    <input type="text" id="item-adicionais" placeholder="Ex: Bacon Extra:4.00, Queijo Extra:3.00">
+    <div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Formato Nome:Preço, separados por vírgula. O cliente pode marcar quantos quiser, somam no total.</div>
+  </div>
   <button class="btn btn-laranja" onclick="salvarItem()">Salvar item</button>
   <input type="hidden" id="item-id">
+</div>
+</div>
+
+<!-- MODAL: ITEM CLIENTE (opções + adicionais) -->
+<div class="modal-overlay" id="modal-item-cliente">
+<div class="modal" style="max-width:480px;">
+  <div class="modal-header">
+    <div class="modal-titulo" id="mic-titulo">Item</div>
+    <button class="modal-fechar" onclick="fecharModal('modal-item-cliente')">×</button>
+  </div>
+  <div id="mic-foto-wrap" style="margin-bottom:14px;"></div>
+  <div id="mic-desc" style="font-size:13px;color:var(--texto-muted);margin-bottom:6px;"></div>
+  <div id="mic-preco-base" style="font-size:16px;font-weight:700;color:var(--laranja);margin-bottom:16px;"></div>
+  <div id="mic-variacoes" style="margin-bottom:16px;"></div>
+  <div id="mic-adicionais" style="margin-bottom:16px;"></div>
+  <div class="form-group">
+    <label>Observações (opcional)</label>
+    <input type="text" id="mic-obs" placeholder="Ex: sem cebola">
+  </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;gap:12px;">
+    <div class="carr-qty-ctrl">
+      <button class="carr-btn" onclick="micMudarQtd(-1)">−</button>
+      <span id="mic-qtd" style="font-size:16px;font-weight:700;min-width:24px;text-align:center;">1</span>
+      <button class="carr-btn" onclick="micMudarQtd(1)">+</button>
+    </div>
+    <button class="btn btn-laranja" style="width:auto;padding:12px 22px;white-space:nowrap;" onclick="micAdicionar()">Adicionar · R$ <span id="mic-total">0,00</span></button>
+  </div>
 </div>
 </div>
 
@@ -1429,6 +1461,13 @@ async function renderCardapio() {
 async function salvarItem() {
   const id = document.getElementById('item-id').value;
   const variacoes = document.getElementById('item-variacoes').value;
+  const adicionaisTxt = document.getElementById('item-adicionais').value;
+  const adicionais = adicionaisTxt
+    ? adicionaisTxt.split(',').map(par => {
+        const [nome, preco] = par.split(':');
+        return (nome && preco) ? { nome: nome.trim(), preco: parseFloat(preco.trim().replace(',','.')) || 0 } : null;
+      }).filter(Boolean)
+    : null;
   const dados = {
     restaurante_id: restauranteAtual.id,
     categoria_id: document.getElementById('item-cat').value || null,
@@ -1440,6 +1479,7 @@ async function salvarItem() {
     sem_gluten: document.getElementById('item-gluten').checked,
     sem_lactose: document.getElementById('item-lactose').checked,
     variacoes: variacoes ? variacoes.split(',').map(v => v.trim()).filter(Boolean) : null,
+    adicionais: adicionais,
   };
   if (id) {
     await db.from('itens').update(dados).eq('id', id);
@@ -1464,6 +1504,7 @@ async function editarItem(id) {
   document.getElementById('item-gluten').checked = data.sem_gluten;
   document.getElementById('item-lactose').checked = data.sem_lactose;
   document.getElementById('item-variacoes').value = data.variacoes ? data.variacoes.join(', ') : '';
+  document.getElementById('item-adicionais').value = data.adicionais ? data.adicionais.map(a => `${a.nome}:${a.preco}`).join(', ') : '';
   document.getElementById('modal-item-titulo').textContent = 'Editar item';
   abrirModal('modal-item');
 }
@@ -2189,22 +2230,132 @@ async function gerarSlugUnico(nome) {
 function renderItensPublico(itens) {
   const filtered = catAtiva === 'todas' ? itens : itens.filter(i => i.categoria_id === catAtiva);
   document.getElementById('pub-itens').innerHTML = filtered.map(item => {
-    const variacoes = item.variacoes && item.variacoes.length > 0 ? item.variacoes : null;
-    const itemJson = JSON.stringify({id:item.id,nome:item.nome,preco:item.preco,foto:item.foto_url||''});
+    const temOpcoes = (item.variacoes && item.variacoes.length > 0) || (item.adicionais && item.adicionais.length > 0);
+    const onclickAttr = temOpcoes
+      ? `abrirModalItemPorId('${item.id}')`
+      : `adicionarRapido('${item.id}')`;
     return `
     <div class="pub-item">
       <div class="pub-item-foto">${item.foto_url ? `<img src="${item.foto_url}" onerror="this.parentElement.textContent='🍽️'">` : '🍽️'}</div>
       <div style="flex:1;">
         <div class="pub-item-nome">${item.nome}</div>
         <div class="pub-item-desc">${item.descricao||''}</div>
-        ${variacoes ? `<select id="var-${item.id}" style="margin-top:6px;padding:5px 8px;border:1px solid var(--creme-borda);border-radius:7px;font-size:12px;width:100%;max-width:180px;">
-          ${variacoes.map(v => `<option value="${v}">${v}</option>`).join('')}
-        </select>` : ''}
         <div class="pub-item-preco">R$ ${parseFloat(item.preco).toFixed(2).replace('.',',')}</div>
       </div>
-      <button class="pub-add" onclick='adicionarItemComVariacao(${itemJson}, "${item.id}", ${JSON.stringify(variacoes)})'>+</button>
+      <button class="pub-add" onclick="${onclickAttr}">+</button>
     </div>
   `}).join('') || '<div class="empty"><div class="empty-ico">🍽️</div><div class="empty-txt">Nenhum item nesta categoria</div></div>';
+}
+
+function adicionarRapido(id) {
+  const item = todosItensPublico.find(i => i.id === id);
+  if (!item) return;
+  adicionarItemComVariacao({id:item.id,nome:item.nome,preco:item.preco,foto:item.foto_url||''}, item.id, null);
+}
+
+// ===== MODAL DE ITEM COM OPÇÕES E ADICIONAIS =====
+let micItemAtual = null;
+let micQtd = 1;
+let micVariacaoSelecionada = null;
+let micAdicionaisSelecionados = [];
+
+function abrirModalItemPorId(id) {
+  const item = todosItensPublico.find(i => i.id === id);
+  if (item) abrirModalItem(item);
+}
+
+function abrirModalItem(item) {
+  micItemAtual = item;
+  micQtd = 1;
+  micVariacaoSelecionada = (item.variacoes && item.variacoes.length) ? item.variacoes[0] : null;
+  micAdicionaisSelecionados = [];
+
+  document.getElementById('mic-titulo').textContent = item.nome;
+  document.getElementById('mic-foto-wrap').innerHTML = item.foto_url
+    ? `<img src="${item.foto_url}" style="width:100%;height:160px;object-fit:cover;border-radius:12px;" onerror="this.parentElement.style.display='none'">`
+    : '';
+  document.getElementById('mic-desc').textContent = item.descricao || '';
+  document.getElementById('mic-preco-base').textContent = 'R$ ' + parseFloat(item.preco).toFixed(2).replace('.',',');
+
+  const varEl = document.getElementById('mic-variacoes');
+  if (item.variacoes && item.variacoes.length) {
+    varEl.innerHTML = `<label style="display:block;font-size:13px;font-weight:600;margin-bottom:8px;">Selecione uma opção</label>` +
+      item.variacoes.map((v,i) => `
+        <label style="display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;font-size:14px;border-bottom:1px solid var(--creme-borda);">
+          <input type="radio" name="mic-var" value="${v}" ${i===0?'checked':''} onchange="micSelecionarVariacao(this.value)">
+          ${v}
+        </label>
+      `).join('');
+  } else {
+    varEl.innerHTML = '';
+  }
+
+  const adEl = document.getElementById('mic-adicionais');
+  if (item.adicionais && item.adicionais.length) {
+    adEl.innerHTML = `<label style="display:block;font-size:13px;font-weight:600;margin-bottom:8px;">Adicionais (opcional)</label>` +
+      item.adicionais.map((a,i) => `
+        <label style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;cursor:pointer;font-size:14px;border-bottom:1px solid var(--creme-borda);">
+          <span style="display:flex;align-items:center;gap:8px;"><input type="checkbox" onchange="micToggleAdicional(${i}, this.checked)"> ${a.nome}</span>
+          <span style="color:var(--texto-muted);">+ R$ ${parseFloat(a.preco).toFixed(2).replace('.',',')}</span>
+        </label>
+      `).join('');
+  } else {
+    adEl.innerHTML = '';
+  }
+
+  document.getElementById('mic-qtd').textContent = micQtd;
+  document.getElementById('mic-obs').value = '';
+  micAtualizarTotal();
+  abrirModal('modal-item-cliente');
+}
+
+function micSelecionarVariacao(v) {
+  micVariacaoSelecionada = v;
+  micAtualizarTotal();
+}
+
+function micToggleAdicional(idx, checked) {
+  const a = micItemAtual.adicionais[idx];
+  if (checked) {
+    micAdicionaisSelecionados.push(a);
+  } else {
+    const pos = micAdicionaisSelecionados.indexOf(a);
+    if (pos >= 0) micAdicionaisSelecionados.splice(pos, 1);
+  }
+  micAtualizarTotal();
+}
+
+function micMudarQtd(delta) {
+  micQtd = Math.max(1, micQtd + delta);
+  document.getElementById('mic-qtd').textContent = micQtd;
+  micAtualizarTotal();
+}
+
+function micAtualizarTotal() {
+  if (!micItemAtual) return;
+  let unit = parseFloat(micItemAtual.preco) + micAdicionaisSelecionados.reduce((s,a) => s + parseFloat(a.preco), 0);
+  document.getElementById('mic-total').textContent = (unit * micQtd).toFixed(2).replace('.',',');
+}
+
+function micAdicionar() {
+  const item = micItemAtual;
+  const adicionaisTxt = micAdicionaisSelecionados.map(a => a.nome).join(', ');
+  const precoUnit = parseFloat(item.preco) + micAdicionaisSelecionados.reduce((s,a) => s + parseFloat(a.preco), 0);
+  const obsInput = document.getElementById('mic-obs').value.trim();
+  const obsFinal = [adicionaisTxt ? `Adicionais: ${adicionaisTxt}` : '', obsInput].filter(Boolean).join(' · ');
+
+  const idx = carrinho.findIndex(c => c.id === item.id && c.variacao === micVariacaoSelecionada && c.obs === obsFinal);
+  if (idx >= 0) {
+    carrinho[idx].qtd += micQtd;
+  } else {
+    carrinho.push({
+      id: item.id, nome: item.nome, preco: precoUnit, foto: item.foto_url || '',
+      variacao: micVariacaoSelecionada, qtd: micQtd, obs: obsFinal
+    });
+  }
+  atualizarCarrinho();
+  fecharModal('modal-item-cliente');
+  toast(item.nome + ' adicionado!');
 }
 
 function adicionarItemComVariacao(item, itemId, variacoes) {
@@ -2613,6 +2764,8 @@ function fecharModal(id) {
     document.getElementById('item-desc').value = '';
     document.getElementById('item-preco').value = '';
     document.getElementById('item-foto').value = '';
+    document.getElementById('item-variacoes').value = '';
+    document.getElementById('item-adicionais').value = '';
     document.getElementById('modal-item-titulo').textContent = 'Novo item';
   }
   if (id === 'modal-cat') {
