@@ -300,7 +300,7 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
 
 /* ===== TOAST ===== */
 .toast{
-  position:fixed;bottom:24px;right:24px;z-index:999;
+  position:fixed;bottom:90px;right:24px;z-index:999;
   background:var(--preto);color:var(--branco);
   padding:12px 20px;border-radius:10px;font-size:13px;
   transform:translateY(80px);opacity:0;transition:all 0.3s;pointer-events:none;
@@ -2230,10 +2230,7 @@ async function gerarSlugUnico(nome) {
 function renderItensPublico(itens) {
   const filtered = catAtiva === 'todas' ? itens : itens.filter(i => i.categoria_id === catAtiva);
   document.getElementById('pub-itens').innerHTML = filtered.map(item => {
-    const temOpcoes = (item.variacoes && item.variacoes.length > 0) || (item.adicionais && item.adicionais.length > 0);
-    const onclickAttr = temOpcoes
-      ? `abrirModalItemPorId('${item.id}')`
-      : `adicionarRapido('${item.id}')`;
+    const onclickAttr = `abrirModalItemPorId('${item.id}')`;
     return `
     <div class="pub-item">
       <div class="pub-item-foto">${item.foto_url ? `<img src="${item.foto_url}" onerror="this.parentElement.textContent='🍽️'">` : '🍽️'}</div>
