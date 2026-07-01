@@ -999,9 +999,18 @@ async function carregarRestaurante() {
     document.getElementById('sb-rest-nome').textContent = data.nome;
     document.getElementById('topbar-rest').textContent = data.nome;
     document.getElementById('topbar-avatar').textContent = data.nome.charAt(0).toUpperCase();
+
+    const st = statusTrial(data);
+    if (st.bloqueado) {
+      mostrarBloqueioTrial();
+      return;
+    }
+
     mostrarTela('painel');
     irPara('dashboard');
     iniciarAutoRefresh();
+
+    if (st.trial) mostrarBannerTrial(st.diasRestantes);
   } else {
     mostrarTela('painel');
     irPara('dashboard');
@@ -1081,8 +1090,9 @@ async function fazerCadastro() {
   if (tipo === 'restaurante' && usuarioAtual) {
     const restNome = document.getElementById('cad-rest-nome').value;
     const whatsapp = document.getElementById('cad-whatsapp').value;
+    const slug = await gerarSlugUnico(restNome);
     const { error: restError } = await db.from('restaurantes').insert({
-      nome: restNome, whatsapp, user_id: usuarioAtual.id
+      nome: restNome, whatsapp, user_id: usuarioAtual.id, slug
     });
     if (restError) {
       msg.className = 'auth-msg erro';
@@ -1739,6 +1749,13 @@ async function renderConfig() {
   document.getElementById('conteudo').innerHTML = `
     <div class="card" style="max-width:560px;">
       <div class="config-titulo">Dados do restaurante</div>
+      <div class="form-group">
+        <label>Link da loja</label>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <span style="font-size:13px;color:var(--texto-muted);white-space:nowrap;">prattusdelivery.com.br/</span>
+          <input type="text" id="cfg-slug" value="${r.slug||''}" style="flex:1;">
+        </div>
+      </div>
       <div class="form-group"><label>Nome do restaurante</label><input type="text" id="cfg-nome" value="${r.nome||''}"></div>
       <div class="form-group"><label>Descrição</label><input type="text" id="cfg-desc" value="${r.descricao||''}"></div>
       <div class="form-group"><label>WhatsApp (com DDD)</label><input type="text" id="cfg-whats" value="${r.whatsapp||''}"></div>
@@ -1774,7 +1791,7 @@ async function renderConfig() {
       <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--creme-borda);">
         <div style="font-size:13px;color:var(--texto-muted);margin-bottom:6px;">🍽️ Link do cardápio (compartilhe com clientes):</div>
         <div style="background:var(--creme);padding:10px 14px;border-radius:8px;font-size:13px;font-family:monospace;word-break:break-all;margin-bottom:12px;">
-          ${window.location.href.split('?')[0]}?rest=${r.id}
+          https://prattusdelivery.com.br/${r.slug||''}
         </div>
         <div style="font-size:13px;color:var(--texto-muted);margin-bottom:6px;">⭐ Link de fidelidade (pontos dos clientes):</div>
         <div style="background:var(--creme);padding:10px 14px;border-radius:8px;font-size:13px;font-family:monospace;word-break:break-all;margin-bottom:12px;">
@@ -1784,7 +1801,7 @@ async function renderConfig() {
         <div style="background:var(--creme);padding:10px 14px;border-radius:8px;font-size:13px;white-space:pre-wrap;word-break:break-all;">Olá! 👋 Obrigado por entrar em contato com ${r.nome}.
 
 Faça seu pedido pelo nosso cardápio digital:
-${window.location.href.split('?')[0]}?rest=${r.id}
+https://prattusdelivery.com.br/${r.slug||''}
 
 Consulte seus pontos de fidelidade:
 ${window.location.href.split('?')[0]}?fidelidade=${r.id}
@@ -1815,8 +1832,17 @@ Não atendemos pedidos por aqui. Use o link acima 😊</div>
 
 async function salvarConfig() {
   const diasMarcados = [...document.querySelectorAll('input[name="dias"]:checked')].map(el => parseInt(el.value));
+
+  const novoSlug = gerarSlug(document.getElementById('cfg-slug').value);
+  if (!novoSlug) { toast('O link da loja não pode ficar vazio!', 'erro'); return; }
+  if (novoSlug !== restauranteAtual.slug) {
+    const { data: existente } = await db.from('restaurantes').select('id').eq('slug', novoSlug).maybeSingle();
+    if (existente) { toast('Esse link já está em uso por outra loja!', 'erro'); return; }
+  }
+
   const dados = {
     nome: document.getElementById('cfg-nome').value,
+    slug: novoSlug,
     descricao: document.getElementById('cfg-desc').value,
     whatsapp: document.getElementById('cfg-whats').value,
     chave_pix: document.getElementById('cfg-pix').value || null,
@@ -1835,6 +1861,9 @@ async function salvarConfig() {
     document.getElementById('sb-rest-nome').textContent = dados.nome;
     document.getElementById('topbar-rest').textContent = dados.nome;
     toast('Configurações salvas!', 'ok');
+    renderConfig();
+  } else {
+    toast('Erro ao salvar: ' + error.message, 'erro');
   }
 }
 
@@ -1847,6 +1876,13 @@ async function carregarPublico(restId) {
     const { data: restData, error: restErro } = await db.from('restaurantes').select('*').eq('id', restId).single();
     if (restErro || !restData) throw new Error('Restaurante não encontrado');
     rest = restData;
+
+    // ===== VERIFICAÇÃO DE TESTE GRÁTIS =====
+    const stPub = statusTrial(rest);
+    if (stPub.bloqueado) {
+      mostrarLojaIndisponivel();
+      return;
+    }
 
     const [{ data: catsData }, { data: itensData }, { data: fretesData }] = await Promise.all([
       db.from('categorias').select('*').eq('restaurante_id', restId).order('ordem'),
@@ -1943,6 +1979,15 @@ async function carregarPublico(restId) {
   mostrarTela('cliente');
 }
 
+async function carregarPublicoPorSlug(slug) {
+  const { data } = await db.from('restaurantes').select('id').eq('slug', slug).maybeSingle();
+  if (data) {
+    await carregarPublico(data.id);
+  } else {
+    mostrarLojaIndisponivel();
+  }
+}
+
 function mostrarErroConexao(restId) {
   let whatsapp = null;
   try {
@@ -1967,6 +2012,67 @@ function mostrarErroConexao(restId) {
       ` : ''}
     </div>
   `;
+}
+
+// ===== TESTE GRÁTIS =====
+function statusTrial(rest) {
+  if (rest.plano_ativo) return { trial: false, bloqueado: false };
+  const diasPassados = Math.floor((new Date() - new Date(rest.criado_em)) / 86400000);
+  const diasRestantes = 30 - diasPassados;
+  return { trial: true, bloqueado: diasRestantes <= 0, diasRestantes: Math.max(0, diasRestantes) };
+}
+
+function mostrarBannerTrial(dias) {
+  document.getElementById('trial-banner')?.remove();
+  const banner = document.createElement('div');
+  banner.id = 'trial-banner';
+  banner.style.cssText = 'background:#FFF1E6;color:#C4522E;font-size:13px;text-align:center;padding:10px 16px;font-weight:500;';
+  banner.innerHTML = `🎁 Teste grátis: <strong>${dias} dia${dias===1?'':'s'} restante${dias===1?'':'s'}</strong> · <a href="mailto:contato@prattusdelivery.com.br?subject=Quero%20assinar%20o%20Prattus" style="color:#C4522E;text-decoration:underline;font-weight:600;">Assinar agora</a>`;
+  document.querySelector('.topbar').after(banner);
+}
+
+function mostrarBloqueioTrial() {
+  document.body.innerHTML = `
+    <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;background:var(--creme);font-family:var(--font-body);">
+      <div style="font-size:56px;margin-bottom:16px;">⏳</div>
+      <div style="font-family:var(--font-display);font-size:22px;font-weight:600;color:var(--texto);margin-bottom:8px;">Seu teste grátis de 30 dias terminou</div>
+      <div style="font-size:14px;color:var(--texto-muted);margin-bottom:28px;max-width:360px;">
+        Assine agora pra voltar a acessar o painel e seu cardápio voltar a receber pedidos.
+      </div>
+      <a href="mailto:contato@prattusdelivery.com.br?subject=Quero%20assinar%20o%20Prattus" style="background:var(--laranja);color:#fff;text-decoration:none;padding:13px 28px;border-radius:10px;font-size:14px;font-weight:600;margin-bottom:14px;">Assinar agora — R$36,90/mês</a>
+      <button onclick="db.auth.signOut().then(()=>location.reload())" style="background:none;border:1px solid var(--creme-borda);color:var(--texto-muted);padding:11px 24px;border-radius:10px;font-size:13px;cursor:pointer;">Sair da conta</button>
+    </div>
+  `;
+}
+
+function mostrarLojaIndisponivel() {
+  document.body.innerHTML = `
+    <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;background:var(--creme);font-family:var(--font-body);">
+      <div style="font-size:56px;margin-bottom:16px;">🏪</div>
+      <div style="font-family:var(--font-display);font-size:20px;font-weight:600;color:var(--texto);margin-bottom:8px;">Estabelecimento temporariamente indisponível</div>
+      <div style="font-size:14px;color:var(--texto-muted);max-width:340px;">Este cardápio não está aceitando pedidos no momento. Tente novamente mais tarde.</div>
+    </div>
+  `;
+}
+
+// ===== SLUG (link curto da loja) =====
+function gerarSlug(nome) {
+  return (nome || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+async function gerarSlugUnico(nome) {
+  let base = gerarSlug(nome) || 'loja';
+  let slug = base, contador = 1;
+  while (true) {
+    const { data } = await db.from('restaurantes').select('id').eq('slug', slug).maybeSingle();
+    if (!data) return slug;
+    contador++;
+    slug = `${base}-${contador}`;
+  }
 }
 
 function renderItensPublico(itens) {
@@ -2417,6 +2523,9 @@ const restParam = params.get('rest');
 const reciboParam = params.get('recibo');
 const acompParam = params.get('acompanhar');
 const fidelidadeParam = params.get('fidelidade');
+const pathSlug = window.location.pathname.replace(/^\/+|\/+$/g, '');
+const pathIgnorado = ['', 'prattus.html', 'index.html'].includes(pathSlug.toLowerCase());
+
 if (reciboParam) {
   mostrarRecibo(reciboParam);
 } else if (acompParam) {
@@ -2426,6 +2535,9 @@ if (reciboParam) {
 } else if (restParam) {
   mostrarTela('cliente');
   carregarPublico(restParam);
+} else if (!pathIgnorado) {
+  mostrarTela('cliente');
+  carregarPublicoPorSlug(pathSlug);
 } else {
   init();
 }
