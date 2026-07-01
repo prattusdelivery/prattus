@@ -1050,7 +1050,11 @@ async function fazerLogin() {
     return;
   }
   usuarioAtual = data.user;
-  await carregarRestaurante();
+  if (usuarioAtual.email === ADMIN_EMAIL) {
+    await carregarSuperAdmin();
+  } else {
+    await carregarRestaurante();
+  }
 }
 
 async function fazerCadastro() {
@@ -1086,6 +1090,11 @@ async function fazerCadastro() {
   }
 
   usuarioAtual = data.user;
+
+  if (usuarioAtual.email === ADMIN_EMAIL) {
+    await carregarSuperAdmin();
+    return;
+  }
 
   if (tipo === 'restaurante' && usuarioAtual) {
     const restNome = document.getElementById('cad-rest-nome').value;
