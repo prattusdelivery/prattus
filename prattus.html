@@ -449,12 +449,32 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
   transition:all 0.15s;user-select:none;
 }
 .modo-btn.ativo{background:var(--laranja);color:var(--branco);border-color:var(--laranja);}
+
+/* ===== COMANDA DE IMPRESSÃO ===== */
+#comanda-print{display:none;}
+@media print{
+  body > *:not(#comanda-print){display:none !important;}
+  #comanda-print{
+    display:block !important;
+    font-family:'Courier New',monospace;
+    font-size:12px;
+    width:280px;
+    color:#000;
+  }
+  #comanda-print h2{font-size:15px;text-align:center;margin-bottom:2px;}
+  #comanda-print .cp-linha{border-top:1px dashed #000;margin:6px 0;}
+  #comanda-print .cp-item{margin-bottom:5px;}
+  #comanda-print .cp-total{font-weight:bold;font-size:14px;margin-top:8px;}
+}
 </style>
 </head>
 <body>
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
+
+<!-- COMANDA (só aparece na impressão) -->
+<div id="comanda-print"></div>
 
 <!-- TELA: AUTH -->
 <div class="tela ativa" id="tela-auth">
@@ -866,6 +886,7 @@ let catAtiva = 'todas';
 let autoRefreshTimer = null;
 let ultimosPedidosIds = new Set();
 let somAtivo = true;
+let pedidosCache = [];
 
 // ===== SOM DE NOTIFICACAO =====
 function tocarSom() {
@@ -1208,6 +1229,7 @@ async function renderPedidos() {
     .order('criado_em', {ascending: false});
 
   const lista = pedidos || [];
+  pedidosCache = lista;
   const novos = lista.filter(p => p.status === 'novo');
   const preparando = lista.filter(p => p.status === 'preparando');
   const finalizados = lista.filter(p => p.status === 'entrega' || p.status === 'entregue');
@@ -1226,6 +1248,7 @@ async function renderPedidos() {
         ${p.observacao ? `<div style="font-size:11px;color:var(--laranja);margin-bottom:10px;">${p.observacao.replace(/\n/g,' · ')}</div>` : ''}
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
           ${montaBotoesStatus(p, telefone)}
+          <button class="btn-sm" onclick="imprimirComandaPorId('${p.id}')" title="Imprimir comanda">🖨️</button>
         </div>
       </div>
     `;
@@ -1253,6 +1276,44 @@ async function renderPedidos() {
 function extrairTelefone(p) {
   const match = (p.observacao||'').match(/Telefone:\s*([^\n]+)/);
   return match ? match[1].trim() : null;
+}
+
+function imprimirComandaPorId(id) {
+  const pedido = pedidosCache.find(p => p.id === id);
+  if (!pedido) { toast('Pedido não encontrado pra imprimir.', 'erro'); return; }
+  imprimirComanda(pedido);
+}
+
+function imprimirComanda(p) {
+  const obs = p.observacao || '';
+  const nome = (obs.match(/Nome:\s*([^\n]+)/) || [])[1]?.trim() || 'Cliente';
+  const telefone = (obs.match(/Telefone:\s*([^\n]+)/) || [])[1]?.trim() || '';
+  const modo = (obs.match(/Modo:\s*([^\n]+)/) || [])[1]?.trim() || '';
+  const pagamento = (obs.match(/Pagamento:\s*([^\n]+)/) || [])[1]?.trim() || '';
+  const obsGeral = (obs.match(/Obs:\s*([^\n]+)/) || [])[1]?.trim() || '';
+
+  const itensHtml = (p.pedido_itens||[]).map(i => `
+    <div class="cp-item">${i.quantidade}x ${i.nome}${i.observacao ? `<br>&nbsp;&nbsp;Obs: ${i.observacao}` : ''}</div>
+  `).join('');
+
+  document.getElementById('comanda-print').innerHTML = `
+    <h2>${restauranteAtual?.nome || 'Pedido'}</h2>
+    <div style="text-align:center;">Pedido #${p.id.slice(-4).toUpperCase()}</div>
+    <div style="text-align:center;">${new Date(p.criado_em).toLocaleString('pt-BR')}</div>
+    <div class="cp-linha"></div>
+    <div><strong>${modo}</strong></div>
+    <div>Cliente: ${nome}</div>
+    ${telefone ? `<div>Tel: ${telefone}</div>` : ''}
+    ${p.endereco ? `<div>End: ${p.endereco}</div>` : ''}
+    ${p.bairro ? `<div>Bairro: ${p.bairro}</div>` : ''}
+    <div class="cp-linha"></div>
+    ${itensHtml}
+    <div class="cp-linha"></div>
+    <div>Pagamento: ${pagamento}</div>
+    ${obsGeral ? `<div>Obs geral: ${obsGeral}</div>` : ''}
+    <div class="cp-total">TOTAL: R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
+  `;
+  window.print();
 }
 
 function montaBotoesStatus(p, telefone) {
@@ -1289,6 +1350,11 @@ async function avancarStatus(id, novoStatus, nomeCliente, telefone, numPedido) {
       window.open(`https://wa.me/${fone}?text=${encodeURIComponent(msg)}`, '_blank');
     }
   }
+
+  if (novoStatus === 'preparando') {
+    imprimirComandaPorId(id);
+  }
+
   renderPedidos();
 }
 
