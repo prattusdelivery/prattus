@@ -349,6 +349,7 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
   background:
     radial-gradient(circle at 20% 0%, rgba(232,99,57,0.25) 0%, transparent 50%),
     var(--preto);
+  background-size:cover;background-position:center;
   padding:24px 20px 64px;text-align:center;
 }
 .pub-banner .pub-nome{font-family:var(--font-display);font-size:28px;font-weight:600;color:var(--branco);}
@@ -365,14 +366,25 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
   white-space:nowrap;transition:all 0.15s;flex-shrink:0;color:var(--texto-muted);
 }
 .pub-cat.ativo{background:var(--laranja);color:var(--branco);border-color:var(--laranja);}
-.pub-item{
-  display:flex;align-items:center;gap:12px;padding:14px 0;
-  border-bottom:1px solid var(--creme-borda);
+.pub-social{display:flex;gap:8px;justify-content:center;margin-top:12px;}
+.pub-social a{
+  width:32px;height:32px;border-radius:50%;
+  background:rgba(255,255,255,0.15);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;text-decoration:none;letter-spacing:.2px;
+  transition:background .15s;
 }
-.pub-item:last-child{border-bottom:none;}
+.pub-social a:hover{background:rgba(255,255,255,0.3);}
+.pub-item{
+  display:flex;align-items:flex-start;gap:14px;padding:16px;
+  border:1px solid var(--creme-borda);border-radius:16px;
+  margin-bottom:12px;background:var(--branco);
+  box-shadow:0 2px 8px -4px rgba(35,25,20,0.06);
+}
+.pub-item:last-child{margin-bottom:0;}
 .pub-item-foto{
-  width:62px;height:62px;border-radius:14px;background:var(--laranja-light);
-  display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;
+  width:80px;height:80px;border-radius:14px;background:var(--laranja-light);
+  display:flex;align-items:center;justify-content:center;font-size:30px;flex-shrink:0;
   overflow:hidden;
 }
 .pub-item-foto img{width:100%;height:100%;object-fit:cover;}
@@ -434,7 +446,7 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
 .dark-mode .pub-wrap{background:#181818;}
 .dark-mode .pub-banner{background:linear-gradient(160deg,#1a1a1a,#2a1a0f);}
 .dark-mode .pub-card{background:#242424;}
-.dark-mode .pub-item{border-bottom-color:#333;}
+.dark-mode .pub-item{background:#242424;border-color:#333;box-shadow:none;}
 .dark-mode .pub-item-nome{color:#f0f0f0;}
 .dark-mode .pub-item-desc{color:#999;}
 .dark-mode .pub-item-foto{background:#333;}
@@ -624,6 +636,7 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
     </div>
     <div class="pub-nome" id="pub-rest-nome">Restaurante</div>
     <div class="pub-sub" id="pub-rest-sub">Delivery</div>
+    <div class="pub-social" id="pub-social" style="display:none;"></div>
     <div id="pub-info-bar" style="display:flex;gap:12px;justify-content:center;margin-top:10px;flex-wrap:wrap;"></div>
     <div id="pub-fechado" style="display:none;background:rgba(0,0,0,0.5);border-radius:8px;padding:8px 16px;margin-top:10px;font-size:13px;color:#fff;">🔴 Fechado no momento</div>
   </div>
@@ -1834,6 +1847,10 @@ async function renderConfig() {
       <div class="form-group"><label>Nome do restaurante</label><input type="text" id="cfg-nome" value="${r.nome||''}"></div>
       <div class="form-group"><label>Descrição</label><input type="text" id="cfg-desc" value="${r.descricao||''}"></div>
       <div class="form-group"><label>WhatsApp (com DDD)</label><input type="text" id="cfg-whats" value="${r.whatsapp||''}"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group"><label>Instagram (link completo, opcional)</label><input type="text" id="cfg-insta" value="${r.instagram_url||''}" placeholder="https://instagram.com/..."></div>
+        <div class="form-group"><label>Facebook (link completo, opcional)</label><input type="text" id="cfg-face" value="${r.facebook_url||''}" placeholder="https://facebook.com/..."></div>
+      </div>
       <div class="form-group"><label>Chave Pix (opcional)</label><input type="text" id="cfg-pix" value="${r.chave_pix||''}" placeholder="CPF, e-mail, telefone ou chave aleatória"></div>
       <div class="form-group"><label>URL da logo</label><input type="text" id="cfg-logo" value="${r.logo_url||''}"></div>
       <div class="form-group"><label>URL do banner</label><input type="text" id="cfg-banner" value="${r.banner_url||''}"></div>
@@ -1920,6 +1937,8 @@ async function salvarConfig() {
     slug: novoSlug,
     descricao: document.getElementById('cfg-desc').value,
     whatsapp: document.getElementById('cfg-whats').value,
+    instagram_url: document.getElementById('cfg-insta').value || null,
+    facebook_url: document.getElementById('cfg-face').value || null,
     chave_pix: document.getElementById('cfg-pix').value || null,
     logo_url: document.getElementById('cfg-logo').value || null,
     banner_url: document.getElementById('cfg-banner').value || null,
@@ -2001,6 +2020,23 @@ async function carregarPublico(restId) {
     document.getElementById('pub-logo').src = rest.logo_url;
     document.getElementById('pub-logo-wrap').style.display = 'block';
   }
+
+  // Banner (foto de fundo real, se cadastrada)
+  const bannerEl = document.getElementById('pub-banner');
+  if (rest.banner_url) {
+    bannerEl.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.45),rgba(0,0,0,0.45)), url('${rest.banner_url}')`;
+  } else {
+    bannerEl.style.backgroundImage = '';
+  }
+
+  // Redes sociais
+  let socialHtml = '';
+  if (rest.instagram_url) socialHtml += `<a href="${rest.instagram_url}" target="_blank" rel="noopener">IG</a>`;
+  if (rest.facebook_url) socialHtml += `<a href="${rest.facebook_url}" target="_blank" rel="noopener">FB</a>`;
+  if (rest.whatsapp) socialHtml += `<a href="https://wa.me/${rest.whatsapp}" target="_blank" rel="noopener">WA</a>`;
+  const socialEl = document.getElementById('pub-social');
+  socialEl.innerHTML = socialHtml;
+  socialEl.style.display = socialHtml ? 'flex' : 'none';
 
   // Info bar (tempo + pedido mínimo)
   const infoBar = document.getElementById('pub-info-bar');
