@@ -404,6 +404,13 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
   transition:all 0.15s;box-shadow:0 4px 10px -2px rgba(232,99,57,0.5);
 }
 .pub-add:hover{background:var(--laranja-dark);transform:scale(1.06);}
+
+/* ===== CARDAPIO PUBLICO - GRID DESKTOP ===== */
+@media(min-width:901px){
+  .pub-wrap{max-width:900px;margin:0 auto;box-shadow:0 0 40px -12px rgba(35,25,20,0.12);}
+  #pub-itens{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:stretch;}
+  #pub-itens .pub-item{margin-bottom:0;height:100%;}
+}
 .carrinho-bar{
   position:fixed;bottom:0;left:0;right:0;
   background:var(--preto);color:var(--branco);
@@ -537,7 +544,10 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
       <div id="campo-restaurante">
         <div class="form-group">
           <label>Nome do restaurante</label>
-          <input type="text" id="cad-rest-nome" placeholder="Ex: Burger House">
+          <input type="text" id="cad-rest-nome" placeholder="Ex: Burger House" oninput="atualizarPreviewSlug(this.value)">
+          <div id="cad-slug-preview" style="font-size:12px;color:var(--texto-muted);margin-top:5px;display:none;">
+            Seu link: <strong style="color:var(--laranja);">prattusdelivery.com.br/<span id="cad-slug-texto"></span></strong>
+          </div>
         </div>
         <div class="form-group">
           <label>WhatsApp (com DDD)</label>
@@ -552,8 +562,14 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
         <label>Senha</label>
         <input type="password" id="cad-senha" placeholder="Mínimo 6 caracteres">
       </div>
+      <div id="campo-trial-info" style="background:var(--laranja-light);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--laranja-dark,#C4522E);">
+        🎁 <strong>Teste grátis de 30 dias</strong> incluso automaticamente, sem cartão de crédito.
+      </div>
       <button class="btn btn-laranja" onclick="fazerCadastro()">Criar conta</button>
       <div id="cad-msg"></div>
+      <div style="text-align:center;margin-top:14px;">
+        <a href="mailto:contato@prattusdelivery.com.br?subject=Preciso%20de%20ajuda%20com%20o%20cadastro" style="font-size:12px;color:var(--texto-muted);text-decoration:underline;">Precisa de ajuda? Fale com o suporte</a>
+      </div>
     </div>
   </div>
 </div>
@@ -820,12 +836,12 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
   </div>
   <div class="form-group">
     <label>Opções e adicionais (opcional)</label>
-    <textarea id="item-opcoes" rows="4" placeholder="Tamanho (única): Pequena:0, Média:5, Grande:10
+    <textarea id="item-opcoes" rows="4" placeholder="Tamanho (única-preço): Simples:35, Duplo:45
 Adicionais (múltipla): Bacon extra:4, Queijo extra:3
 Retirar (múltipla): Sem feijão:0, Sem massa:0"></textarea>
     <div style="font-size:11px;color:var(--texto-muted);margin-top:4px;line-height:1.5;">
-      Um grupo por linha: <strong>Nome do grupo (única ou múltipla): opção:preço, opção:preço</strong>.<br>
-      Preço 0 pra opções que não mudam o valor (ex: retirar ingrediente). "única" = cliente escolhe 1 (ex: tamanho). "múltipla" = cliente marca quantas quiser (ex: adicionais).
+      Um grupo por linha: <strong>Nome do grupo (tipo): opção:preço, opção:preço</strong>.<br>
+      <strong>única-preço</strong> = cliente escolhe 1 e o preço digitado é o preço FINAL do item (ex: tamanho com preços diferentes). <strong>única</strong> = cliente escolhe 1 e o preço é um ADICIONAL somado ao preço base. <strong>múltipla</strong> = cliente marca quantas quiser, cada uma soma seu preço (use 0 pra opções que não mudam o valor, ex: retirar ingrediente).
     </div>
   </div>
   <button class="btn btn-laranja" onclick="salvarItem()">Salvar item</button>
@@ -1105,6 +1121,18 @@ function abaAuth(aba) {
 function alternarTipo() {
   const tipo = document.getElementById('cad-tipo').value;
   document.getElementById('campo-restaurante').style.display = tipo === 'restaurante' ? 'block' : 'none';
+  document.getElementById('campo-trial-info').style.display = tipo === 'restaurante' ? 'block' : 'none';
+}
+
+function atualizarPreviewSlug(nome) {
+  const slug = gerarSlug(nome);
+  const preview = document.getElementById('cad-slug-preview');
+  if (slug) {
+    document.getElementById('cad-slug-texto').textContent = slug;
+    preview.style.display = 'block';
+  } else {
+    preview.style.display = 'none';
+  }
 }
 
 async function fazerLogin() {
@@ -1467,11 +1495,14 @@ function parseOpcoesTexto(texto) {
   if (!texto || !texto.trim()) return null;
   const linhas = texto.split('\n').map(l => l.trim()).filter(Boolean);
   const grupos = linhas.map(linha => {
-    const m = linha.match(/^(.+?)\s*\((única|unica|múltipla|multipla)\)\s*:\s*(.+)$/i);
+    const m = linha.match(/^(.+?)\s*\((única-preço|unica-preco|única|unica|múltipla|multipla)\)\s*:\s*(.+)$/i);
     if (!m) return null;
     const nome = m[1].trim();
     const tipoRaw = m[2].toLowerCase();
-    const tipo = (tipoRaw.startsWith('ún') || tipoRaw.startsWith('un')) ? 'unica' : 'multipla';
+    let tipo;
+    if (tipoRaw.startsWith('ún') && tipoRaw.includes('pre') || tipoRaw.startsWith('unica-pre')) tipo = 'unica_preco';
+    else if (tipoRaw.startsWith('ún') || tipoRaw.startsWith('un')) tipo = 'unica';
+    else tipo = 'multipla';
     const opcoes = m[3].split(',').map(par => {
       const [n, p] = par.split(':');
       return (n && p !== undefined) ? { nome: n.trim(), preco: parseFloat(p.trim().replace(',','.')) || 0 } : null;
@@ -1483,7 +1514,10 @@ function parseOpcoesTexto(texto) {
 
 function opcoesParaTexto(grupos) {
   if (!grupos || !grupos.length) return '';
-  return grupos.map(g => `${g.nome} (${g.tipo === 'unica' ? 'única' : 'múltipla'}): ` + g.opcoes.map(o => `${o.nome}:${o.preco}`).join(', ')).join('\n');
+  return grupos.map(g => {
+    const rotulo = g.tipo === 'unica_preco' ? 'única-preço' : (g.tipo === 'unica' ? 'única' : 'múltipla');
+    return `${g.nome} (${rotulo}): ` + g.opcoes.map(o => `${o.nome}:${o.preco}`).join(', ');
+  }).join('\n');
 }
 
 async function salvarItem() {
@@ -2114,9 +2148,14 @@ async function carregarPublico(restId) {
     const abre = abreH * 60 + abreM;
     const fecha = fechaH * 60 + fechaM;
     const aberto = rest.dias_funcionamento.includes(diaAtual) && horaAtual >= abre && horaAtual <= fecha;
-    if (!aberto) {
-      document.getElementById('pub-fechado').style.display = 'block';
-      document.getElementById('pub-fechado').textContent = `🔴 Fechado · Funciona ${rest.horario_abre} às ${rest.horario_fecha}`;
+    const elFechado = document.getElementById('pub-fechado');
+    elFechado.style.display = 'block';
+    if (aberto) {
+      elFechado.style.background = 'rgba(46,160,67,0.55)';
+      elFechado.textContent = `🟢 Aberto agora · Funciona ${rest.horario_abre} às ${rest.horario_fecha}`;
+    } else {
+      elFechado.style.background = 'rgba(0,0,0,0.5)';
+      elFechado.textContent = `🔴 Fechado · Funciona ${rest.horario_abre} às ${rest.horario_fecha}`;
     }
   }
 
@@ -2245,6 +2284,15 @@ async function gerarSlugUnico(nome) {
   }
 }
 
+function precoExibicaoItem(item) {
+  const grupoPreco = (item.opcoes || []).find(g => g.tipo === 'unica_preco');
+  if (grupoPreco && grupoPreco.opcoes.length) {
+    const min = Math.min(...grupoPreco.opcoes.map(o => parseFloat(o.preco) || 0));
+    return `A partir de R$ ${min.toFixed(2).replace('.',',')}`;
+  }
+  return `R$ ${parseFloat(item.preco).toFixed(2).replace('.',',')}`;
+}
+
 function renderItensPublico(itens) {
   const filtered = catAtiva === 'todas' ? itens : itens.filter(i => i.categoria_id === catAtiva);
   document.getElementById('pub-itens').innerHTML = filtered.map(item => {
@@ -2255,7 +2303,7 @@ function renderItensPublico(itens) {
       <div style="flex:1;">
         <div class="pub-item-nome">${item.nome}</div>
         <div class="pub-item-desc">${item.descricao||''}</div>
-        <div class="pub-item-preco">R$ ${parseFloat(item.preco).toFixed(2).replace('.',',')}</div>
+        <div class="pub-item-preco">${precoExibicaoItem(item)}</div>
       </div>
       <button class="pub-add" onclick="${onclickAttr}">+</button>
     </div>
@@ -2282,25 +2330,31 @@ function abrirModalItem(item) {
     ? `<img src="${item.foto_url}" style="width:100%;height:160px;object-fit:cover;border-radius:12px;" onerror="this.parentElement.style.display='none'">`
     : '';
   document.getElementById('mic-desc').textContent = item.descricao || '';
-  document.getElementById('mic-preco-base').textContent = 'R$ ' + parseFloat(item.preco).toFixed(2).replace('.',',');
+  document.getElementById('mic-preco-base').textContent = precoExibicaoItem(item);
 
   const grupos = item.opcoes || [];
-  grupos.forEach((g, gi) => { micSelecoes[gi] = g.tipo === 'unica' ? 0 : []; });
+  grupos.forEach((g, gi) => { micSelecoes[gi] = (g.tipo === 'unica' || g.tipo === 'unica_preco') ? 0 : []; });
 
-  document.getElementById('mic-grupos').innerHTML = grupos.map((g, gi) => `
+  document.getElementById('mic-grupos').innerHTML = grupos.map((g, gi) => {
+    const ehUnica = g.tipo === 'unica' || g.tipo === 'unica_preco';
+    return `
     <div style="margin-bottom:16px;">
-      <label style="display:block;font-size:13px;font-weight:600;margin-bottom:8px;">${g.nome}${g.tipo==='unica' ? '' : ' <span style="font-weight:400;color:var(--texto-muted);">(opcional)</span>'}</label>
-      ${g.opcoes.map((o, oi) => `
+      <label style="display:block;font-size:13px;font-weight:600;margin-bottom:8px;">${g.nome}${ehUnica ? '' : ' <span style="font-weight:400;color:var(--texto-muted);">(opcional)</span>'}</label>
+      ${g.opcoes.map((o, oi) => {
+        const precoTxt = g.tipo === 'unica_preco'
+          ? 'R$ ' + parseFloat(o.preco).toFixed(2).replace('.',',')
+          : (parseFloat(o.preco) > 0 ? '+ R$ '+parseFloat(o.preco).toFixed(2).replace('.',',') : '');
+        return `
         <label style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;cursor:pointer;font-size:14px;border-bottom:1px solid var(--creme-borda);">
           <span style="display:flex;align-items:center;gap:8px;">
-            <input type="${g.tipo==='unica'?'radio':'checkbox'}" name="mic-grupo-${gi}" ${g.tipo==='unica' && oi===0 ? 'checked':''} onchange="micSelecionar(${gi},${oi},this)">
+            <input type="${ehUnica?'radio':'checkbox'}" name="mic-grupo-${gi}" ${ehUnica && oi===0 ? 'checked':''} onchange="micSelecionar(${gi},${oi},this)">
             ${o.nome}
           </span>
-          <span style="color:var(--texto-muted);">${parseFloat(o.preco) > 0 ? '+ R$ '+parseFloat(o.preco).toFixed(2).replace('.',',') : ''}</span>
+          <span style="color:var(--texto-muted);">${precoTxt}</span>
         </label>
-      `).join('')}
+      `}).join('')}
     </div>
-  `).join('');
+  `}).join('');
 
   document.getElementById('mic-qtd').textContent = micQtd;
   document.getElementById('mic-obs').value = '';
@@ -2310,7 +2364,7 @@ function abrirModalItem(item) {
 
 function micSelecionar(gi, oi, el) {
   const grupo = micItemAtual.opcoes[gi];
-  if (grupo.tipo === 'unica') {
+  if (grupo.tipo === 'unica' || grupo.tipo === 'unica_preco') {
     micSelecoes[gi] = oi;
   } else {
     const arr = micSelecoes[gi] || [];
@@ -2321,6 +2375,25 @@ function micSelecionar(gi, oi, el) {
   micAtualizarTotal();
 }
 
+// Calcula o preço unitário do item já considerando grupos "única-preço" (substituem o preço base)
+function micCalcularUnitario() {
+  const grupos = micItemAtual.opcoes || [];
+  let base = parseFloat(micItemAtual.preco) || 0;
+  let adicional = 0;
+  grupos.forEach((g, gi) => {
+    if (g.tipo === 'unica_preco') {
+      const oi = micSelecoes[gi];
+      if (oi != null && g.opcoes[oi]) base = parseFloat(g.opcoes[oi].preco || 0);
+    } else if (g.tipo === 'unica') {
+      const oi = micSelecoes[gi];
+      if (oi != null && g.opcoes[oi]) adicional += parseFloat(g.opcoes[oi].preco || 0);
+    } else {
+      (micSelecoes[gi] || []).forEach(oi => { adicional += parseFloat(g.opcoes[oi].preco || 0); });
+    }
+  });
+  return base + adicional;
+}
+
 function micCalcularAdicional() {
   const grupos = micItemAtual.opcoes || [];
   let soma = 0;
@@ -2328,7 +2401,7 @@ function micCalcularAdicional() {
     if (g.tipo === 'unica') {
       const oi = micSelecoes[gi];
       if (oi != null && g.opcoes[oi]) soma += parseFloat(g.opcoes[oi].preco || 0);
-    } else {
+    } else if (g.tipo !== 'unica_preco') {
       (micSelecoes[gi] || []).forEach(oi => { soma += parseFloat(g.opcoes[oi].preco || 0); });
     }
   });
@@ -2343,7 +2416,7 @@ function micMudarQtd(delta) {
 
 function micAtualizarTotal() {
   if (!micItemAtual) return;
-  const unit = parseFloat(micItemAtual.preco) + micCalcularAdicional();
+  const unit = micCalcularUnitario();
   document.getElementById('mic-total').textContent = (unit * micQtd).toFixed(2).replace('.',',');
 }
 
@@ -2354,7 +2427,7 @@ function micAdicionar() {
   const obsPartes = [];
 
   grupos.forEach((g, gi) => {
-    if (g.tipo === 'unica') {
+    if (g.tipo === 'unica' || g.tipo === 'unica_preco') {
       const oi = micSelecoes[gi];
       if (oi != null && g.opcoes[oi]) variacaoPartes.push(g.opcoes[oi].nome);
     } else {
@@ -2368,7 +2441,7 @@ function micAdicionar() {
 
   const variacaoFinal = variacaoPartes.length ? variacaoPartes.join(' · ') : null;
   const obsFinal = obsPartes.join(' · ');
-  const precoUnit = parseFloat(item.preco) + micCalcularAdicional();
+  const precoUnit = micCalcularUnitario();
 
   const idx = carrinho.findIndex(c => c.id === item.id && c.variacao === variacaoFinal && c.obs === obsFinal);
   if (idx >= 0) {
