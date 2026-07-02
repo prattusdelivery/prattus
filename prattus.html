@@ -3016,7 +3016,7 @@ async function finalizarPedido() {
     (linkRecibo ? `\n📄 Recibo: ${linkRecibo}` : '')
   );
 
-  window.open(`https://wa.me/${restPublico.whatsapp}?text=${msg}`, '_blank');
+  window.open(`https://wa.me/${restPublico.whatsapp}?text=${encodeURIComponent(msg)}`, '_blank');
   carrinho = [];
   descontoAtual = 0;
   cupomAplicado = null;
