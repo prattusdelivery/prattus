@@ -1,6 +1,6 @@
 {
   "rewrites": [
     { "source": "/", "destination": "/prattus-institucional.html" },
-    { "source": "/((?!prattus\\.html|prattus-institucional\\.html).*)", "destination": "/prattus.html" }
+    { "source": "/((?!prattus\\.html|prattus-institucional\\.html|api/).*)", "destination": "/prattus.html" }
   ]
 }
