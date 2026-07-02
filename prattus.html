@@ -397,6 +397,9 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
 .pub-item-nome{font-family:var(--font-display);font-size:15px;font-weight:600;}
 .pub-item-desc{font-size:12px;color:var(--texto-muted);margin-top:3px;line-height:1.4;}
 .pub-item-preco{font-size:14px;font-weight:700;color:var(--laranja);margin-top:4px;}
+.pub-cat-titulo{font-family:var(--font-display);font-size:18px;font-weight:600;color:var(--texto);margin:24px 0 12px;}
+.pub-cat-titulo:first-child{margin-top:4px;}
+.dark-mode .pub-cat-titulo{color:#f0f0f0;}
 .pub-add{
   width:30px;height:30px;background:var(--laranja);border-radius:50%;
   border:none;color:var(--branco);font-size:18px;cursor:pointer;
@@ -423,8 +426,8 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
 /* ===== CARDAPIO PUBLICO - GRID DESKTOP ===== */
 @media(min-width:901px){
   .pub-wrap{max-width:900px;margin:0 auto;box-shadow:0 0 40px -12px rgba(35,25,20,0.12);}
-  #pub-itens{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:stretch;}
-  #pub-itens .pub-item{margin-bottom:0;height:100%;}
+  .pub-cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:stretch;}
+  .pub-cat-grid .pub-item{margin-bottom:0;height:100%;}
 }
 .carrinho-bar{
   position:fixed;bottom:0;left:0;right:0;
@@ -1177,6 +1180,40 @@ async function fazerLogin() {
   }
 }
 
+async function criarCardapioExemplo(restauranteId) {
+  try {
+    const { data: cat, error: catErr } = await db.from('categorias')
+      .insert({ restaurante_id: restauranteId, nome: 'Exemplos (edite ou apague)' })
+      .select().single();
+    if (catErr || !cat) return;
+
+    await db.from('itens').insert([
+      {
+        restaurante_id: restauranteId, categoria_id: cat.id,
+        nome: 'Exemplo de prato', descricao: 'Troque o nome, a descrição, o preço e a foto pelos do seu produto de verdade',
+        preco: 25.00, opcoes: null
+      },
+      {
+        restaurante_id: restauranteId, categoria_id: cat.id,
+        nome: 'Exemplo com tamanhos e adicionais',
+        descricao: 'Este item mostra como funcionam as opções: escolha um tamanho (preço muda sozinho) e marque adicionais (somam ao preço)',
+        preco: 15.00,
+        opcoes: [
+          { nome: 'Tamanho', tipo: 'unica_preco', opcoes: [{ nome: 'Pequeno', preco: 15 }, { nome: 'Grande', preco: 25 }] },
+          { nome: 'Adicionais', tipo: 'multipla', opcoes: [{ nome: 'Extra 1', preco: 3 }, { nome: 'Extra 2', preco: 3 }] }
+        ]
+      },
+      {
+        restaurante_id: restauranteId, categoria_id: cat.id,
+        nome: 'Exemplo de bebida', descricao: 'Apague este item quando cadastrar suas bebidas de verdade',
+        preco: 6.00, opcoes: null
+      }
+    ]);
+  } catch (e) {
+    // Se der erro aqui, não trava o cadastro — o restaurante já foi criado normalmente
+  }
+}
+
 async function fazerCadastro() {
   const tipo = document.getElementById('cad-tipo').value;
   const nome = document.getElementById('cad-nome').value;
@@ -1220,14 +1257,15 @@ async function fazerCadastro() {
     const restNome = document.getElementById('cad-rest-nome').value;
     const whatsapp = document.getElementById('cad-whatsapp').value;
     const slug = await gerarSlugUnico(restNome);
-    const { error: restError } = await db.from('restaurantes').insert({
+    const { data: novoRest, error: restError } = await db.from('restaurantes').insert({
       nome: restNome, whatsapp, user_id: usuarioAtual.id, slug
-    });
+    }).select().single();
     if (restError) {
       msg.className = 'auth-msg erro';
       msg.textContent = 'Erro ao salvar restaurante: ' + restError.message;
       return;
     }
+    await criarCardapioExemplo(novoRest.id);
     await carregarRestaurante();
   } else {
     msg.className = 'auth-msg ok';
@@ -2442,11 +2480,9 @@ function precoExibicaoItem(item) {
   return `R$ ${parseFloat(item.preco).toFixed(2).replace('.',',')}`;
 }
 
-function renderItensPublico(itens) {
-  const filtered = catAtiva === 'todas' ? itens : itens.filter(i => i.categoria_id === catAtiva);
-  document.getElementById('pub-itens').innerHTML = filtered.map(item => {
-    const onclickAttr = `abrirModalItemPorId('${item.id}')`;
-    return `
+function renderCardItem(item) {
+  const onclickAttr = `abrirModalItemPorId('${item.id}')`;
+  return `
     <div class="pub-item">
       <div class="pub-item-foto">${item.foto_url ? `<img src="${item.foto_url}" onerror="this.parentElement.textContent='🍽️'">` : '🍽️'}</div>
       <div style="flex:1;">
@@ -2456,7 +2492,37 @@ function renderItensPublico(itens) {
       </div>
       <button class="pub-add" onclick="${onclickAttr}">+</button>
     </div>
-  `}).join('') || '<div class="empty"><div class="empty-ico">🍽️</div><div class="empty-txt">Nenhum item nesta categoria</div></div>';
+  `;
+}
+
+function renderItensPublico(itens) {
+  const container = document.getElementById('pub-itens');
+
+  // Categoria específica selecionada: só a grade normal, sem título repetido
+  if (catAtiva !== 'todas') {
+    const filtered = itens.filter(i => i.categoria_id === catAtiva);
+    container.innerHTML = filtered.length
+      ? `<div class="pub-cat-grid">${filtered.map(renderCardItem).join('')}</div>`
+      : '<div class="empty"><div class="empty-ico">🍽️</div><div class="empty-txt">Nenhum item nesta categoria</div></div>';
+    return;
+  }
+
+  // Aba "Todos": agrupa os itens por categoria, com o nome da categoria como título
+  let html = '';
+  let temItem = false;
+  categorias.forEach(cat => {
+    const doCategoria = itens.filter(i => i.categoria_id === cat.id);
+    if (!doCategoria.length) return;
+    temItem = true;
+    html += `<div class="pub-cat-titulo">${cat.nome}</div><div class="pub-cat-grid">${doCategoria.map(renderCardItem).join('')}</div>`;
+  });
+  const idsComCategoria = categorias.map(c => c.id);
+  const semCategoria = itens.filter(i => !idsComCategoria.includes(i.categoria_id));
+  if (semCategoria.length) {
+    temItem = true;
+    html += `<div class="pub-cat-titulo">Outros</div><div class="pub-cat-grid">${semCategoria.map(renderCardItem).join('')}</div>`;
+  }
+  container.innerHTML = temItem ? html : '<div class="empty"><div class="empty-ico">🍽️</div><div class="empty-txt">Nenhum item no cardápio ainda</div></div>';
 }
 
 // ===== MODAL DE ITEM COM GRUPOS DE OPÇÕES =====
