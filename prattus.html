@@ -2248,6 +2248,21 @@ function statusTrial(rest) {
 
 async function iniciarAssinatura(plano, btnEl) {
   if (!restauranteAtual || !usuarioAtual) return;
+
+  let cpfCnpj = restauranteAtual.cpf_cnpj || '';
+  if (!cpfCnpj) {
+    cpfCnpj = prompt('Pra gerar o pagamento, informe seu CPF ou CNPJ (só números):');
+    if (!cpfCnpj) return;
+    cpfCnpj = cpfCnpj.replace(/\D/g, '');
+    if (cpfCnpj.length !== 11 && cpfCnpj.length !== 14) {
+      toast('CPF ou CNPJ inválido. Digite só os números (11 ou 14 dígitos).', 'erro');
+      return;
+    }
+    // Salva no cadastro do restaurante pra não precisar perguntar de novo
+    await db.from('restaurantes').update({ cpf_cnpj: cpfCnpj }).eq('id', restauranteAtual.id);
+    restauranteAtual.cpf_cnpj = cpfCnpj;
+  }
+
   const textoOriginal = btnEl ? btnEl.textContent : '';
   if (btnEl) { btnEl.textContent = 'Gerando link de pagamento...'; btnEl.disabled = true; }
   try {
@@ -2258,6 +2273,7 @@ async function iniciarAssinatura(plano, btnEl) {
         restauranteId: restauranteAtual.id,
         nome: restauranteAtual.nome,
         email: usuarioAtual.email,
+        cpfCnpj,
         plano
       })
     });
