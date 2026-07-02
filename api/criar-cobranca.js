@@ -6,10 +6,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { restauranteId, nome, email, plano } = req.body || {};
+    const { restauranteId, nome, email, plano, cpfCnpj } = req.body || {};
 
-    if (!restauranteId || !nome || !email || !plano) {
-      return res.status(400).json({ error: 'Dados incompletos (restauranteId, nome, email, plano são obrigatórios)' });
+    if (!restauranteId || !nome || !email || !plano || !cpfCnpj) {
+      return res.status(400).json({ error: 'Dados incompletos (restauranteId, nome, email, cpfCnpj e plano são obrigatórios)' });
     }
 
     const valor = plano === 'anual' ? 369.00 : 36.90;
@@ -26,13 +26,26 @@ export default async function handler(req, res) {
     const custResp = await fetch(`${ASAAS_BASE}/customers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'access_token': ASAAS_KEY },
-      body: JSON.stringify({ name: nome, email, externalReference: restauranteId })
+      body: JSON.stringify({ name: nome, email, cpfCnpj, externalReference: restauranteId })
     });
     const custData = await custResp.json();
     if (!custResp.ok) {
       return res.status(500).json({ error: 'Erro ao criar cliente na Asaas', detalhe: custData });
     }
     const customerId = custData.id;
+
+    // Garante que o CPF/CNPJ está salvo no cliente, mesmo se ele já existia antes (ex: e-mail repetido)
+    if (custData.cpfCnpj !== cpfCnpj) {
+      const updResp = await fetch(`${ASAAS_BASE}/customers/${customerId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'access_token': ASAAS_KEY },
+        body: JSON.stringify({ cpfCnpj })
+      });
+      if (!updResp.ok) {
+        const updData = await updResp.json();
+        return res.status(500).json({ error: 'Erro ao atualizar CPF/CNPJ do cliente na Asaas', detalhe: updData });
+      }
+    }
 
     // 2. Cria a assinatura recorrente (mensal ou anual)
     const hoje = new Date().toISOString().split('T')[0];
