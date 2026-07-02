@@ -405,6 +405,21 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
 }
 .pub-add:hover{background:var(--laranja-dark);transform:scale(1.06);}
 
+/* ===== MODAL ITEM - GRUPOS DE OPÇÕES (estilo card) ===== */
+.mic-grupo{margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--creme-borda);}
+.mic-grupo:last-child{border-bottom:none;}
+.pub-opt-card{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:11px 12px;border:1.5px solid var(--creme-borda);border-radius:12px;
+  margin-bottom:8px;cursor:pointer;transition:all .15s;font-size:14px;
+}
+.pub-opt-card:hover{border-color:var(--laranja-light);}
+.pub-opt-card:has(input:checked){border-color:var(--laranja);background:var(--laranja-light);}
+.pub-opt-card input[type=radio],.pub-opt-card input[type=checkbox]{accent-color:var(--laranja);width:18px;height:18px;flex-shrink:0;cursor:pointer;}
+.dark-mode .pub-opt-card{border-color:#333;}
+.dark-mode .pub-opt-card:has(input:checked){background:rgba(232,99,57,0.15);}
+.dark-mode .mic-grupo{border-color:#333;}
+
 /* ===== CARDAPIO PUBLICO - GRID DESKTOP ===== */
 @media(min-width:901px){
   .pub-wrap{max-width:900px;margin:0 auto;box-shadow:0 0 40px -12px rgba(35,25,20,0.12);}
@@ -2337,20 +2352,25 @@ function abrirModalItem(item) {
 
   document.getElementById('mic-grupos').innerHTML = grupos.map((g, gi) => {
     const ehUnica = g.tipo === 'unica' || g.tipo === 'unica_preco';
+    const badgeTxt = ehUnica ? 'Obrigatório' : 'Opcional';
+    const badgeCor = ehUnica ? 'background:var(--laranja-light);color:var(--laranja-dark);' : 'background:var(--creme);color:var(--texto-muted);';
     return `
-    <div style="margin-bottom:16px;">
-      <label style="display:block;font-size:13px;font-weight:600;margin-bottom:8px;">${g.nome}${ehUnica ? '' : ' <span style="font-weight:400;color:var(--texto-muted);">(opcional)</span>'}</label>
+    <div class="mic-grupo">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <span style="font-size:14px;font-weight:700;">${g.nome}</span>
+        <span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.3px;${badgeCor}">${badgeTxt}</span>
+      </div>
       ${g.opcoes.map((o, oi) => {
         const precoTxt = g.tipo === 'unica_preco'
           ? 'R$ ' + parseFloat(o.preco).toFixed(2).replace('.',',')
           : (parseFloat(o.preco) > 0 ? '+ R$ '+parseFloat(o.preco).toFixed(2).replace('.',',') : '');
         return `
-        <label style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;cursor:pointer;font-size:14px;border-bottom:1px solid var(--creme-borda);">
-          <span style="display:flex;align-items:center;gap:8px;">
+        <label class="pub-opt-card">
+          <span style="display:flex;align-items:center;gap:10px;">
             <input type="${ehUnica?'radio':'checkbox'}" name="mic-grupo-${gi}" ${ehUnica && oi===0 ? 'checked':''} onchange="micSelecionar(${gi},${oi},this)">
-            ${o.nome}
+            <span>${o.nome}</span>
           </span>
-          <span style="color:var(--texto-muted);">${precoTxt}</span>
+          <span style="color:var(--texto-muted);font-size:13px;font-weight:600;">${precoTxt}</span>
         </label>
       `}).join('')}
     </div>
