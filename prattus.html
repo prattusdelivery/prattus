@@ -2246,12 +2246,40 @@ function statusTrial(rest) {
   return { trial: true, bloqueado: diasRestantes <= 0, diasRestantes: Math.max(0, diasRestantes) };
 }
 
+async function iniciarAssinatura(plano, btnEl) {
+  if (!restauranteAtual || !usuarioAtual) return;
+  const textoOriginal = btnEl ? btnEl.textContent : '';
+  if (btnEl) { btnEl.textContent = 'Gerando link de pagamento...'; btnEl.disabled = true; }
+  try {
+    const resp = await fetch('/api/criar-cobranca', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        restauranteId: restauranteAtual.id,
+        nome: restauranteAtual.nome,
+        email: usuarioAtual.email,
+        plano
+      })
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.checkoutUrl) {
+      toast('Erro ao gerar pagamento: ' + (data.error || 'tente novamente'), 'erro');
+      if (btnEl) { btnEl.textContent = textoOriginal; btnEl.disabled = false; }
+      return;
+    }
+    window.location.href = data.checkoutUrl;
+  } catch (e) {
+    toast('Erro ao gerar pagamento. Tente novamente.', 'erro');
+    if (btnEl) { btnEl.textContent = textoOriginal; btnEl.disabled = false; }
+  }
+}
+
 function mostrarBannerTrial(dias) {
   document.getElementById('trial-banner')?.remove();
   const banner = document.createElement('div');
   banner.id = 'trial-banner';
   banner.style.cssText = 'background:#FFF1E6;color:#C4522E;font-size:13px;text-align:center;padding:10px 16px;font-weight:500;';
-  banner.innerHTML = `🎁 Teste grátis: <strong>${dias} dia${dias===1?'':'s'} restante${dias===1?'':'s'}</strong> · <a href="mailto:contato@prattusdelivery.com.br?subject=Quero%20assinar%20o%20Prattus" style="color:#C4522E;text-decoration:underline;font-weight:600;">Assinar agora</a>`;
+  banner.innerHTML = `🎁 Teste grátis: <strong>${dias} dia${dias===1?'':'s'} restante${dias===1?'':'s'}</strong> · <a href="#" onclick="iniciarAssinatura('mensal', this); return false;" style="color:#C4522E;text-decoration:underline;font-weight:600;">Assinar agora</a>`;
   document.querySelector('.topbar').after(banner);
 }
 
@@ -2263,7 +2291,8 @@ function mostrarBloqueioTrial() {
       <div style="font-size:14px;color:var(--texto-muted);margin-bottom:28px;max-width:360px;">
         Assine agora pra voltar a acessar o painel e seu cardápio voltar a receber pedidos.
       </div>
-      <a href="mailto:contato@prattusdelivery.com.br?subject=Quero%20assinar%20o%20Prattus" style="background:var(--laranja);color:#fff;text-decoration:none;padding:13px 28px;border-radius:10px;font-size:14px;font-weight:600;margin-bottom:14px;">Assinar agora — R$36,90/mês</a>
+      <button onclick="iniciarAssinatura('mensal', this)" style="background:var(--laranja);color:#fff;border:none;text-decoration:none;padding:13px 28px;border-radius:10px;font-size:14px;font-weight:600;margin-bottom:10px;cursor:pointer;">Assinar mensal — R$36,90/mês</button>
+      <button onclick="iniciarAssinatura('anual', this)" style="background:none;border:1px solid var(--laranja);color:var(--laranja);padding:11px 24px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:14px;cursor:pointer;">Assinar anual — R$369,00/ano</button>
       <button onclick="db.auth.signOut().then(()=>location.reload())" style="background:none;border:1px solid var(--creme-borda);color:var(--texto-muted);padding:11px 24px;border-radius:10px;font-size:13px;cursor:pointer;">Sair da conta</button>
     </div>
   `;
