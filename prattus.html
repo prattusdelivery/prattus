@@ -1488,8 +1488,8 @@ async function avancarStatus(id, novoStatus, nomeCliente, telefone, numPedido) {
 
   if (telefone) {
     const mensagens = {
-      preparando: `Olá ${nomeCliente}! Seu pedido #${numPedido} foi confirmado e já está sendo preparado. 👨‍🍳`,
-      entrega: `Seu pedido #${numPedido} está pronto e saiu para entrega! 🛵 Chegará em breve.`
+      preparando: `Olá ${nomeCliente}! Seu pedido #${numPedido} foi confirmado e já está sendo preparado.`,
+      entrega: `Seu pedido #${numPedido} está pronto e saiu para entrega! Chegará em breve.`
     };
     const msg = mensagens[novoStatus];
     if (msg) {
@@ -3024,7 +3024,7 @@ async function finalizarPedido() {
     ? (referencia ? `${endereco} (Ref: ${referencia})` : endereco)
     : (modoAtual === 'retirada' ? `Retirada no local${agendamento ? ' — '+agendamento : ''}` : 'Consumir no local');
 
-  const modoLabel = {delivery:'🛵 Delivery', retirada:'🏃 Retirar no local', local:'🍽️ Consumir no local'}[modoAtual];
+  const modoLabel = {delivery:'Delivery', retirada:'Retirar no local', local:'Consumir no local'}[modoAtual];
 
   const { data: pedido } = await db.from('pedidos').insert({
     restaurante_id: restPublico.id, cliente_id: clienteId,
@@ -3058,7 +3058,7 @@ async function finalizarPedido() {
   const linkRecibo = pedido ? `${window.location.href.split('?')[0]}?recibo=${pedido.id}` : '';
   const linkAcomp = pedido ? `${window.location.href.split('?')[0]}?acompanhar=${pedido.id}` : '';
   const msg = (
-    `${modoAtual === 'delivery' ? '🛵' : modoAtual === 'retirada' ? '🏃' : '🍽️'} *Novo pedido — ${restPublico.nome}*\n\n` +
+    `*Novo pedido — ${restPublico.nome}*\n\n` +
     `*Pedido:* #${pedido ? pedido.id.slice(-6).toUpperCase() : ''}\n` +
     `*Modo:* ${modoLabel}\n` +
     `*Cliente:* ${nome}\n` +
@@ -3072,8 +3072,8 @@ async function finalizarPedido() {
     `*Total:* R$ ${total.toFixed(2)}\n` +
     `*Pagamento:* ${pagamento}\n` +
     (obs ? `*Obs:* ${obs}\n` : '') +
-    (linkAcomp ? `\n📦 Acompanhar pedido: ${linkAcomp}` : '') +
-    (linkRecibo ? `\n📄 Recibo: ${linkRecibo}` : '')
+    (linkAcomp ? `\nAcompanhar pedido: ${linkAcomp}` : '') +
+    (linkRecibo ? `\nRecibo: ${linkRecibo}` : '')
   );
 
   window.open(`https://wa.me/${restPublico.whatsapp}?text=${encodeURIComponent(msg)}`, '_blank');
