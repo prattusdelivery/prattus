@@ -2997,7 +2997,7 @@ async function finalizarPedido() {
   const itensMsg = carrinho.map(i => `${i.qtd}x ${i.nome}${i.variacao ? ' ('+i.variacao+')' : ''}${i.obs ? ' - '+i.obs : ''} — R$ ${(parseFloat(i.preco)*i.qtd).toFixed(2)}`).join('\n');
   const linkRecibo = pedido ? `${window.location.href.split('?')[0]}?recibo=${pedido.id}` : '';
   const linkAcomp = pedido ? `${window.location.href.split('?')[0]}?acompanhar=${pedido.id}` : '';
-  const msg = encodeURIComponent(
+  const msg = (
     `${modoAtual === 'delivery' ? '🛵' : modoAtual === 'retirada' ? '🏃' : '🍽️'} *Novo pedido — ${restPublico.nome}*\n\n` +
     `*Pedido:* #${pedido ? pedido.id.slice(-6).toUpperCase() : ''}\n` +
     `*Modo:* ${modoLabel}\n` +
