@@ -791,11 +791,15 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
       </select>
     </div>
     <div class="form-group" id="campo-pix" style="display:none;">
-      <div style="background:var(--creme);border:1px solid var(--creme-borda);border-radius:8px;padding:12px;">
-        <div style="font-size:11px;color:var(--texto-muted);margin-bottom:4px;">Chave Pix do restaurante:</div>
-        <div id="pix-chave-display" style="font-size:14px;font-weight:600;font-family:monospace;word-break:break-all;"></div>
+      <div style="background:var(--creme);border:1px solid var(--creme-borda);border-radius:10px;padding:14px;text-align:center;">
+        <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Escaneie o QR Code ou copie o código Pix</div>
+        <img id="pix-qrcode" style="width:180px;height:180px;border-radius:8px;background:#fff;padding:6px;" />
+        <div style="margin-top:10px;">
+          <textarea id="pix-copia-cola" readonly rows="3" style="width:100%;font-size:11px;font-family:monospace;padding:8px;border-radius:8px;border:1px solid var(--creme-borda);resize:none;"></textarea>
+          <button type="button" onclick="copiarPixCola()" class="btn btn-outline" style="margin-top:8px;width:100%;">📋 Copiar código Pix</button>
+        </div>
       </div>
-      <div style="font-size:12px;color:var(--texto-muted);margin-top:6px;">Faça o Pix e envie o comprovante no WhatsApp após confirmar o pedido.</div>
+      <div style="font-size:12px;color:var(--texto-muted);margin-top:6px;">Pague o Pix e envie o comprovante no WhatsApp após confirmar o pedido.</div>
     </div>
 
     <!-- OBSERVACAO -->
@@ -2846,6 +2850,7 @@ function atualizarTotalCarrinho() {
   if (totalEl) totalEl.textContent = 'R$ ' + total.toFixed(2).replace('.',',');
   if (descRow) descRow.style.display = descontoAtual > 0 ? 'flex' : 'none';
   if (descVal) descVal.textContent = '- R$ ' + descontoAtual.toFixed(2).replace('.',',');
+  if (document.getElementById('ped-pagamento')?.value === 'Pix') alternarPix();
 }
 
 function calcFrete() {
@@ -2856,11 +2861,60 @@ function calcFrete() {
   atualizarTotalCarrinho();
 }
 
+// ===== GERADOR DE PIX (padrão BR Code / EMV do Banco Central) =====
+function pixTLV(id, value) {
+  const len = String(value.length).padStart(2, '0');
+  return id + len + value;
+}
+
+function pixLimparTexto(txt, max) {
+  const limpo = (txt || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9 ]/g, '')
+    .trim()
+    .slice(0, max);
+  return limpo || 'NA';
+}
+
+function pixCrc16(payload) {
+  let crc = 0xFFFF;
+  for (let i = 0; i < payload.length; i++) {
+    crc ^= payload.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xFFFF : (crc << 1) & 0xFFFF;
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(4, '0');
+}
+
+function gerarPixCopiaCola(chave, nomeRecebedor, cidade, valor, txid) {
+  const mai = pixTLV('26', pixTLV('00', 'br.gov.bcb.pix') + pixTLV('01', chave));
+  const valorField = (valor && valor > 0) ? pixTLV('54', valor.toFixed(2)) : '';
+  let payload =
+    pixTLV('00', '01') + mai + pixTLV('52', '0000') + pixTLV('53', '986') +
+    valorField + pixTLV('58', 'BR') +
+    pixTLV('59', pixLimparTexto(nomeRecebedor, 25)) +
+    pixTLV('60', pixLimparTexto(cidade || 'BRASIL', 15)) +
+    pixTLV('62', pixTLV('05', pixLimparTexto(txid || 'PEDIDO', 25))) +
+    '6304';
+  return payload + pixCrc16(payload);
+}
+
+function copiarPixCola() {
+  const el = document.getElementById('pix-copia-cola');
+  el.select();
+  navigator.clipboard.writeText(el.value).then(() => toast('Código Pix copiado!', 'ok'));
+}
+
 function alternarPix() {
   const pagamento = document.getElementById('ped-pagamento').value;
   const campoPix = document.getElementById('campo-pix');
   if (pagamento === 'Pix' && restPublico && restPublico.chave_pix) {
-    document.getElementById('pix-chave-display').textContent = restPublico.chave_pix;
+    const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
+    const total = Math.max(0, sub + (fretesSelecionado||0) - (descontoAtual||0));
+    const codigo = gerarPixCopiaCola(restPublico.chave_pix, restPublico.nome, restPublico.cidade, total, 'PRATTUS' + Date.now().toString().slice(-8));
+    document.getElementById('pix-copia-cola').value = codigo;
+    document.getElementById('pix-qrcode').src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(codigo);
     campoPix.style.display = 'block';
   } else {
     campoPix.style.display = 'none';
