@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Prattus</title>
+<title>ServiDelivery</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -564,7 +564,7 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
           <label>Nome do restaurante</label>
           <input type="text" id="cad-rest-nome" placeholder="Ex: Burger House" oninput="atualizarPreviewSlug(this.value)">
           <div id="cad-slug-preview" style="font-size:12px;color:var(--texto-muted);margin-top:5px;display:none;">
-            Seu link: <strong style="color:var(--laranja);">prattusdelivery.com.br/<span id="cad-slug-texto"></span></strong>
+            Seu link: <strong style="color:var(--laranja);">servidelivery.com.br/<span id="cad-slug-texto"></span></strong>
           </div>
         </div>
         <div class="form-group">
@@ -586,7 +586,7 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
       <button class="btn btn-laranja" onclick="fazerCadastro()">Criar conta</button>
       <div id="cad-msg"></div>
       <div style="text-align:center;margin-top:14px;">
-        <a href="mailto:contato@prattusdelivery.com.br?subject=Preciso%20de%20ajuda%20com%20o%20cadastro" style="font-size:12px;color:var(--texto-muted);text-decoration:underline;">Precisa de ajuda? Fale com o suporte</a>
+        <a href="mailto:contato@servidelivery.com.br?subject=Preciso%20de%20ajuda%20com%20o%20cadastro" style="font-size:12px;color:var(--texto-muted);text-decoration:underline;">Precisa de ajuda? Fale com o suporte</a>
       </div>
     </div>
   </div>
@@ -1054,7 +1054,7 @@ async function carregarSuperAdmin() {
   document.body.innerHTML = `
     <div style="min-height:100vh;background:var(--preto);font-family:var(--font-body);">
       <div style="background:#1a1a1a;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.08);">
-        <div style="font-family:var(--font-display);font-size:22px;font-weight:600;color:var(--branco);">Pratt<span style="color:var(--laranja);">us</span> <span style="font-size:13px;color:rgba(255,255,255,0.4);font-family:var(--font-body);font-weight:400;">Super Admin</span></div>
+        <div style="font-family:var(--font-display);font-size:22px;font-weight:600;color:var(--branco);">Servi<span style="color:var(--laranja);">Delivery</span> <span style="font-size:13px;color:rgba(255,255,255,0.4);font-family:var(--font-body);font-weight:400;">Super Admin</span></div>
         <button onclick="db.auth.signOut().then(()=>location.reload())" style="background:none;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.5);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:13px;">Sair</button>
       </div>
       <div style="padding:28px;max-width:1100px;margin:0 auto;">
@@ -1940,7 +1940,7 @@ async function baixarBackup() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `prattus-backup-${restauranteAtual.nome.replace(/\s+/g,'-')}-${new Date().toISOString().split('T')[0]}.json`;
+  a.download = `servidelivery-backup-${restauranteAtual.nome.replace(/\s+/g,'-')}-${new Date().toISOString().split('T')[0]}.json`;
   a.click();
   URL.revokeObjectURL(url);
   toast('Backup baixado com sucesso!', 'ok');
@@ -2067,7 +2067,7 @@ async function renderConfig() {
       <div class="form-group">
         <label>Link da loja</label>
         <div style="display:flex;align-items:center;gap:4px;">
-          <span style="font-size:13px;color:var(--texto-muted);white-space:nowrap;">prattusdelivery.com.br/</span>
+          <span style="font-size:13px;color:var(--texto-muted);white-space:nowrap;">servidelivery.com.br/</span>
           <input type="text" id="cfg-slug" value="${r.slug||''}" style="flex:1;">
         </div>
       </div>
@@ -2128,7 +2128,7 @@ async function renderConfig() {
       <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--creme-borda);">
         <div style="font-size:13px;color:var(--texto-muted);margin-bottom:6px;">🍽️ Link do cardápio (compartilhe com clientes):</div>
         <div style="background:var(--creme);padding:10px 14px;border-radius:8px;font-size:13px;font-family:monospace;word-break:break-all;margin-bottom:12px;">
-          https://prattusdelivery.com.br/${r.slug||''}
+          https://servidelivery.com.br/${r.slug||''}
         </div>
         <div style="font-size:13px;color:var(--texto-muted);margin-bottom:6px;">⭐ Link de fidelidade (pontos dos clientes):</div>
         <div style="background:var(--creme);padding:10px 14px;border-radius:8px;font-size:13px;font-family:monospace;word-break:break-all;margin-bottom:12px;">
@@ -2138,7 +2138,7 @@ async function renderConfig() {
         <div style="background:var(--creme);padding:10px 14px;border-radius:8px;font-size:13px;white-space:pre-wrap;word-break:break-all;">Olá! 👋 Obrigado por entrar em contato com ${r.nome}.
 
 Faça seu pedido pelo nosso cardápio digital:
-https://prattusdelivery.com.br/${r.slug||''}
+https://servidelivery.com.br/${r.slug||''}
 
 Consulte seus pontos de fidelidade:
 ${window.location.href.split('?')[0]}?fidelidade=${r.id}
@@ -2234,13 +2234,13 @@ async function carregarPublico(restId) {
 
     // Salva cache local para uso em caso de instabilidade futura
     try {
-      localStorage.setItem('prattus_cache_' + restId, JSON.stringify({ rest, cats, itens, fretes, salvoEm: Date.now() }));
+      localStorage.setItem('servidelivery_cache_' + restId, JSON.stringify({ rest, cats, itens, fretes, salvoEm: Date.now() }));
     } catch(e) {}
 
   } catch (err) {
     // Tenta usar cache salvo anteriormente
     try {
-      const cache = JSON.parse(localStorage.getItem('prattus_cache_' + restId));
+      const cache = JSON.parse(localStorage.getItem('servidelivery_cache_' + restId));
       if (cache) {
         rest = cache.rest; cats = cache.cats; itens = cache.itens; fretes = cache.fretes;
         usandoCache = true;
@@ -2258,7 +2258,7 @@ async function carregarPublico(restId) {
 
   document.getElementById('pub-rest-nome').textContent = rest.nome;
   document.getElementById('pub-rest-sub').textContent = rest.descricao || 'Delivery';
-  document.title = rest.nome + ' — Prattus';
+  document.title = rest.nome + ' — ServiDelivery';
 
   // Logo
   if (rest.logo_url) {
@@ -2352,7 +2352,7 @@ async function carregarPublicoPorSlug(slug) {
 function mostrarErroConexao(restId) {
   let whatsapp = null;
   try {
-    const cache = JSON.parse(localStorage.getItem('prattus_cache_' + restId));
+    const cache = JSON.parse(localStorage.getItem('servidelivery_cache_' + restId));
     if (cache && cache.rest) whatsapp = cache.rest.whatsapp;
   } catch(e) {}
 
@@ -2748,7 +2748,7 @@ async function mostrarAcompanhamento(pedidoId) {
   document.body.innerHTML = `
     <div style="max-width:440px;margin:0 auto;padding:28px 20px;font-family:var(--font-body);">
       <div style="text-align:center;margin-bottom:24px;">
-        <div style="font-family:var(--font-display);font-size:22px;font-weight:600;color:var(--laranja);">Prattus</div>
+        <div style="font-family:var(--font-display);font-size:22px;font-weight:600;color:var(--laranja);">ServiDelivery</div>
         <div style="font-size:14px;color:var(--texto-muted);margin-top:2px;">Acompanhamento do pedido</div>
       </div>
 
@@ -2912,7 +2912,7 @@ function alternarPix() {
   if (pagamento === 'Pix' && restPublico && restPublico.chave_pix) {
     const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
     const total = Math.max(0, sub + (fretesSelecionado||0) - (descontoAtual||0));
-    const codigo = gerarPixCopiaCola(restPublico.chave_pix, restPublico.nome, restPublico.cidade, total, 'PRATTUS' + Date.now().toString().slice(-8));
+    const codigo = gerarPixCopiaCola(restPublico.chave_pix, restPublico.nome, restPublico.cidade, total, 'SERVIDELIVERY' + Date.now().toString().slice(-8));
     document.getElementById('pix-copia-cola').value = codigo;
     document.getElementById('pix-qrcode').src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(codigo);
     campoPix.style.display = 'block';
@@ -3043,7 +3043,7 @@ async function finalizarPedido() {
   // Salva recibo local
   if (pedido) {
     try {
-      localStorage.setItem('prattus_recibo_' + pedido.id, JSON.stringify({
+      localStorage.setItem('servidelivery_recibo_' + pedido.id, JSON.stringify({
         restNome: restPublico.nome, pedidoNum: pedido.id.slice(-6).toUpperCase(),
         data: new Date().toLocaleString('pt-BR'), nome, telefone,
         endereco: enderecoCompleto, bairro, pagamento, obs, modo: modoLabel,
@@ -3089,7 +3089,7 @@ async function finalizarPedido() {
 function mostrarRecibo(pedidoId) {
   let r;
   try {
-    r = JSON.parse(localStorage.getItem('prattus_recibo_' + pedidoId));
+    r = JSON.parse(localStorage.getItem('servidelivery_recibo_' + pedidoId));
   } catch(e) {}
 
   if (!r) {
