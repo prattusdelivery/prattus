@@ -528,8 +528,8 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
   </div>
   <div class="auth-card">
     <div class="auth-tabs">
-      <div class="auth-tab ativo" onclick="abaAuth('login')">Entrar</div>
-      <div class="auth-tab" onclick="abaAuth('cadastro')">Criar conta</div>
+      <div class="auth-tab ativo" data-aba="login" onclick="abaAuth('login')">Entrar</div>
+      <div class="auth-tab" data-aba="cadastro" onclick="abaAuth('cadastro')">Criar conta</div>
     </div>
 
     <!-- LOGIN -->
@@ -570,6 +570,11 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
         <div class="form-group">
           <label>WhatsApp (com DDD)</label>
           <input type="text" id="cad-whatsapp" placeholder="55119999999">
+        </div>
+        <div class="form-group">
+          <label>CPF ou CNPJ (só números)</label>
+          <input type="text" id="cad-cpf-cnpj" placeholder="Só números" maxlength="18">
+          <div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Usado só pra liberar um teste grátis por pessoa/empresa e pra gerar a cobrança quando você assinar.</div>
         </div>
       </div>
       <div class="form-group">
@@ -1040,6 +1045,9 @@ async function init() {
     }
   } else {
     mostrarTela('auth');
+    if (new URLSearchParams(window.location.search).get('cadastro') === 'true') {
+      abaAuth('cadastro');
+    }
   }
 }
 
@@ -1146,8 +1154,7 @@ function mostrarTela(nome) {
 
 // ===== AUTH =====
 function abaAuth(aba) {
-  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('ativo'));
-  event.target.classList.add('ativo');
+  document.querySelectorAll('.auth-tab').forEach(t => t.classList.toggle('ativo', t.dataset.aba === aba));
   document.getElementById('form-login').style.display = aba === 'login' ? 'block' : 'none';
   document.getElementById('form-cadastro').style.display = aba === 'cadastro' ? 'block' : 'none';
 }
@@ -1242,9 +1249,28 @@ async function fazerCadastro() {
   if (tipo === 'restaurante') {
     const restNome = document.getElementById('cad-rest-nome').value;
     const whatsapp = document.getElementById('cad-whatsapp').value;
-    if (!restNome || !whatsapp) {
+    const cpfCnpjRaw = document.getElementById('cad-cpf-cnpj').value;
+    const cpfCnpjLimpo = cpfCnpjRaw.replace(/\D/g, '');
+
+    if (!restNome || !whatsapp || !cpfCnpjRaw) {
       msg.className = 'auth-msg erro';
-      msg.textContent = 'Preencha o nome do restaurante e WhatsApp.';
+      msg.textContent = 'Preencha o nome do restaurante, WhatsApp e CPF/CNPJ.';
+      return;
+    }
+    if (cpfCnpjLimpo.length !== 11 && cpfCnpjLimpo.length !== 14) {
+      msg.className = 'auth-msg erro';
+      msg.textContent = 'CPF ou CNPJ inválido. Digite só os números (11 ou 14 dígitos).';
+      return;
+    }
+
+    const whatsappLimpo = whatsapp.replace(/\D/g, '');
+    const { data: existentes } = await db.from('restaurantes')
+      .select('id')
+      .or(`cpf_cnpj.eq.${cpfCnpjLimpo},whatsapp.eq.${whatsappLimpo}`)
+      .limit(1);
+    if (existentes && existentes.length > 0) {
+      msg.className = 'auth-msg erro';
+      msg.textContent = 'Esse CPF/CNPJ ou WhatsApp já usou o teste grátis antes. Pra assinar direto, fale com a gente pelo e-mail contato@servidelivery.com.br.';
       return;
     }
   }
@@ -1266,9 +1292,10 @@ async function fazerCadastro() {
   if (tipo === 'restaurante' && usuarioAtual) {
     const restNome = document.getElementById('cad-rest-nome').value;
     const whatsapp = document.getElementById('cad-whatsapp').value;
+    const cpfCnpjLimpo = document.getElementById('cad-cpf-cnpj').value.replace(/\D/g, '');
     const slug = await gerarSlugUnico(restNome);
     const { data: novoRest, error: restError } = await db.from('restaurantes').insert({
-      nome: restNome, whatsapp, user_id: usuarioAtual.id, slug
+      nome: restNome, whatsapp, user_id: usuarioAtual.id, slug, cpf_cnpj: cpfCnpjLimpo
     }).select().single();
     if (restError) {
       msg.className = 'auth-msg erro';
