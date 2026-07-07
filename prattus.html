@@ -1085,38 +1085,68 @@ async function carregarSuperAdmin() {
           </div>
         </div>
 
-        <div style="background:#232323;border-radius:14px;border:1px solid rgba(255,255,255,0.06);overflow:hidden;">
-          <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06);font-size:13px;font-weight:600;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.5px;">Restaurantes cadastrados</div>
-          ${(restaurantes||[]).map(r => {
-            const pedRest = (pedidos||[]).filter(p => p.restaurante_id === r.id);
-            const fatRest = pedRest.reduce((s,p) => s + parseFloat(p.total||0), 0);
-            const diasDesde = Math.floor((Date.now() - new Date(r.criado_em)) / 86400000);
-            let statusTxt, statusCor;
-            if (r.plano_ativo) { statusTxt = '💚 Assinante pago'; statusCor = '#2ea043'; }
-            else if (diasDesde <= 30) { statusTxt = `🎁 Teste (${30-diasDesde}d restantes)`; statusCor = '#E86339'; }
-            else { statusTxt = '⏳ Teste expirado'; statusCor = 'rgba(255,255,255,0.35)'; }
-            return `
-              <div style="display:flex;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.04);">
-                <div style="width:38px;height:38px;border-radius:50%;background:var(--laranja);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex-shrink:0;">${r.nome.charAt(0).toUpperCase()}</div>
-                <div style="flex:1;min-width:0;">
-                  <div style="font-size:14px;font-weight:600;color:var(--branco);">${r.nome}</div>
-                  <div style="font-size:12px;color:rgba(255,255,255,0.4);">WhatsApp: ${r.whatsapp||'—'} · Cadastrado em ${new Date(r.criado_em).toLocaleDateString('pt-BR')}</div>
-                  <div style="font-size:12px;font-weight:600;color:${statusCor};margin-top:2px;">${statusTxt}</div>
-                </div>
-                <div style="text-align:right;flex-shrink:0;">
-                  <div style="font-size:14px;font-weight:700;color:var(--laranja);">R$ ${fatRest.toFixed(2).replace('.',',')}</div>
-                  <div style="font-size:12px;color:rgba(255,255,255,0.4);">${pedRest.length} pedidos</div>
-                </div>
-                <div style="display:flex;gap:6px;">
-                  <a href="?rest=${r.id}" target="_blank" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);text-decoration:none;">Ver cardápio</a>
-                </div>
-              </div>
-            `;
-          }).join('') || '<div style="padding:40px;text-align:center;color:rgba(255,255,255,0.3);">Nenhum restaurante cadastrado</div>'}
-        </div>
+        <div id="sa-grupos"></div>
       </div>
     </div>
   `;
+
+  function statusDe(r) {
+    const diasDesde = Math.floor((Date.now() - new Date(r.criado_em)) / 86400000);
+    if (r.plano_ativo) return 'ativo';
+    if (diasDesde <= 30) return 'teste';
+    return 'vencido';
+  }
+
+  const grupos = { ativo: [], teste: [], vencido: [] };
+  (restaurantes||[]).forEach(r => grupos[statusDe(r)].push(r));
+
+  function cardRestaurante(r) {
+    const pedRest = (pedidos||[]).filter(p => p.restaurante_id === r.id);
+    const fatRest = pedRest.reduce((s,p) => s + parseFloat(p.total||0), 0);
+    const diasDesde = Math.floor((Date.now() - new Date(r.criado_em)) / 86400000);
+    const status = statusDe(r);
+    const badges = {
+      ativo: { txt: '💚 Assinante pago', cor: '#2ea043' },
+      teste: { txt: `🎁 Teste (${30-diasDesde}d restantes)`, cor: '#E86339' },
+      vencido: { txt: '⏳ Teste vencido', cor: 'rgba(255,255,255,0.35)' }
+    }[status];
+    const whatsLimpo = (r.whatsapp||'').replace(/\D/g,'');
+    const msgOferta = encodeURIComponent(`Olá! Aqui é da equipe ServiDelivery. Notamos que o teste grátis do ${r.nome} venceu. Quer continuar usando o painel de pedidos? Responde esse WhatsApp que a gente ativa pra você, com um desconto especial de quem já testou.`);
+    return `
+      <div style="display:flex;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.04);">
+        <div style="width:38px;height:38px;border-radius:50%;background:var(--laranja);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex-shrink:0;">${r.nome.charAt(0).toUpperCase()}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:600;color:var(--branco);">${r.nome}</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.4);">WhatsApp: ${r.whatsapp||'—'} · Cadastrado em ${new Date(r.criado_em).toLocaleDateString('pt-BR')}</div>
+          <div style="font-size:12px;font-weight:600;color:${badges.cor};margin-top:2px;">${badges.txt}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:14px;font-weight:700;color:var(--laranja);">R$ ${fatRest.toFixed(2).replace('.',',')}</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.4);">${pedRest.length} pedidos</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          ${status === 'vencido' && whatsLimpo ? `<a href="https://wa.me/${whatsLimpo}?text=${msgOferta}" target="_blank" style="font-size:11px;padding:4px 10px;border-radius:6px;background:var(--laranja);color:#fff;text-decoration:none;font-weight:600;">Enviar oferta</a>` : ''}
+          <a href="?rest=${r.id}" target="_blank" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);text-decoration:none;">Ver cardápio</a>
+        </div>
+      </div>
+    `;
+  }
+
+  function secao(titulo, cor, lista) {
+    return `
+      <div style="background:#232323;border-radius:14px;border:1px solid rgba(255,255,255,0.06);overflow:hidden;margin-bottom:20px;">
+        <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06);font-size:13px;font-weight:600;color:${cor};text-transform:uppercase;letter-spacing:0.5px;display:flex;justify-content:space-between;">
+          <span>${titulo}</span><span>${lista.length}</span>
+        </div>
+        ${lista.length ? lista.map(cardRestaurante).join('') : '<div style="padding:24px;text-align:center;color:rgba(255,255,255,0.25);font-size:13px;">Nenhum restaurante aqui</div>'}
+      </div>
+    `;
+  }
+
+  document.getElementById('sa-grupos').innerHTML =
+    secao('💚 Assinantes ativos', '#2ea043', grupos.ativo) +
+    secao('🎁 Em teste grátis', 'var(--laranja)', grupos.teste) +
+    secao('⏳ Teste vencido', 'rgba(255,255,255,0.5)', grupos.vencido);
 }
 
 async function carregarRestaurante() {
