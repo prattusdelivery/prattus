@@ -78,6 +78,21 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Assinatura criada, mas não foi possível obter o link de pagamento' });
     }
 
+    // 4. Guarda no restaurante qual plano ele escolheu (mensal/anual), pra calcular o MRR certinho depois
+    const SUPABASE_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
+    if (process.env.SUPABASE_SERVICE_KEY) {
+      await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': process.env.SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({ plano_tipo: plano })
+      }).catch(() => {}); // não trava o fluxo de pagamento se isso falhar
+    }
+
     return res.status(200).json({ ok: true, checkoutUrl, subscriptionId: subData.id });
   } catch (e) {
     return res.status(500).json({ error: 'Erro interno', detalhe: e.message });
