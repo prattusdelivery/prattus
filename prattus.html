@@ -1054,10 +1054,20 @@ async function init() {
 async function carregarSuperAdmin() {
   const { data: restaurantes } = await db.from('restaurantes').select('*').order('criado_em', {ascending: false});
   const { data: pedidos } = await db.from('pedidos').select('total,criado_em,restaurante_id');
+  const { data: eventos } = await db.from('eventos_plano').select('*').order('criado_em', {ascending: true});
 
   const totalRest = (restaurantes||[]).length;
   const totalPedidos = (pedidos||[]).length;
   const totalFat = (pedidos||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
+
+  // MRR: soma o valor mensal-equivalente de cada assinante ativo (anual vira /12)
+  const ativos = (restaurantes||[]).filter(r => r.plano_ativo);
+  const mrr = ativos.reduce((s,r) => s + (r.plano_tipo === 'anual' ? 369/12 : 36.90), 0);
+  const arr = mrr * 12;
+
+  // Taxa de conversão: de quem já passou pelo menos uma vez pelo teste, quantos ativaram
+  const totalComTeste = (restaurantes||[]).length;
+  const taxaConversao = totalComTeste ? (ativos.length / totalComTeste * 100) : 0;
 
   document.body.innerHTML = `
     <div style="min-height:100vh;background:var(--preto);font-family:var(--font-body);">
@@ -1066,6 +1076,28 @@ async function carregarSuperAdmin() {
         <button onclick="db.auth.signOut().then(()=>location.reload())" style="background:none;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.5);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:13px;">Sair</button>
       </div>
       <div style="padding:28px;max-width:1100px;margin:0 auto;">
+
+        <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Assinatura (MRR)</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px;">
+          <div style="background:#232323;border-radius:14px;padding:20px;border:1px solid rgba(255,255,255,0.06);">
+            <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:6px;">MRR atual (receita/mês)</div>
+            <div style="font-size:28px;font-weight:700;color:var(--laranja);">R$ ${mrr.toFixed(2).replace('.',',')}</div>
+          </div>
+          <div style="background:#232323;border-radius:14px;padding:20px;border:1px solid rgba(255,255,255,0.06);">
+            <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:6px;">Projeção anual (ARR)</div>
+            <div style="font-size:28px;font-weight:700;color:var(--branco);">R$ ${arr.toFixed(2).replace('.',',')}</div>
+          </div>
+          <div style="background:#232323;border-radius:14px;padding:20px;border:1px solid rgba(255,255,255,0.06);">
+            <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:6px;">Taxa de conversão do teste</div>
+            <div style="font-size:28px;font-weight:700;color:var(--branco);">${taxaConversao.toFixed(0)}%</div>
+          </div>
+          <div style="background:#232323;border-radius:14px;padding:20px;border:1px solid rgba(255,255,255,0.06);">
+            <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:6px;">Assinantes ativos</div>
+            <div style="font-size:28px;font-weight:700;color:var(--branco);">${ativos.length}</div>
+          </div>
+        </div>
+
+        <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Operação geral</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:28px;">
           <div style="background:#232323;border-radius:14px;padding:20px;border:1px solid rgba(255,255,255,0.06);">
             <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:6px;">Restaurantes</div>
@@ -1076,7 +1108,7 @@ async function carregarSuperAdmin() {
             <div style="font-size:28px;font-weight:700;color:var(--branco);">${totalPedidos}</div>
           </div>
           <div style="background:#232323;border-radius:14px;padding:20px;border:1px solid rgba(255,255,255,0.06);">
-            <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:6px;">Faturamento total</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:6px;">Faturamento total dos clientes</div>
             <div style="font-size:28px;font-weight:700;color:var(--laranja);">R$ ${totalFat.toFixed(2).replace('.',',')}</div>
           </div>
           <div style="background:#232323;border-radius:14px;padding:20px;border:1px solid rgba(255,255,255,0.06);">
@@ -1085,8 +1117,36 @@ async function carregarSuperAdmin() {
           </div>
         </div>
 
+        <div id="sa-crescimento" style="margin-bottom:28px;"></div>
+
         <div id="sa-grupos"></div>
       </div>
+    </div>
+  `;
+
+  // Gráfico simples: novos cadastros por mês (últimos 6 meses)
+  const hoje = new Date();
+  const meses = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+    meses.push({ ano: d.getFullYear(), mes: d.getMonth(), label: d.toLocaleDateString('pt-BR', {month:'short'}).replace('.','') });
+  }
+  const contagemMeses = meses.map(m => (restaurantes||[]).filter(r => {
+    const dr = new Date(r.criado_em);
+    return dr.getFullYear() === m.ano && dr.getMonth() === m.mes;
+  }).length);
+  const maxContagem = Math.max(1, ...contagemMeses);
+
+  document.getElementById('sa-crescimento').innerHTML = `
+    <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Novos cadastros por mês</div>
+    <div style="background:#232323;border-radius:14px;padding:24px 20px;border:1px solid rgba(255,255,255,0.06);display:flex;align-items:flex-end;gap:14px;height:140px;">
+      ${meses.map((m,i) => `
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end;">
+          <div style="font-size:12px;color:rgba(255,255,255,0.5);font-weight:600;">${contagemMeses[i]}</div>
+          <div style="width:100%;max-width:36px;background:${i===5?'var(--laranja)':'rgba(255,255,255,0.12)'};border-radius:5px 5px 0 0;height:${Math.max(4,(contagemMeses[i]/maxContagem)*70)}px;"></div>
+          <div style="font-size:10.5px;color:rgba(255,255,255,0.35);text-transform:capitalize;">${m.label}</div>
+        </div>
+      `).join('')}
     </div>
   `;
 
