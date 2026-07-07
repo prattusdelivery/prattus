@@ -19,6 +19,7 @@ export default async function handler(req, res) {
     const pagamento = evento.payment;
 
     const eventosQueLiberam = ['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED'];
+    const eventosQueCancelam = ['PAYMENT_OVERDUE', 'PAYMENT_DELETED', 'PAYMENT_REFUNDED'];
 
     if (eventosQueLiberam.includes(tipo) && pagamento?.externalReference) {
       const restauranteId = pagamento.externalReference;
@@ -38,10 +39,45 @@ export default async function handler(req, res) {
         const errText = await resp.text();
         return res.status(500).json({ error: 'Erro ao atualizar restaurante no Supabase', detalhe: errText });
       }
+
+      // Registra no histórico, pra alimentar os relatórios de crescimento
+      await fetch(`${SUPABASE_URL}/rest/v1/eventos_plano`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': process.env.SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({ restaurante_id: restauranteId, evento: 'ativado' })
+      }).catch(() => {});
     }
 
-    // Eventos de cancelamento/atraso podem, futuramente, desativar o plano de volta.
-    // Por ora só tratamos a liberação (confirmação de pagamento).
+    if (eventosQueCancelam.includes(tipo) && pagamento?.externalReference) {
+      const restauranteId = pagamento.externalReference;
+
+      await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': process.env.SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({ plano_ativo: false })
+      }).catch(() => {});
+
+      await fetch(`${SUPABASE_URL}/rest/v1/eventos_plano`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': process.env.SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({ restaurante_id: restauranteId, evento: 'cancelado' })
+      }).catch(() => {});
+    }
 
     return res.status(200).json({ received: true });
   } catch (e) {
