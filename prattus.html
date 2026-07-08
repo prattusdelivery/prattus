@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ServiDelivery</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<meta name="theme-color" content="#E86339">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -663,6 +667,7 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:12px;">
+        <button id="btn-notificacoes" onclick="ativarNotificacoes()" style="display:none;font-size:12px;font-weight:600;padding:8px 14px;border-radius:8px;border:1px solid var(--creme-borda);background:var(--creme);color:var(--texto-muted);cursor:pointer;white-space:nowrap;"></button>
         <button id="btn-pausar-loja" onclick="alternarPausaLoja()" style="display:none;font-size:12px;font-weight:600;padding:8px 14px;border-radius:8px;border:none;cursor:pointer;white-space:nowrap;"></button>
         <div class="topbar-avatar" id="topbar-avatar">A</div>
       </div>
@@ -1247,12 +1252,74 @@ async function carregarRestaurante() {
     irPara('dashboard');
     iniciarAutoRefresh();
     atualizarBotaoPausa();
+    atualizarBotaoNotificacao();
 
     if (st.trial) mostrarBannerTrial(st.diasRestantes);
   } else {
     mostrarTela('painel');
     irPara('dashboard');
   }
+}
+
+// ===== NOTIFICAÇÕES PUSH (novo pedido) =====
+const VAPID_PUBLIC_KEY = 'BM-ZTeZYmD7DMS6OTSnyOpQwThxVM5N7i_I4z294uFhA5oleHfis8wQfVzEbAuXzQ-V_YG-miLvAeAaoYi91fCo';
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+async function registrarServiceWorker() {
+  if (!('serviceWorker' in navigator)) return null;
+  try { return await navigator.serviceWorker.register('/sw.js'); }
+  catch (e) { return null; }
+}
+
+async function ativarNotificacoes() {
+  if (!restauranteAtual) return;
+  if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+    toast('Seu navegador não suporta notificações push.', 'erro');
+    return;
+  }
+  const permissao = await Notification.requestPermission();
+  if (permissao !== 'granted') {
+    toast('Permissão de notificação negada. Ative nas configurações do navegador.', 'erro');
+    return;
+  }
+  const reg = await registrarServiceWorker();
+  if (!reg) { toast('Erro ao registrar o service worker.', 'erro'); return; }
+  try {
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
+    await fetch('/api/salvar-push-subscription', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ restauranteId: restauranteAtual.id, subscription: sub })
+    });
+    localStorage.setItem('notif_ativada_' + restauranteAtual.id, 'true');
+    toast('Notificações ativadas! 🔔', 'ok');
+    atualizarBotaoNotificacao();
+  } catch (e) {
+    toast('Erro ao ativar notificações. Tente de novo.', 'erro');
+  }
+}
+
+function atualizarBotaoNotificacao() {
+  const btn = document.getElementById('btn-notificacoes');
+  if (!btn || !restauranteAtual) return;
+  const suportado = ('Notification' in window) && ('serviceWorker' in navigator) && ('PushManager' in window);
+  if (!suportado) { btn.style.display = 'none'; return; }
+  const ativada = localStorage.getItem('notif_ativada_' + restauranteAtual.id) === 'true' && Notification.permission === 'granted';
+  btn.style.display = 'inline-block';
+  btn.textContent = ativada ? '🔔 Notificações ativas' : '🔕 Ativar notificações';
+  btn.style.opacity = ativada ? '0.6' : '1';
+  btn.disabled = ativada;
 }
 
 function atualizarBotaoPausa() {
@@ -3256,6 +3323,16 @@ async function finalizarPedido() {
       pedido_id: pedido.id, item_id: i.id, nome: i.nome,
       preco: i.preco, quantidade: i.qtd, observacao: i.obs || null
     })));
+
+    fetch('/api/notificar-pedido', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        restauranteId: restPublico.id,
+        titulo: '🛵 Novo pedido!',
+        corpo: `Pedido #${pedido.id.slice(-6).toUpperCase()} — R$ ${total.toFixed(2)}`
+      })
+    }).catch(() => {});
   }
 
   // Salva recibo local
