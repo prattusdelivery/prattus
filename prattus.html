@@ -973,6 +973,17 @@ const SUPA_KEY = 'sb_publishable_OLV3lcqI6SV9j65Q3k3w-Q_GHALYvfF';
 const { createClient } = supabase;
 const db = createClient(SUPA_URL, SUPA_KEY);
 
+// ===== SEGURANÇA: neutraliza HTML/código em qualquer texto digitado por clientes ou lojistas =====
+function esc(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // ===== ESTADO =====
 let usuarioAtual = null;
 let restauranteAtual = null;
@@ -1472,8 +1483,8 @@ async function renderDashboard() {
         (pedidos||[]).map(p => `
           <div class="pedido-card">
             <div class="pedido-info">
-              <div class="pedido-num">#${p.id.slice(-4).toUpperCase()} — ${p.clientes?.nome || p.observacao?.split('Nome:')[1]?.split('\n')[0]?.trim() || 'Cliente'}</div>
-              <div class="pedido-cliente">${p.bairro||''} · ${new Date(p.criado_em).toLocaleString('pt-BR')}</div>
+              <div class="pedido-num">#${p.id.slice(-4).toUpperCase()} — ${esc(p.clientes?.nome || p.observacao?.split('Nome:')[1]?.split('\n')[0]?.trim() || 'Cliente')}</div>
+              <div class="pedido-cliente">${esc(p.bairro)} · ${new Date(p.criado_em).toLocaleString('pt-BR')}</div>
             </div>
             <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
             <span class="badge badge-${p.status === 'novo' ? 'novo' : p.status === 'preparando' ? 'prep' : p.status === 'entrega' ? 'entrega' : 'entregue'}">${p.status}</span>
@@ -1500,16 +1511,16 @@ async function renderPedidos() {
 
   function montaCard(p) {
     const telefone = extrairTelefone(p);
-    const itensTxt = (p.pedido_itens||[]).map(i => `${i.quantidade}x ${i.nome}${i.observacao?' ('+i.observacao+')':''}`).join(' · ');
+    const itensTxt = (p.pedido_itens||[]).map(i => `${i.quantidade}x ${esc(i.nome)}${i.observacao?' ('+esc(i.observacao)+')':''}`).join(' · ');
     return `
       <div class="kanban-card">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">
           <div class="pedido-num">#${p.id.slice(-4).toUpperCase()}</div>
           <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
         </div>
-        <div class="pedido-cliente" style="margin-bottom:8px;">${p.endereco||''} — ${p.bairro||''}</div>
+        <div class="pedido-cliente" style="margin-bottom:8px;">${esc(p.endereco)} — ${esc(p.bairro)}</div>
         <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">${itensTxt}</div>
-        ${p.observacao ? `<div style="font-size:11px;color:var(--laranja);margin-bottom:10px;">${p.observacao.replace(/\n/g,' · ')}</div>` : ''}
+        ${p.observacao ? `<div style="font-size:11px;color:var(--laranja);margin-bottom:10px;">${esc(p.observacao).replace(/\n/g,' · ')}</div>` : ''}
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
           ${montaBotoesStatus(p, telefone)}
           <button class="btn-sm" onclick="imprimirComandaPorId('${p.id}')" title="Imprimir comanda">🖨️</button>
@@ -1557,24 +1568,24 @@ function imprimirComanda(p) {
   const obsGeral = (obs.match(/Obs:\s*([^\n]+)/) || [])[1]?.trim() || '';
 
   const itensHtml = (p.pedido_itens||[]).map(i => `
-    <div class="cp-item">${i.quantidade}x ${i.nome}${i.observacao ? `<br>&nbsp;&nbsp;Obs: ${i.observacao}` : ''}</div>
+    <div class="cp-item">${i.quantidade}x ${esc(i.nome)}${i.observacao ? `<br>&nbsp;&nbsp;Obs: ${esc(i.observacao)}` : ''}</div>
   `).join('');
 
   document.getElementById('comanda-print').innerHTML = `
-    <h2>${restauranteAtual?.nome || 'Pedido'}</h2>
+    <h2>${esc(restauranteAtual?.nome) || 'Pedido'}</h2>
     <div style="text-align:center;">Pedido #${p.id.slice(-4).toUpperCase()}</div>
     <div style="text-align:center;">${new Date(p.criado_em).toLocaleString('pt-BR')}</div>
     <div class="cp-linha"></div>
-    <div><strong>${modo}</strong></div>
-    <div>Cliente: ${nome}</div>
-    ${telefone ? `<div>Tel: ${telefone}</div>` : ''}
-    ${p.endereco ? `<div>End: ${p.endereco}</div>` : ''}
-    ${p.bairro ? `<div>Bairro: ${p.bairro}</div>` : ''}
+    <div><strong>${esc(modo)}</strong></div>
+    <div>Cliente: ${esc(nome)}</div>
+    ${telefone ? `<div>Tel: ${esc(telefone)}</div>` : ''}
+    ${p.endereco ? `<div>End: ${esc(p.endereco)}</div>` : ''}
+    ${p.bairro ? `<div>Bairro: ${esc(p.bairro)}</div>` : ''}
     <div class="cp-linha"></div>
     ${itensHtml}
     <div class="cp-linha"></div>
-    <div>Pagamento: ${pagamento}</div>
-    ${obsGeral ? `<div>Obs geral: ${obsGeral}</div>` : ''}
+    <div>Pagamento: ${esc(pagamento)}</div>
+    ${obsGeral ? `<div>Obs geral: ${esc(obsGeral)}</div>` : ''}
     <div class="cp-total">TOTAL: R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
   `;
   window.print();
@@ -2611,10 +2622,10 @@ function renderCardItem(item) {
   const onclickAttr = `abrirModalItemPorId('${item.id}')`;
   return `
     <div class="pub-item">
-      <div class="pub-item-foto">${item.foto_url ? `<img src="${item.foto_url}" onerror="this.parentElement.textContent='🍽️'">` : '🍽️'}</div>
+      <div class="pub-item-foto">${item.foto_url ? `<img src="${esc(item.foto_url)}" onerror="this.parentElement.textContent='🍽️'">` : '🍽️'}</div>
       <div style="flex:1;">
-        <div class="pub-item-nome">${item.nome}</div>
-        <div class="pub-item-desc">${item.descricao||''}</div>
+        <div class="pub-item-nome">${esc(item.nome)}</div>
+        <div class="pub-item-desc">${esc(item.descricao)}</div>
         <div class="pub-item-preco">${precoExibicaoItem(item)}</div>
       </div>
       <button class="pub-add" onclick="${onclickAttr}">+</button>
@@ -2641,7 +2652,7 @@ function renderItensPublico(itens) {
     const doCategoria = itens.filter(i => i.categoria_id === cat.id);
     if (!doCategoria.length) return;
     temItem = true;
-    html += `<div class="pub-cat-titulo">${cat.nome}</div><div class="pub-cat-grid">${doCategoria.map(renderCardItem).join('')}</div>`;
+    html += `<div class="pub-cat-titulo">${esc(cat.nome)}</div><div class="pub-cat-grid">${doCategoria.map(renderCardItem).join('')}</div>`;
   });
   const idsComCategoria = categorias.map(c => c.id);
   const semCategoria = itens.filter(i => !idsComCategoria.includes(i.categoria_id));
