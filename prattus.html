@@ -792,11 +792,15 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
     <!-- PAGAMENTO -->
     <div class="form-group">
       <label>Forma de pagamento</label>
-      <select id="ped-pagamento" onchange="alternarPix()">
+      <select id="ped-pagamento" onchange="alternarFormaPagamento()">
         <option value="Dinheiro">Dinheiro</option>
         <option value="Cartão na entrega">Cartão na entrega</option>
         <option value="Pix">Pix</option>
       </select>
+    </div>
+    <div class="form-group" id="campo-troco" style="display:none;">
+      <label>Troco pra quanto? (opcional)</label>
+      <input type="number" id="ped-troco" placeholder="Ex: 50" step="0.01" min="0">
     </div>
     <div class="form-group" id="campo-pix" style="display:none;">
       <div style="background:var(--creme);border:1px solid var(--creme-borda);border-radius:10px;padding:14px;text-align:center;">
@@ -3020,7 +3024,7 @@ function atualizarTotalCarrinho() {
   if (totalEl) totalEl.textContent = 'R$ ' + total.toFixed(2).replace('.',',');
   if (descRow) descRow.style.display = descontoAtual > 0 ? 'flex' : 'none';
   if (descVal) descVal.textContent = '- R$ ' + descontoAtual.toFixed(2).replace('.',',');
-  if (document.getElementById('ped-pagamento')?.value === 'Pix') alternarPix();
+  if (document.getElementById('ped-pagamento')?.value === 'Pix') alternarFormaPagamento();
 }
 
 function calcFrete() {
@@ -3076,9 +3080,13 @@ function copiarPixCola() {
   navigator.clipboard.writeText(el.value).then(() => toast('Código Pix copiado!', 'ok'));
 }
 
-function alternarPix() {
+function alternarFormaPagamento() {
   const pagamento = document.getElementById('ped-pagamento').value;
   const campoPix = document.getElementById('campo-pix');
+  const campoTroco = document.getElementById('campo-troco');
+
+  campoTroco.style.display = pagamento === 'Dinheiro' ? 'block' : 'none';
+
   if (pagamento === 'Pix' && restPublico && restPublico.chave_pix) {
     const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
     const total = Math.max(0, sub + (fretesSelecionado||0) - (descontoAtual||0));
@@ -3147,6 +3155,7 @@ async function finalizarPedido() {
   const nome = document.getElementById('ped-nome').value;
   const telefone = document.getElementById('ped-telefone').value;
   const pagamento = document.getElementById('ped-pagamento').value;
+  const troco = pagamento === 'Dinheiro' ? document.getElementById('ped-troco').value : '';
   const obs = document.getElementById('ped-obs').value;
 
   // Dados conforme modo
@@ -3194,7 +3203,7 @@ async function finalizarPedido() {
     restaurante_id: restPublico.id, cliente_id: clienteId,
     status: 'novo', endereco: enderecoCompleto, bairro,
     frete, subtotal: sub, total,
-    observacao: `Nome: ${nome}\nTelefone: ${telefone}\nModo: ${modoLabel}\nPagamento: ${pagamento}${obs ? '\nObs: '+obs : ''}`
+    observacao: `Nome: ${nome}\nTelefone: ${telefone}\nModo: ${modoLabel}\nPagamento: ${pagamento}${troco ? ' (troco para R$ '+parseFloat(troco).toFixed(2)+')' : ''}${obs ? '\nObs: '+obs : ''}`
   }).select().single();
 
   if (pedido) {
@@ -3210,7 +3219,7 @@ async function finalizarPedido() {
       localStorage.setItem('servidelivery_recibo_' + pedido.id, JSON.stringify({
         restNome: restPublico.nome, pedidoNum: pedido.id.slice(-6).toUpperCase(),
         data: new Date().toLocaleString('pt-BR'), nome, telefone,
-        endereco: enderecoCompleto, bairro, pagamento, obs, modo: modoLabel,
+        endereco: enderecoCompleto, bairro, pagamento, troco, obs, modo: modoLabel,
         itens: carrinho.map(i => ({ nome: i.nome, variacao: i.variacao, qtd: i.qtd, preco: i.preco, obs: i.obs })),
         sub, frete, desconto: descontoAtual, total
       }));
@@ -3234,7 +3243,7 @@ async function finalizarPedido() {
     (frete > 0 ? `*Frete:* R$ ${frete.toFixed(2)}\n` : '') +
     (descontoAtual > 0 ? `*Desconto (cupom):* - R$ ${descontoAtual.toFixed(2)}\n` : '') +
     `*Total:* R$ ${total.toFixed(2)}\n` +
-    `*Pagamento:* ${pagamento}\n` +
+    `*Pagamento:* ${pagamento}${troco ? ' (troco para R$ '+parseFloat(troco).toFixed(2)+')' : ''}\n` +
     (obs ? `*Obs:* ${obs}\n` : '') +
     (linkAcomp ? `\nAcompanhar pedido: ${linkAcomp}` : '') +
     (linkRecibo ? `\nRecibo: ${linkRecibo}` : '')
@@ -3287,7 +3296,7 @@ function mostrarRecibo(pedidoId) {
         <strong>Telefone:</strong> ${esc(r.telefone)}<br>
         <strong>Endereço:</strong> ${esc(r.endereco)}, ${esc(r.bairro)}<br>
         ${r.referencia ? `<strong>Referência:</strong> ${esc(r.referencia)}<br>` : ''}
-        <strong>Pagamento:</strong> ${esc(r.pagamento)}<br>
+        <strong>Pagamento:</strong> ${esc(r.pagamento)}${r.troco ? ' (troco para R$ '+parseFloat(r.troco).toFixed(2).replace('.',',')+')' : ''}<br>
         ${r.obs ? `<strong>Obs:</strong> ${esc(r.obs)}<br>` : ''}
       </div>
       <button onclick="window.print()" style="width:100%;background:#E86339;color:#fff;border:none;padding:12px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">Imprimir recibo</button>
