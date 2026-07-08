@@ -3114,26 +3114,16 @@ async function finalizarPedido() {
   const frete = modoAtual === 'delivery' ? fretesSelecionado : 0;
   const total = Math.max(0, sub + frete - descontoAtual);
 
-  // Busca cliente existente pelo telefone, ou cria um novo
+  // Busca/atualiza cliente (fidelidade) via função no servidor, sem expor dados publicamente
   let clienteId = null;
   try {
-    const { data: clienteExistente } = await db.from('clientes')
-      .select('*').eq('restaurante_id', restPublico.id).eq('telefone', telefone).maybeSingle();
-    if (clienteExistente) {
-      clienteId = clienteExistente.id;
-      await db.from('clientes').update({
-        nome,
-        total_gasto: parseFloat(clienteExistente.total_gasto || 0) + total,
-        total_pedidos: (clienteExistente.total_pedidos || 0) + 1,
-        pontos: (clienteExistente.pontos || 0) + Math.floor(total)
-      }).eq('id', clienteId);
-    } else {
-      const { data: novoCliente } = await db.from('clientes').insert({
-        restaurante_id: restPublico.id, nome, telefone,
-        total_gasto: total, total_pedidos: 1, pontos: Math.floor(total)
-      }).select().single();
-      if (novoCliente) clienteId = novoCliente.id;
-    }
+    const respCliente = await fetch('/api/registrar-cliente', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ restauranteId: restPublico.id, nome, telefone, totalPedido: total })
+    });
+    const dataCliente = await respCliente.json();
+    if (dataCliente.ok) clienteId = dataCliente.clienteId;
   } catch (e) {}
 
   // Salva pedido no banco
