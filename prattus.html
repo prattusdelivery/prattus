@@ -662,7 +662,10 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
           <div class="topbar-rest" id="topbar-rest">Carregando...</div>
         </div>
       </div>
-      <div class="topbar-avatar" id="topbar-avatar">A</div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button id="btn-pausar-loja" onclick="alternarPausaLoja()" style="display:none;font-size:12px;font-weight:600;padding:8px 14px;border-radius:8px;border:none;cursor:pointer;white-space:nowrap;"></button>
+        <div class="topbar-avatar" id="topbar-avatar">A</div>
+      </div>
     </div>
 
     <div class="conteudo" id="conteudo">
@@ -1239,11 +1242,45 @@ async function carregarRestaurante() {
     mostrarTela('painel');
     irPara('dashboard');
     iniciarAutoRefresh();
+    atualizarBotaoPausa();
 
     if (st.trial) mostrarBannerTrial(st.diasRestantes);
   } else {
     mostrarTela('painel');
     irPara('dashboard');
+  }
+}
+
+function atualizarBotaoPausa() {
+  const btn = document.getElementById('btn-pausar-loja');
+  if (!restauranteAtual) return;
+  btn.style.display = 'inline-block';
+  if (restauranteAtual.pausado_manual) {
+    btn.textContent = '🔴 Pedidos pausados · Reabrir';
+    btn.style.background = 'var(--laranja-light)';
+    btn.style.color = 'var(--laranja-dark)';
+  } else {
+    btn.textContent = '🟢 Aberto · Pausar pedidos';
+    btn.style.background = 'var(--creme)';
+    btn.style.color = 'var(--texto-muted)';
+  }
+}
+
+async function alternarPausaLoja() {
+  if (!restauranteAtual) return;
+  const novoValor = !restauranteAtual.pausado_manual;
+  const confirmMsg = novoValor
+    ? 'Pausar os pedidos agora? Seu cardápio vai mostrar "fechado" pros clientes até você reabrir.'
+    : 'Reabrir a loja e voltar a aceitar pedidos agora?';
+  if (!confirm(confirmMsg)) return;
+
+  const { error } = await db.from('restaurantes').update({ pausado_manual: novoValor }).eq('id', restauranteAtual.id);
+  if (!error) {
+    restauranteAtual.pausado_manual = novoValor;
+    atualizarBotaoPausa();
+    toast(novoValor ? 'Pedidos pausados.' : 'Loja reaberta!', 'ok');
+  } else {
+    toast('Erro ao atualizar. Tente de novo.', 'erro');
   }
 }
 
@@ -2418,8 +2455,13 @@ async function carregarPublico(restId) {
   if (rest.pedido_minimo) infos.push(`🛒 Mín. R$ ${parseFloat(rest.pedido_minimo).toFixed(2).replace('.',',')}`);
   infoBar.innerHTML = infos.map(i => `<span style="background:rgba(255,255,255,0.15);padding:4px 10px;border-radius:20px;font-size:12px;color:#fff;">${i}</span>`).join('');
 
-  // Verifica horário de funcionamento
-  if (rest.horario_abre && rest.horario_fecha && rest.dias_funcionamento?.length) {
+  // Verifica pausa manual + horário de funcionamento
+  const elFechado = document.getElementById('pub-fechado');
+  if (rest.pausado_manual) {
+    elFechado.style.display = 'block';
+    elFechado.style.background = 'rgba(0,0,0,0.6)';
+    elFechado.textContent = '🔴 Fechado no momento · O restaurante pausou os pedidos';
+  } else if (rest.horario_abre && rest.horario_fecha && rest.dias_funcionamento?.length) {
     const agora = new Date();
     const diaAtual = agora.getDay();
     const horaAtual = agora.getHours() * 60 + agora.getMinutes();
@@ -2428,7 +2470,6 @@ async function carregarPublico(restId) {
     const abre = abreH * 60 + abreM;
     const fecha = fechaH * 60 + fechaM;
     const aberto = rest.dias_funcionamento.includes(diaAtual) && horaAtual >= abre && horaAtual <= fecha;
-    const elFechado = document.getElementById('pub-fechado');
     elFechado.style.display = 'block';
     if (aberto) {
       elFechado.style.background = 'rgba(46,160,67,0.55)';
@@ -2438,6 +2479,7 @@ async function carregarPublico(restId) {
       elFechado.textContent = `🔴 Fechado · Funciona ${rest.horario_abre} às ${rest.horario_fecha}`;
     }
   }
+
 
   if (usandoCache) {
     const banner = document.createElement('div');
@@ -3098,6 +3140,10 @@ function mudarQtd(idx, delta) {
 }
 
 async function finalizarPedido() {
+  if (restPublico?.pausado_manual) {
+    toast('Este restaurante pausou os pedidos no momento. Tente novamente mais tarde.', 'erro');
+    return;
+  }
   const nome = document.getElementById('ped-nome').value;
   const telefone = document.getElementById('ped-telefone').value;
   const pagamento = document.getElementById('ped-pagamento').value;
