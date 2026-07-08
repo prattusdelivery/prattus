@@ -3213,6 +3213,7 @@ function alternarFormaPagamento() {
 
 function abrirCarrinho() {
   atualizarTotalCarrinho();
+  alternarFormaPagamento();
 
   if (carrinho.length === 0) {
     document.getElementById('carr-lista').innerHTML = '<div class="empty"><div class="empty-ico">🛒</div><div class="empty-txt">Seu carrinho está vazio</div></div>';
