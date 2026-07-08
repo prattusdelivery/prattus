@@ -2680,7 +2680,7 @@ function abrirModalItem(item) {
 
   document.getElementById('mic-titulo').textContent = item.nome;
   document.getElementById('mic-foto-wrap').innerHTML = item.foto_url
-    ? `<img src="${item.foto_url}" style="width:100%;height:160px;object-fit:cover;border-radius:12px;" onerror="this.parentElement.style.display='none'">`
+    ? `<img src="${esc(item.foto_url)}" style="width:100%;height:160px;object-fit:cover;border-radius:12px;" onerror="this.parentElement.style.display='none'">`
     : '';
   document.getElementById('mic-desc').textContent = item.descricao || '';
   document.getElementById('mic-preco-base').textContent = precoExibicaoItem(item);
@@ -2695,7 +2695,7 @@ function abrirModalItem(item) {
     return `
     <div class="mic-grupo">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <span style="font-size:14px;font-weight:700;">${g.nome}</span>
+        <span style="font-size:14px;font-weight:700;">${esc(g.nome)}</span>
         <span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.3px;${badgeCor}">${badgeTxt}</span>
       </div>
       ${g.opcoes.map((o, oi) => {
@@ -2706,7 +2706,7 @@ function abrirModalItem(item) {
         <label class="pub-opt-card">
           <span style="display:flex;align-items:center;gap:10px;">
             <input type="${ehUnica?'radio':'checkbox'}" name="mic-grupo-${gi}" ${ehUnica && oi===0 ? 'checked':''} onchange="micSelecionar(${gi},${oi},this)">
-            <span>${o.nome}</span>
+            <span>${esc(o.nome)}</span>
           </span>
           <span style="color:var(--texto-muted);font-size:13px;font-weight:600;">${precoTxt}</span>
         </label>
@@ -3217,7 +3217,7 @@ function mostrarRecibo(pedidoId) {
 
   const itensHtml = r.itens.map(i => `
     <tr>
-      <td style="padding:6px 0;">${i.qtd}x ${i.nome}${i.obs ? '<br><span style="font-size:11px;color:#8A7B6C;">Obs: '+i.obs+'</span>' : ''}</td>
+      <td style="padding:6px 0;">${i.qtd}x ${esc(i.nome)}${i.obs ? '<br><span style="font-size:11px;color:#8A7B6C;">Obs: '+esc(i.obs)+'</span>' : ''}</td>
       <td style="padding:6px 0;text-align:right;">R$ ${(parseFloat(i.preco)*i.qtd).toFixed(2).replace('.',',')}</td>
     </tr>
   `).join('');
@@ -3225,7 +3225,7 @@ function mostrarRecibo(pedidoId) {
   document.body.innerHTML = `
     <div style="max-width:420px;margin:0 auto;padding:24px 20px;font-family:var(--font-body);">
       <div style="text-align:center;margin-bottom:20px;">
-        <div style="font-family:var(--font-display);font-size:22px;font-weight:600;">${r.restNome}</div>
+        <div style="font-family:var(--font-display);font-size:22px;font-weight:600;">${esc(r.restNome)}</div>
         <div style="font-size:12px;color:#8A7B6C;margin-top:2px;">Pedido #${r.pedidoNum} — ${r.data}</div>
       </div>
       <div style="border-top:1px dashed #ccc;border-bottom:1px dashed #ccc;padding:14px 0;margin-bottom:14px;">
@@ -3237,12 +3237,12 @@ function mostrarRecibo(pedidoId) {
         <tr style="font-weight:700;font-size:15px;"><td style="padding:6px 0;">Total</td><td style="text-align:right;color:#E86339;">R$ ${r.total.toFixed(2).replace('.',',')}</td></tr>
       </table>
       <div style="font-size:13px;line-height:1.7;margin-bottom:20px;">
-        <strong>Cliente:</strong> ${r.nome}<br>
-        <strong>Telefone:</strong> ${r.telefone}<br>
-        <strong>Endereço:</strong> ${r.endereco}, ${r.bairro}<br>
-        ${r.referencia ? `<strong>Referência:</strong> ${r.referencia}<br>` : ''}
-        <strong>Pagamento:</strong> ${r.pagamento}<br>
-        ${r.obs ? `<strong>Obs:</strong> ${r.obs}<br>` : ''}
+        <strong>Cliente:</strong> ${esc(r.nome)}<br>
+        <strong>Telefone:</strong> ${esc(r.telefone)}<br>
+        <strong>Endereço:</strong> ${esc(r.endereco)}, ${esc(r.bairro)}<br>
+        ${r.referencia ? `<strong>Referência:</strong> ${esc(r.referencia)}<br>` : ''}
+        <strong>Pagamento:</strong> ${esc(r.pagamento)}<br>
+        ${r.obs ? `<strong>Obs:</strong> ${esc(r.obs)}<br>` : ''}
       </div>
       <button onclick="window.print()" style="width:100%;background:#E86339;color:#fff;border:none;padding:12px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">Imprimir recibo</button>
     </div>
