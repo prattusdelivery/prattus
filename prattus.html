@@ -2047,7 +2047,7 @@ async function renderRelatorios(dataInicio = null, dataFim = null) {
         ${demandaOrdenada.length === 0 ? '<div class="empty-txt">Sem dados ainda</div>' :
           demandaOrdenada.slice(0,6).map(([nome, qtd]) => `
             <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--creme-borda);">
-              <div style="flex:1;font-size:13px;">${nome}</div>
+              <div style="flex:1;font-size:13px;">${esc(nome)}</div>
               <div style="width:80px;height:6px;background:var(--creme);border-radius:3px;overflow:hidden;">
                 <div style="height:100%;background:var(--laranja);width:${(qtd/demandaOrdenada[0][1]*100)}%;border-radius:3px;"></div>
               </div>
@@ -2057,7 +2057,7 @@ async function renderRelatorios(dataInicio = null, dataFim = null) {
         }
         ${demandaOrdenada.length > 0 ? `
           <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--creme-borda);">
-            <div style="font-size:12px;color:var(--texto-muted);">Menos pedido: <strong>${demandaOrdenada[demandaOrdenada.length-1]?.[0]||'-'}</strong></div>
+            <div style="font-size:12px;color:var(--texto-muted);">Menos pedido: <strong>${esc(demandaOrdenada[demandaOrdenada.length-1]?.[0])||'-'}</strong></div>
           </div>
         ` : ''}
       </div>
@@ -2277,19 +2277,24 @@ async function renderConfig() {
       </div>
 
       <div class="config-titulo" style="margin-top:4px;">Horário de funcionamento</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div class="form-group"><label>Abertura</label><input type="time" id="cfg-abre" value="${r.horario_abre||''}"></div>
-        <div class="form-group"><label>Fechamento</label><input type="time" id="cfg-fecha" value="${r.horario_fecha||''}"></div>
-      </div>
-      <div class="form-group">
-        <label>Dias de funcionamento</label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
-          ${['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map((d,i) => `
-            <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;">
-              <input type="checkbox" name="dias" value="${i}" ${(r.dias_funcionamento||[]).includes(i)?'checked':''}> ${d}
+      <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Configure um horário diferente pra cada dia, ou deixe desmarcado nos dias que ficar fechado.</div>
+      <div id="horarios-semana-wrap">
+        ${['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'].map((d,i) => {
+          const hs = (r.horarios_semana && r.horarios_semana[i]) || {};
+          const ativo = hs.ativo !== undefined ? hs.ativo : (r.dias_funcionamento||[]).includes(i);
+          const abre = hs.abre || r.horario_abre || '';
+          const fecha = hs.fecha || r.horario_fecha || '';
+          return `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--creme-borda);flex-wrap:wrap;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;width:100px;cursor:pointer;flex-shrink:0;">
+              <input type="checkbox" class="hs-ativo" data-dia="${i}" ${ativo?'checked':''} onchange="alternarDiaHorario(${i})"> ${d}
             </label>
-          `).join('')}
-        </div>
+            <input type="time" class="hs-abre" data-dia="${i}" value="${abre}" style="width:110px;padding:6px 8px;border:1px solid var(--creme-borda);border-radius:6px;font-size:13px;" ${ativo?'':'disabled'}>
+            <span style="font-size:12px;color:var(--texto-muted);">às</span>
+            <input type="time" class="hs-fecha" data-dia="${i}" value="${fecha}" style="width:110px;padding:6px 8px;border:1px solid var(--creme-borda);border-radius:6px;font-size:13px;" ${ativo?'':'disabled'}>
+            ${i===0 ? `<button type="button" onclick="copiarHorarioPraTodos()" style="margin-left:auto;font-size:11px;padding:5px 10px;border-radius:6px;border:1px solid var(--creme-borda);background:none;color:var(--texto-muted);cursor:pointer;">Copiar pra todos os dias</button>` : ''}
+          </div>
+        `}).join('')}
       </div>
 
       <button class="btn btn-laranja" onclick="salvarConfig()">Salvar configurações</button>
@@ -2336,8 +2341,37 @@ Não atendemos pedidos por aqui. Use o link acima 😊</div>
   `;
 }
 
+function alternarDiaHorario(dia) {
+  const ativo = document.querySelector(`.hs-ativo[data-dia="${dia}"]`).checked;
+  document.querySelector(`.hs-abre[data-dia="${dia}"]`).disabled = !ativo;
+  document.querySelector(`.hs-fecha[data-dia="${dia}"]`).disabled = !ativo;
+}
+
+function copiarHorarioPraTodos() {
+  const abre = document.querySelector('.hs-abre[data-dia="0"]').value;
+  const fecha = document.querySelector('.hs-fecha[data-dia="0"]').value;
+  const ativo = document.querySelector('.hs-ativo[data-dia="0"]').checked;
+  if (!abre || !fecha) { toast('Preencha o horário de domingo primeiro.', 'erro'); return; }
+  for (let i = 1; i <= 6; i++) {
+    document.querySelector(`.hs-ativo[data-dia="${i}"]`).checked = ativo;
+    document.querySelector(`.hs-abre[data-dia="${i}"]`).value = abre;
+    document.querySelector(`.hs-abre[data-dia="${i}"]`).disabled = !ativo;
+    document.querySelector(`.hs-fecha[data-dia="${i}"]`).value = fecha;
+    document.querySelector(`.hs-fecha[data-dia="${i}"]`).disabled = !ativo;
+  }
+  toast('Horário copiado pra todos os dias!', 'ok');
+}
+
 async function salvarConfig() {
-  const diasMarcados = [...document.querySelectorAll('input[name="dias"]:checked')].map(el => parseInt(el.value));
+  const horariosSemana = {};
+  const diasMarcados = [];
+  for (let i = 0; i <= 6; i++) {
+    const ativo = document.querySelector(`.hs-ativo[data-dia="${i}"]`).checked;
+    const abre = document.querySelector(`.hs-abre[data-dia="${i}"]`).value;
+    const fecha = document.querySelector(`.hs-fecha[data-dia="${i}"]`).value;
+    horariosSemana[i] = { ativo, abre: abre || null, fecha: fecha || null };
+    if (ativo) diasMarcados.push(i);
+  }
 
   const novoSlug = gerarSlug(document.getElementById('cfg-slug').value);
   if (!novoSlug) { toast('O link da loja não pode ficar vazio!', 'erro'); return; }
@@ -2359,8 +2393,7 @@ async function salvarConfig() {
     cor_primaria: document.getElementById('cfg-cor').value,
     tempo_entrega: document.getElementById('cfg-tempo').value || null,
     pedido_minimo: parseFloat(document.getElementById('cfg-minimo').value) || null,
-    horario_abre: document.getElementById('cfg-abre').value || null,
-    horario_fecha: document.getElementById('cfg-fecha').value || null,
+    horarios_semana: horariosSemana,
     dias_funcionamento: diasMarcados,
   };
   const { error } = await db.from('restaurantes').update(dados).eq('id', restauranteAtual.id);
@@ -2465,22 +2498,34 @@ async function carregarPublico(restId) {
     elFechado.style.display = 'block';
     elFechado.style.background = 'rgba(0,0,0,0.6)';
     elFechado.textContent = '🔴 Fechado no momento · O restaurante pausou os pedidos';
-  } else if (rest.horario_abre && rest.horario_fecha && rest.dias_funcionamento?.length) {
+  } else {
     const agora = new Date();
     const diaAtual = agora.getDay();
     const horaAtual = agora.getHours() * 60 + agora.getMinutes();
-    const [abreH, abreM] = rest.horario_abre.split(':').map(Number);
-    const [fechaH, fechaM] = rest.horario_fecha.split(':').map(Number);
-    const abre = abreH * 60 + abreM;
-    const fecha = fechaH * 60 + fechaM;
-    const aberto = rest.dias_funcionamento.includes(diaAtual) && horaAtual >= abre && horaAtual <= fecha;
-    elFechado.style.display = 'block';
-    if (aberto) {
-      elFechado.style.background = 'rgba(46,160,67,0.55)';
-      elFechado.textContent = `🟢 Aberto agora · Funciona ${rest.horario_abre} às ${rest.horario_fecha}`;
-    } else {
-      elFechado.style.background = 'rgba(0,0,0,0.5)';
-      elFechado.textContent = `🔴 Fechado · Funciona ${rest.horario_abre} às ${rest.horario_fecha}`;
+    let diaConfig = null;
+
+    if (rest.horarios_semana && rest.horarios_semana[diaAtual]) {
+      diaConfig = rest.horarios_semana[diaAtual];
+    } else if (rest.horario_abre && rest.horario_fecha && rest.dias_funcionamento?.length) {
+      diaConfig = { ativo: rest.dias_funcionamento.includes(diaAtual), abre: rest.horario_abre, fecha: rest.horario_fecha };
+    }
+
+    if (diaConfig && diaConfig.abre && diaConfig.fecha) {
+      const [abreH, abreM] = diaConfig.abre.split(':').map(Number);
+      const [fechaH, fechaM] = diaConfig.fecha.split(':').map(Number);
+      const abre = abreH * 60 + abreM;
+      const fecha = fechaH * 60 + fechaM;
+      const aberto = diaConfig.ativo && horaAtual >= abre && horaAtual <= fecha;
+      elFechado.style.display = 'block';
+      if (aberto) {
+        elFechado.style.background = 'rgba(46,160,67,0.55)';
+        elFechado.textContent = `🟢 Aberto agora · Funciona ${diaConfig.abre} às ${diaConfig.fecha}`;
+      } else {
+        elFechado.style.background = 'rgba(0,0,0,0.5)';
+        elFechado.textContent = diaConfig.ativo
+          ? `🔴 Fechado · Funciona ${diaConfig.abre} às ${diaConfig.fecha}`
+          : `🔴 Fechado hoje`;
+      }
     }
   }
 
