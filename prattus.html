@@ -699,9 +699,14 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
   </div>
   <div class="pub-card">
     <!-- PEÇA DE NOVO -->
-    <button id="btn-pedir-novo" onclick="pedirDeNovo()" style="display:none;width:100%;background:var(--laranja-light);color:var(--laranja-dark);border:1.5px dashed var(--laranja);border-radius:10px;padding:11px;font-size:13.5px;font-weight:600;cursor:pointer;margin-bottom:14px;align-items:center;justify-content:center;gap:8px;">
-      🔁 Peça de novo — repetir seu último pedido
-    </button>
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <button id="btn-pedir-novo" onclick="pedirDeNovo(0)" style="display:none;flex:1;background:var(--laranja-light);color:var(--laranja-dark);border:1.5px dashed var(--laranja);border-radius:10px;padding:11px;font-size:13px;font-weight:600;cursor:pointer;align-items:center;justify-content:center;gap:6px;">
+        🔁 Peça de novo
+      </button>
+      <button id="btn-meus-pedidos" onclick="abrirMeusPedidos()" style="display:none;flex:1;background:none;color:var(--texto-muted);border:1.5px solid var(--creme-borda);border-radius:10px;padding:11px;font-size:13px;font-weight:600;cursor:pointer;align-items:center;justify-content:center;gap:6px;">
+        📜 Meus pedidos
+      </button>
+    </div>
     <!-- BUSCA -->
     <div style="position:relative;margin-bottom:14px;">
       <input type="text" id="pub-busca" placeholder="🔍 Buscar no cardápio..." oninput="buscarItens(this.value)"
@@ -724,6 +729,17 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
     </div>
     <span id="carr-total" style="font-weight:700">R$ 0,00</span>
   </div>
+</div>
+</div>
+
+<!-- MODAL: MEUS PEDIDOS -->
+<div class="modal-overlay" id="modal-meus-pedidos">
+<div class="modal" style="max-width:420px;">
+  <div class="modal-header">
+    <div class="modal-titulo">Meus pedidos</div>
+    <button class="modal-fechar" onclick="fecharModal('modal-meus-pedidos')">×</button>
+  </div>
+  <div id="lista-meus-pedidos"></div>
 </div>
 </div>
 
@@ -811,6 +827,14 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
         <button class="btn-sm" style="padding:10px 16px;white-space:nowrap;" onclick="aplicarCupom()">Aplicar</button>
       </div>
       <div id="cupom-msg" style="font-size:12px;margin-top:4px;"></div>
+    </div>
+
+    <!-- PONTOS DE FIDELIDADE -->
+    <div class="form-group">
+      <label>Pontos de fidelidade (opcional)</label>
+      <button type="button" class="btn-sm" style="width:100%;padding:10px;" onclick="consultarPontos()">⭐ Consultar meus pontos</button>
+      <div id="pontos-info" style="font-size:12px;margin-top:6px;"></div>
+      <div id="pontos-recompensas"></div>
     </div>
 
     <!-- PAGAMENTO -->
@@ -2035,21 +2059,87 @@ async function excluirCategoria(id) {
 }
 
 // ===== CLIENTES =====
+async function criarRecompensa() {
+  const descricao = document.getElementById('rec-descricao').value.trim();
+  const pontos = parseInt(document.getElementById('rec-pontos').value);
+  const desconto = parseFloat(document.getElementById('rec-desconto').value);
+  if (!descricao || !pontos || !desconto) {
+    toast('Preencha descrição, pontos necessários e valor do desconto.', 'erro');
+    return;
+  }
+  await db.from('recompensas').insert({
+    restaurante_id: restauranteAtual.id, descricao, pontos_necessarios: pontos, desconto_valor: desconto, ativo: true
+  });
+  toast('Recompensa criada!', 'ok');
+  renderClientes();
+}
+
+async function toggleRecompensa(id, novoValor) {
+  await db.from('recompensas').update({ ativo: novoValor }).eq('id', id);
+  renderClientes();
+}
+
+async function excluirRecompensa(id) {
+  if (!confirm('Excluir essa recompensa?')) return;
+  await db.from('recompensas').delete().eq('id', id);
+  toast('Recompensa excluída.', 'ok');
+  renderClientes();
+}
+
+function enviarPromocao(telefone) {
+  const msg = document.getElementById('promo-mensagem').value.trim();
+  if (!msg) { toast('Escreva a mensagem da promoção primeiro.', 'erro'); return; }
+  if (!telefone) { toast('Esse cliente não tem telefone cadastrado.', 'erro'); return; }
+  window.open(`https://wa.me/${telefone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
 async function renderClientes() {
   if (!restauranteAtual) return;
   const { data: clientes } = await db.from('clientes').select('*')
     .eq('restaurante_id', restauranteAtual.id).order('total_gasto', {ascending: false});
+  const { data: recompensas } = await db.from('recompensas').select('*')
+    .eq('restaurante_id', restauranteAtual.id).order('pontos_necessarios');
 
   document.getElementById('conteudo').innerHTML = `
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-titulo">🎁 Recompensas de fidelidade</div>
+      <div style="font-size:12px;color:var(--texto-muted);margin-bottom:14px;">O cliente acumula 1 ponto por real gasto. Crie prêmios que ele pode trocar na hora de fechar o pedido.</div>
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;margin-bottom:14px;">
+        <input type="text" id="rec-descricao" placeholder="Ex: Refrigerante grátis">
+        <input type="number" id="rec-pontos" placeholder="Pontos necessários">
+        <input type="number" id="rec-desconto" placeholder="Valor do desconto (R$)" step="0.01">
+        <button class="btn-sm" onclick="criarRecompensa()">+ Criar</button>
+      </div>
+      ${(recompensas||[]).length === 0 ? '<div style="font-size:13px;color:var(--texto-muted);">Nenhuma recompensa criada ainda.</div>' :
+        (recompensas||[]).map(r => `
+          <div class="frete-row">
+            <div style="flex:1;">
+              <div style="font-size:14px;font-weight:600;">${esc(r.descricao)}</div>
+              <div style="font-size:12px;color:var(--texto-muted);">${r.pontos_necessarios} pontos → R$ ${parseFloat(r.desconto_valor).toFixed(2).replace('.',',')} de desconto</div>
+            </div>
+            <span style="font-size:11px;padding:3px 8px;border-radius:10px;background:${r.ativo?'#E1F5EE':'#F1EFE8'};color:${r.ativo?'#0F6E56':'#5F5E5A'}">${r.ativo?'Ativa':'Inativa'}</span>
+            <button class="btn-sm" onclick="toggleRecompensa('${r.id}',${!r.ativo})">${r.ativo?'Desativar':'Ativar'}</button>
+            <button class="btn-sm perigo" onclick="excluirRecompensa('${r.id}')">Excluir</button>
+          </div>
+        `).join('')
+      }
+    </div>
+
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-titulo">📣 Enviar promoção</div>
+      <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Escreva a mensagem uma vez, e clique em "Enviar" ao lado de cada cliente pra abrir o WhatsApp já com o texto pronto.</div>
+      <textarea id="promo-mensagem" rows="2" placeholder="Ex: Hoje é dia de pizza! 20% off até às 22h 🍕" style="width:100%;padding:10px;border:1px solid var(--creme-borda);border-radius:8px;font-size:13px;font-family:inherit;"></textarea>
+    </div>
+
     <div class="grid-2">
       <div class="card">
         <div class="card-titulo">Ranking — maior valor gasto</div>
         ${(clientes||[]).slice(0,5).map((c,i) => `
           <div class="cliente-row">
             <div class="rank-pos">${i+1}</div>
-            <div class="cliente-avatar">${c.nome.charAt(0).toUpperCase()}</div>
+            <div class="cliente-avatar">${esc(c.nome).charAt(0).toUpperCase()}</div>
             <div style="flex:1;">
-              <div class="cliente-nome">${c.nome}</div>
+              <div class="cliente-nome">${esc(c.nome)}</div>
               <div class="cliente-sub">${c.total_pedidos} pedido(s)</div>
             </div>
             <div style="font-size:14px;font-weight:700;color:var(--laranja)">R$ ${parseFloat(c.total_gasto||0).toFixed(2).replace('.',',')}</div>
@@ -2061,9 +2151,9 @@ async function renderClientes() {
         ${[...(clientes||[])].sort((a,b) => b.total_pedidos - a.total_pedidos).slice(0,5).map((c,i) => `
           <div class="cliente-row">
             <div class="rank-pos">${i+1}</div>
-            <div class="cliente-avatar">${c.nome.charAt(0).toUpperCase()}</div>
+            <div class="cliente-avatar">${esc(c.nome).charAt(0).toUpperCase()}</div>
             <div style="flex:1;">
-              <div class="cliente-nome">${c.nome}</div>
+              <div class="cliente-nome">${esc(c.nome)}</div>
               <div class="cliente-sub">R$ ${parseFloat(c.total_gasto||0).toFixed(2).replace('.',',')} gastos</div>
             </div>
             <div style="font-size:14px;font-weight:700;">${c.total_pedidos} pedidos</div>
@@ -2076,15 +2166,16 @@ async function renderClientes() {
       ${(clientes||[]).length === 0 ? '<div class="empty"><div class="empty-ico">👥</div><div class="empty-txt">Nenhum cliente cadastrado ainda</div></div>' :
         (clientes||[]).map(c => `
           <div class="cliente-row">
-            <div class="cliente-avatar">${c.nome.charAt(0).toUpperCase()}</div>
+            <div class="cliente-avatar">${esc(c.nome).charAt(0).toUpperCase()}</div>
             <div style="flex:1;">
-              <div class="cliente-nome">${c.nome}</div>
-              <div class="cliente-sub">${c.email||''} ${c.telefone?'· '+c.telefone:''}</div>
+              <div class="cliente-nome">${esc(c.nome)}</div>
+              <div class="cliente-sub">${esc(c.email)||''} ${c.telefone?'· '+esc(c.telefone):''}</div>
             </div>
             <div style="text-align:right;">
               <div style="font-size:13px;font-weight:700;color:var(--laranja)">R$ ${parseFloat(c.total_gasto||0).toFixed(2).replace('.',',')}</div>
               <div style="font-size:11px;color:var(--texto-muted)">${c.total_pedidos} pedidos · ${c.pontos} pts</div>
             </div>
+            <button class="btn-sm" onclick="enviarPromocao('${c.telefone}')" style="margin-left:10px;">📣 Enviar</button>
           </div>
         `).join('')
       }
@@ -2794,13 +2885,65 @@ async function carregarPublico(restId) {
 }
 
 function mostrarBotaoPedirNovo() {
-  const raw = localStorage.getItem('servidelivery_ultimopedido_' + restPublico.id);
-  const btn = document.getElementById('btn-pedir-novo');
-  if (!raw || !btn) return;
+  const historico = lerHistoricoPedidos();
+  const btnNovo = document.getElementById('btn-pedir-novo');
+  const btnLista = document.getElementById('btn-meus-pedidos');
+  if (historico.length > 0) {
+    if (btnNovo) btnNovo.style.display = 'flex';
+    if (btnLista) btnLista.style.display = 'flex';
+  }
+}
+
+function lerHistoricoPedidos() {
   try {
-    const salvo = JSON.parse(raw);
-    if (Array.isArray(salvo) && salvo.length > 0) btn.style.display = 'flex';
-  } catch (e) {}
+    return JSON.parse(localStorage.getItem('servidelivery_historico_' + restPublico.id)) || [];
+  } catch (e) { return []; }
+}
+
+function abrirMeusPedidos() {
+  const historico = lerHistoricoPedidos();
+  const lista = document.getElementById('lista-meus-pedidos');
+  if (historico.length === 0) {
+    lista.innerHTML = '<div class="empty"><div class="empty-ico">📦</div><div class="empty-txt">Nenhum pedido ainda por aqui</div></div>';
+  } else {
+    lista.innerHTML = historico.map((h, i) => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--creme-borda);gap:10px;">
+        <div>
+          <div style="font-size:13px;font-weight:600;">${new Date(h.data).toLocaleDateString('pt-BR')} às ${new Date(h.data).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
+          <div style="font-size:12px;color:var(--texto-muted);">${h.itens.length} ite${h.itens.length>1?'ns':'m'} · R$ ${parseFloat(h.total).toFixed(2).replace('.',',')}</div>
+        </div>
+        <button class="btn-sm" onclick="pedirDeNovo(${i})">Pedir de novo</button>
+      </div>
+    `).join('');
+  }
+  abrirModal('modal-meus-pedidos');
+}
+
+function pedirDeNovo(indice) {
+  const historico = lerHistoricoPedidos();
+  const entrada = historico[indice || 0];
+  if (!entrada) return;
+
+  let algumRemovido = false;
+  carrinho = [];
+  entrada.itens.forEach(saved => {
+    const itemAtual = todosItensPublico.find(i => i.id === saved.id);
+    if (!itemAtual) { algumRemovido = true; return; }
+    carrinho.push({
+      id: itemAtual.id, nome: itemAtual.nome, preco: saved.preco,
+      foto: itemAtual.foto_url || '', variacao: saved.variacao, qtd: saved.qtd, obs: saved.obs
+    });
+  });
+
+  if (carrinho.length === 0) {
+    toast('Os itens desse pedido não estão mais disponíveis.', 'erro');
+    return;
+  }
+  if (algumRemovido) toast('Alguns itens não estão mais disponíveis e foram deixados de fora.', 'erro');
+
+  atualizarCarrinho();
+  fecharModal('modal-meus-pedidos');
+  abrirCarrinho();
 }
 
 let pedidoParaAvaliarId = null;
@@ -2852,33 +2995,6 @@ async function avaliarDoCardapio(nota) {
   if (ok) {
     setTimeout(() => fecharModal('modal-avaliacao'), 900);
   }
-}
-
-function pedirDeNovo() {
-  const raw = localStorage.getItem('servidelivery_ultimopedido_' + restPublico.id);
-  if (!raw) return;
-  let itensSalvos;
-  try { itensSalvos = JSON.parse(raw); } catch (e) { return; }
-
-  let algumRemovido = false;
-  carrinho = [];
-  itensSalvos.forEach(saved => {
-    const itemAtual = todosItensPublico.find(i => i.id === saved.id);
-    if (!itemAtual) { algumRemovido = true; return; }
-    carrinho.push({
-      id: itemAtual.id, nome: itemAtual.nome, preco: saved.preco,
-      foto: itemAtual.foto_url || '', variacao: saved.variacao, qtd: saved.qtd, obs: saved.obs
-    });
-  });
-
-  if (carrinho.length === 0) {
-    toast('Os itens do seu último pedido não estão mais disponíveis.', 'erro');
-    return;
-  }
-  if (algumRemovido) toast('Alguns itens do último pedido não estão mais disponíveis e foram deixados de fora.', 'erro');
-
-  atualizarCarrinho();
-  abrirCarrinho();
 }
 
 async function carregarPublicoPorSlug(slug) {
@@ -3393,6 +3509,53 @@ function selecionarModo(modo) {
   if (modo !== 'delivery') { fretesSelecionado = 0; atualizarTotalCarrinho(); }
 }
 
+let resgateAplicado = null;
+let descontoResgate = 0;
+
+async function consultarPontos() {
+  const telefone = document.getElementById('ped-telefone').value.replace(/\D/g, '');
+  const info = document.getElementById('pontos-info');
+  const lista = document.getElementById('pontos-recompensas');
+  if (!telefone) { info.style.color = 'var(--vermelho)'; info.textContent = 'Digite seu telefone acima primeiro.'; return; }
+
+  info.style.color = 'var(--texto-muted)'; info.textContent = 'Consultando...';
+  lista.innerHTML = '';
+  try {
+    const resp = await fetch('/api/consultar-pontos', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ restauranteId: restPublico.id, telefone })
+    });
+    const data = await resp.json();
+    const pontos = data.pontos || 0;
+    info.style.color = 'var(--texto-muted)';
+    info.textContent = `Você tem ${pontos} pontos.`;
+
+    const { data: recompensas } = await db.from('recompensas').select('*')
+      .eq('restaurante_id', restPublico.id).eq('ativo', true).order('pontos_necessarios');
+    const elegiveis = (recompensas || []).filter(r => pontos >= r.pontos_necessarios);
+
+    if (elegiveis.length === 0) {
+      lista.innerHTML = '<div style="font-size:12px;color:var(--texto-muted);margin-top:4px;">Ainda não dá pra resgatar nenhum prêmio com esses pontos.</div>';
+    } else {
+      lista.innerHTML = elegiveis.map(r => `
+        <label style="display:flex;align-items:center;justify-content:space-between;padding:9px 10px;border:1px solid var(--creme-borda);border-radius:8px;margin-top:6px;cursor:pointer;font-size:13px;">
+          <span>${esc(r.descricao)} <span style="color:var(--texto-muted);">(${r.pontos_necessarios} pts)</span></span>
+          <input type="radio" name="resgate-radio" onchange="usarResgate('${r.id}',${parseFloat(r.desconto_valor)},${parseInt(r.pontos_necessarios)},'${esc(r.descricao).replace(/'/g,"\\'")}')">
+        </label>
+      `).join('');
+    }
+  } catch (e) {
+    info.style.color = 'var(--vermelho)'; info.textContent = 'Erro ao consultar. Tente de novo.';
+  }
+}
+
+function usarResgate(id, valor, pontosNecessarios, descricao) {
+  resgateAplicado = { id, valor, pontosNecessarios, descricao };
+  descontoResgate = valor;
+  toast('Prêmio aplicado: ' + descricao, 'ok');
+  atualizarTotalCarrinho();
+}
+
 async function aplicarCupom() {
   const codigo = document.getElementById('ped-cupom').value.toUpperCase().trim();
   const msg = document.getElementById('cupom-msg');
@@ -3414,7 +3577,7 @@ async function aplicarCupom() {
 
 function atualizarTotalCarrinho() {
   const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
-  const total = Math.max(0, sub + fretesSelecionado - descontoAtual);
+  const total = Math.max(0, sub + fretesSelecionado - descontoAtual - descontoResgate);
   const subEl = document.getElementById('carr-sub');
   const freteEl = document.getElementById('carr-frete-val');
   const totalEl = document.getElementById('carr-total-val');
@@ -3423,8 +3586,8 @@ function atualizarTotalCarrinho() {
   if (subEl) subEl.textContent = 'R$ ' + sub.toFixed(2).replace('.',',');
   if (freteEl) freteEl.textContent = fretesSelecionado === 0 ? 'Grátis' : 'R$ ' + fretesSelecionado.toFixed(2).replace('.',',');
   if (totalEl) totalEl.textContent = 'R$ ' + total.toFixed(2).replace('.',',');
-  if (descRow) descRow.style.display = descontoAtual > 0 ? 'flex' : 'none';
-  if (descVal) descVal.textContent = '- R$ ' + descontoAtual.toFixed(2).replace('.',',');
+  if (descRow) descRow.style.display = (descontoAtual > 0 || descontoResgate > 0) ? 'flex' : 'none';
+  if (descVal) descVal.textContent = '- R$ ' + (descontoAtual + descontoResgate).toFixed(2).replace('.',',');
   if (document.getElementById('ped-pagamento')?.value === 'Pix') alternarFormaPagamento();
 }
 
@@ -3580,7 +3743,7 @@ async function finalizarPedido() {
   const endereco = modoAtual === 'delivery' ? `${rua}, ${numero}${complemento ? ', '+complemento : ''}` : '';
   const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
   const frete = modoAtual === 'delivery' ? fretesSelecionado : 0;
-  const total = Math.max(0, sub + frete - descontoAtual);
+  const total = Math.max(0, sub + frete - descontoAtual - descontoResgate);
 
   // Busca/atualiza cliente (fidelidade) via função no servidor, sem expor dados publicamente
   let clienteId = null;
@@ -3588,7 +3751,7 @@ async function finalizarPedido() {
     const respCliente = await fetch('/api/registrar-cliente', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ restauranteId: restPublico.id, nome, telefone, totalPedido: total })
+      body: JSON.stringify({ restauranteId: restPublico.id, nome, telefone, totalPedido: total, pontosResgatados: resgateAplicado ? resgateAplicado.pontosNecessarios : 0 })
     });
     const dataCliente = await respCliente.json();
     if (dataCliente.ok) clienteId = dataCliente.clienteId;
@@ -3654,6 +3817,7 @@ async function finalizarPedido() {
     `*Subtotal:* R$ ${sub.toFixed(2)}\n` +
     (frete > 0 ? `*Frete:* R$ ${frete.toFixed(2)}\n` : '') +
     (descontoAtual > 0 ? `*Desconto (cupom):* - R$ ${descontoAtual.toFixed(2)}\n` : '') +
+    (descontoResgate > 0 ? `*Prêmio resgatado:* ${resgateAplicado?.descricao || ''} (- R$ ${descontoResgate.toFixed(2)})\n` : '') +
     `*Total:* R$ ${total.toFixed(2)}\n` +
     `*Pagamento:* ${pagamento}${troco ? ' (troco para R$ '+parseFloat(troco).toFixed(2)+')' : ''}\n` +
     (obs ? `*Obs:* ${obs}\n` : '') +
@@ -3663,7 +3827,12 @@ async function finalizarPedido() {
 
   window.open(`https://wa.me/${restPublico.whatsapp}?text=${encodeURIComponent(msg)}`, '_blank');
   try {
-    localStorage.setItem('servidelivery_ultimopedido_' + restPublico.id, JSON.stringify(carrinho));
+    const chaveHist = 'servidelivery_historico_' + restPublico.id;
+    let historico = [];
+    try { historico = JSON.parse(localStorage.getItem(chaveHist)) || []; } catch (e) {}
+    historico.unshift({ itens: carrinho, data: new Date().toISOString(), total });
+    historico = historico.slice(0, 15);
+    localStorage.setItem(chaveHist, JSON.stringify(historico));
     if (pedido) {
       localStorage.setItem('servidelivery_ultimopedido_meta_' + restPublico.id, JSON.stringify({ pedidoId: pedido.id, criado_em: pedido.criado_em }));
     }
@@ -3671,6 +3840,8 @@ async function finalizarPedido() {
   carrinho = [];
   descontoAtual = 0;
   cupomAplicado = null;
+  resgateAplicado = null;
+  descontoResgate = 0;
   modoAtual = 'delivery';
   atualizarCarrinho();
   fecharModal('modal-carrinho');
