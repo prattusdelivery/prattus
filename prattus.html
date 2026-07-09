@@ -698,6 +698,10 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
     <div id="pub-fechado" style="display:none;background:rgba(0,0,0,0.5);border-radius:8px;padding:8px 16px;margin-top:10px;font-size:13px;color:#fff;">🔴 Fechado no momento</div>
   </div>
   <div class="pub-card">
+    <!-- PEÇA DE NOVO -->
+    <button id="btn-pedir-novo" onclick="pedirDeNovo()" style="display:none;width:100%;background:var(--laranja-light);color:var(--laranja-dark);border:1.5px dashed var(--laranja);border-radius:10px;padding:11px;font-size:13.5px;font-weight:600;cursor:pointer;margin-bottom:14px;align-items:center;justify-content:center;gap:8px;">
+      🔁 Peça de novo — repetir seu último pedido
+    </button>
     <!-- BUSCA -->
     <div style="position:relative;margin-bottom:14px;">
       <input type="text" id="pub-busca" placeholder="🔍 Buscar no cardápio..." oninput="buscarItens(this.value)"
@@ -1782,6 +1786,18 @@ async function mudarStatus(id, status) {
 }
 
 // ===== CARDAPIO =====
+async function toggleEsgotado(itemId, esgotarAgora) {
+  let esgotadoAte = null;
+  if (esgotarAgora) {
+    const fimDoDia = new Date();
+    fimDoDia.setHours(23, 59, 59, 999);
+    esgotadoAte = fimDoDia.toISOString();
+  }
+  await db.from('itens').update({ esgotado_ate: esgotadoAte }).eq('id', itemId);
+  toast(esgotarAgora ? 'Item marcado como esgotado hoje.' : 'Item disponível de novo!', 'ok');
+  renderCardapio();
+}
+
 async function renderCardapio() {
   if (!restauranteAtual) return;
   const { data: cats } = await db.from('categorias').select('*').eq('restaurante_id', restauranteAtual.id).order('ordem');
@@ -1801,12 +1817,14 @@ async function renderCardapio() {
             <button class="btn-sm perigo" onclick="excluirCategoria('${cat.id}')">Excluir</button>
           </div>
         </div>
-        ${(itens||[]).filter(i => i.categoria_id === cat.id).map(item => `
-          <div class="item-card">
+        ${(itens||[]).filter(i => i.categoria_id === cat.id).map(item => {
+          const esgotado = item.esgotado_ate && new Date(item.esgotado_ate) > new Date();
+          return `
+          <div class="item-card" style="${esgotado?'opacity:0.6;':''}">
             <div class="item-foto">${item.foto_url ? `<img src="${item.foto_url}" onerror="this.parentElement.textContent='🍽️'">` : '🍽️'}</div>
             <div style="flex:1;">
-              <div class="item-nome">${item.nome}</div>
-              <div class="item-desc">${item.descricao||''}</div>
+              <div class="item-nome">${esc(item.nome)} ${esgotado?'<span style="font-size:10px;background:#FBE1DE;color:#B3261E;padding:2px 8px;border-radius:10px;font-weight:700;">ESGOTADO HOJE</span>':''}</div>
+              <div class="item-desc">${esc(item.descricao)}</div>
               <div style="display:flex;gap:6px;margin-top:4px;">
                 ${item.vegetariano?'<span style="font-size:10px;background:#E1F5EE;color:#0F6E56;padding:2px 6px;border-radius:10px;">Vegetariano</span>':''}
                 ${item.sem_gluten?'<span style="font-size:10px;background:#FAEEDA;color:#854F0B;padding:2px 6px;border-radius:10px;">Sem glúten</span>':''}
@@ -1816,12 +1834,13 @@ async function renderCardapio() {
             <div style="text-align:right;">
               <div class="item-preco">R$ ${parseFloat(item.preco).toFixed(2).replace('.',',')}</div>
               <div class="item-acoes" style="margin-top:6px;">
+                <button class="btn-sm" onclick="toggleEsgotado('${item.id}', ${esgotado?'false':'true'})" style="${esgotado?'background:var(--verde-bg,#E1F5EE);color:#0F6E56;':'background:#FBE1DE;color:#B3261E;'}">${esgotado?'✅ Disponível':'🚫 Esgotou hoje'}</button>
                 <button class="btn-sm" onclick="editarItem('${item.id}')">Editar</button>
                 <button class="btn-sm perigo" onclick="excluirItem('${item.id}')">Excluir</button>
               </div>
             </div>
           </div>
-        `).join('') || '<div style="font-size:13px;color:var(--texto-muted);padding:8px 0;">Nenhum item nesta categoria</div>'}
+        `}).join('') || '<div style="font-size:13px;color:var(--texto-muted);padding:8px 0;">Nenhum item nesta categoria</div>'}
       </div>
     `).join('') || '<div class="empty"><div class="empty-ico">🍽️</div><div class="empty-txt">Crie uma categoria primeiro</div></div>'}
   `;
@@ -2758,7 +2777,45 @@ async function carregarPublico(restId) {
     atualizarCarrinho();
   }
 
+  mostrarBotaoPedirNovo();
   mostrarTela('cliente');
+}
+
+function mostrarBotaoPedirNovo() {
+  const raw = localStorage.getItem('servidelivery_ultimopedido_' + restPublico.id);
+  const btn = document.getElementById('btn-pedir-novo');
+  if (!raw || !btn) return;
+  try {
+    const salvo = JSON.parse(raw);
+    if (Array.isArray(salvo) && salvo.length > 0) btn.style.display = 'flex';
+  } catch (e) {}
+}
+
+function pedirDeNovo() {
+  const raw = localStorage.getItem('servidelivery_ultimopedido_' + restPublico.id);
+  if (!raw) return;
+  let itensSalvos;
+  try { itensSalvos = JSON.parse(raw); } catch (e) { return; }
+
+  let algumRemovido = false;
+  carrinho = [];
+  itensSalvos.forEach(saved => {
+    const itemAtual = todosItensPublico.find(i => i.id === saved.id);
+    if (!itemAtual) { algumRemovido = true; return; }
+    carrinho.push({
+      id: itemAtual.id, nome: itemAtual.nome, preco: saved.preco,
+      foto: itemAtual.foto_url || '', variacao: saved.variacao, qtd: saved.qtd, obs: saved.obs
+    });
+  });
+
+  if (carrinho.length === 0) {
+    toast('Os itens do seu último pedido não estão mais disponíveis.', 'erro');
+    return;
+  }
+  if (algumRemovido) toast('Alguns itens do último pedido não estão mais disponíveis e foram deixados de fora.', 'erro');
+
+  atualizarCarrinho();
+  abrirCarrinho();
 }
 
 async function carregarPublicoPorSlug(slug) {
@@ -2912,16 +2969,17 @@ function precoExibicaoItem(item) {
 }
 
 function renderCardItem(item) {
-  const onclickAttr = `abrirModalItemPorId('${item.id}')`;
+  const esgotado = item.esgotado_ate && new Date(item.esgotado_ate) > new Date();
+  const onclickAttr = esgotado ? '' : `abrirModalItemPorId('${item.id}')`;
   return `
-    <div class="pub-item">
+    <div class="pub-item" style="${esgotado?'opacity:0.55;':''}">
       <div class="pub-item-foto">${item.foto_url ? `<img src="${esc(item.foto_url)}" onerror="this.parentElement.textContent='🍽️'">` : '🍽️'}</div>
       <div style="flex:1;">
-        <div class="pub-item-nome">${esc(item.nome)}</div>
+        <div class="pub-item-nome">${esc(item.nome)} ${esgotado ? '<span style="font-size:10px;background:#FBE1DE;color:#B3261E;padding:2px 8px;border-radius:10px;font-weight:700;">ESGOTADO</span>' : ''}</div>
         <div class="pub-item-desc">${esc(item.descricao)}</div>
         <div class="pub-item-preco">${precoExibicaoItem(item)}</div>
       </div>
-      <button class="pub-add" onclick="${onclickAttr}">+</button>
+      ${esgotado ? '' : `<button class="pub-add" onclick="${onclickAttr}">+</button>`}
     </div>
   `;
 }
@@ -2967,6 +3025,10 @@ function abrirModalItemPorId(id) {
 }
 
 function abrirModalItem(item) {
+  if (item.esgotado_ate && new Date(item.esgotado_ate) > new Date()) {
+    toast('Este item esgotou por hoje.', 'erro');
+    return;
+  }
   micItemAtual = item;
   micQtd = 1;
   micSelecoes = {};
@@ -3189,7 +3251,7 @@ async function mostrarAcompanhamento(pedidoId) {
         <div style="font-size:13px;font-weight:600;color:var(--texto-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Itens do pedido</div>
         ${(pedido?.pedido_itens||[]).map(i => `
           <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--creme-borda);font-size:13px;">
-            <span>${i.quantidade}x ${i.nome}${i.observacao?' ('+i.observacao+')':''}</span>
+            <span>${i.quantidade}x ${esc(i.nome)}${i.observacao?' ('+esc(i.observacao)+')':''}</span>
             <span style="color:var(--laranja);font-weight:600;">R$ ${(parseFloat(i.preco)*i.quantidade).toFixed(2).replace('.',',')}</span>
           </div>
         `).join('')}
@@ -3199,11 +3261,45 @@ async function mostrarAcompanhamento(pedidoId) {
         </div>
       </div>
 
+      ${pedido?.status === 'entregue' ? (
+        pedido.avaliacao ? `
+        <div style="background:var(--branco);border-radius:16px;padding:20px;border:1px solid var(--creme-borda);margin-bottom:16px;text-align:center;">
+          <div style="font-size:13px;color:var(--texto-muted);margin-bottom:6px;">Sua avaliação</div>
+          <div style="font-size:26px;letter-spacing:4px;">${'⭐'.repeat(pedido.avaliacao)}${'☆'.repeat(5-pedido.avaliacao)}</div>
+          <div style="font-size:12px;color:var(--texto-muted);margin-top:6px;">Obrigado pelo feedback! 🙏</div>
+        </div>
+        ` : `
+        <div style="background:var(--branco);border-radius:16px;padding:20px;border:1px solid var(--creme-borda);margin-bottom:16px;text-align:center;">
+          <div style="font-size:14px;font-weight:600;margin-bottom:12px;">Como foi seu pedido?</div>
+          <div style="font-size:32px;letter-spacing:8px;">
+            ${[1,2,3,4,5].map(n => `<span onclick="avaliarPedido('${pedido.id}',${n})" style="cursor:pointer;">☆</span>`).join('')}
+          </div>
+          <div style="font-size:11px;color:var(--texto-muted);margin-top:8px;">Toque nas estrelas pra avaliar</div>
+        </div>
+        `
+      ) : ''}
+
       <button onclick="window.location.reload()" style="width:100%;background:var(--creme);border:1px solid var(--creme-borda);border-radius:10px;padding:12px;font-size:13px;cursor:pointer;color:var(--texto-muted);">
         🔄 Atualizar status
       </button>
     </div>
   `;
+}
+
+async function avaliarPedido(pedidoId, nota) {
+  try {
+    const resp = await fetch('/api/avaliar-pedido', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pedidoId, nota })
+    });
+    const data = await resp.json();
+    if (!resp.ok) { toast(data.error || 'Erro ao avaliar.', 'erro'); return; }
+    toast('Obrigado pela avaliação! ⭐', 'ok');
+    mostrarAcompanhamento(pedidoId);
+  } catch (e) {
+    toast('Erro de conexão. Tente de novo.', 'erro');
+  }
 }
 
 function adicionarItem(item) {
@@ -3508,6 +3604,9 @@ async function finalizarPedido() {
   );
 
   window.open(`https://wa.me/${restPublico.whatsapp}?text=${encodeURIComponent(msg)}`, '_blank');
+  try {
+    localStorage.setItem('servidelivery_ultimopedido_' + restPublico.id, JSON.stringify(carrinho));
+  } catch (e) {}
   carrinho = [];
   descontoAtual = 0;
   cupomAplicado = null;
