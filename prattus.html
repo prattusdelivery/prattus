@@ -3271,8 +3271,8 @@ async function mostrarAcompanhamento(pedidoId) {
         ` : `
         <div style="background:var(--branco);border-radius:16px;padding:20px;border:1px solid var(--creme-borda);margin-bottom:16px;text-align:center;">
           <div style="font-size:14px;font-weight:600;margin-bottom:12px;">Como foi seu pedido?</div>
-          <div style="font-size:32px;letter-spacing:8px;">
-            ${[1,2,3,4,5].map(n => `<span onclick="avaliarPedido('${pedido.id}',${n})" style="cursor:pointer;">☆</span>`).join('')}
+          <div id="estrelas-widget" style="font-size:32px;letter-spacing:8px;user-select:none;">
+            ${[1,2,3,4,5].map(n => `<span class="estrela" data-n="${n}" onclick="avaliarPedido('${pedido.id}',${n})" style="cursor:pointer;">☆</span>`).join('')}
           </div>
           <div style="font-size:11px;color:var(--texto-muted);margin-top:8px;">Toque nas estrelas pra avaliar</div>
         </div>
@@ -3286,7 +3286,14 @@ async function mostrarAcompanhamento(pedidoId) {
   `;
 }
 
+function pintarEstrelas(nota) {
+  document.querySelectorAll('.estrela').forEach(el => {
+    el.textContent = parseInt(el.dataset.n) <= nota ? '⭐' : '☆';
+  });
+}
+
 async function avaliarPedido(pedidoId, nota) {
+  pintarEstrelas(nota);
   try {
     const resp = await fetch('/api/avaliar-pedido', {
       method: 'POST',
@@ -3296,7 +3303,6 @@ async function avaliarPedido(pedidoId, nota) {
     const data = await resp.json();
     if (!resp.ok) { toast(data.error || 'Erro ao avaliar.', 'erro'); return; }
     toast('Obrigado pela avaliação! ⭐', 'ok');
-    mostrarAcompanhamento(pedidoId);
   } catch (e) {
     toast('Erro de conexão. Tente de novo.', 'erro');
   }
