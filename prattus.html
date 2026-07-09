@@ -830,7 +830,7 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
     </div>
 
     <!-- PONTOS DE FIDELIDADE -->
-    <div class="form-group">
+    <div class="form-group" id="bloco-fidelidade">
       <label>Pontos de fidelidade (opcional)</label>
       <button type="button" class="btn-sm" style="width:100%;padding:10px;" onclick="consultarPontos()">⭐ Consultar meus pontos</button>
       <div id="pontos-info" style="font-size:12px;margin-top:6px;"></div>
@@ -2569,6 +2569,13 @@ async function renderConfig() {
         ${meuPapel!=='dono' ? '<div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Só o dono pode alterar a chave Pix.</div>' : ''}
       </div>
       <div class="form-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="cfg-fidelidade" ${r.fidelidade_ativa !== false ? 'checked' : ''} style="width:auto;">
+          Programa de fidelidade ativo (cliente acumula e resgata pontos)
+        </label>
+        <div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Desligado, o cliente não acumula nem vê a opção de resgatar pontos no checkout.</div>
+      </div>
+      <div class="form-group">
         <label>Logo da loja</label>
         <input type="file" id="cfg-logo-arquivo" accept="image/*" onchange="uploadFotoGenerica(this,'cfg-logo','cfg-logo-preview','logo')">
         <div id="cfg-logo-status" style="font-size:12px;color:var(--texto-muted);margin-top:6px;"></div>
@@ -2714,6 +2721,7 @@ async function salvarConfig() {
     logo_url: document.getElementById('cfg-logo').value || null,
     banner_url: document.getElementById('cfg-banner').value || null,
     cor_primaria: document.getElementById('cfg-cor').value,
+    fidelidade_ativa: document.getElementById('cfg-fidelidade').checked,
     tempo_entrega: document.getElementById('cfg-tempo').value || null,
     pedido_minimo: parseFloat(document.getElementById('cfg-minimo').value) || null,
     horarios_semana: horariosSemana,
@@ -2878,6 +2886,9 @@ async function carregarPublico(restId) {
     fretesSelecionado = parseFloat(fretes[0].valor);
     atualizarCarrinho();
   }
+
+  const blocoFid = document.getElementById('bloco-fidelidade');
+  if (blocoFid) blocoFid.style.display = rest.fidelidade_ativa === false ? 'none' : 'block';
 
   mostrarBotaoPedirNovo();
   verificarAvaliacaoPendente();
@@ -3751,7 +3762,7 @@ async function finalizarPedido() {
     const respCliente = await fetch('/api/registrar-cliente', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ restauranteId: restPublico.id, nome, telefone, totalPedido: total, pontosResgatados: resgateAplicado ? resgateAplicado.pontosNecessarios : 0 })
+      body: JSON.stringify({ restauranteId: restPublico.id, nome, telefone, totalPedido: total, pontosResgatados: resgateAplicado ? resgateAplicado.pontosNecessarios : 0, fidelidadeAtiva: restPublico.fidelidade_ativa !== false })
     });
     const dataCliente = await respCliente.json();
     if (dataCliente.ok) clienteId = dataCliente.clienteId;
