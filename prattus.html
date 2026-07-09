@@ -701,9 +701,7 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
     <!-- AVALIAÇÃO PENDENTE -->
     <div id="banner-avaliacao" style="display:none;background:var(--laranja-light);border:1.5px dashed var(--laranja);border-radius:10px;padding:16px;margin-bottom:14px;text-align:center;">
       <div style="font-size:13.5px;font-weight:600;color:var(--laranja-dark);margin-bottom:10px;">Como foi sua última comida?</div>
-      <div style="font-size:28px;letter-spacing:6px;user-select:none;">
-        ${[1,2,3,4,5].map(n => `<span class="estrela-banner" data-n="${n}" onclick="avaliarDoCardapio(${n})" style="cursor:pointer;">☆</span>`).join('')}
-      </div>
+      <div id="estrelas-banner-container" style="font-size:28px;letter-spacing:6px;user-select:none;"></div>
     </div>
     <!-- PEÇA DE NOVO -->
     <button id="btn-pedir-novo" onclick="pedirDeNovo()" style="display:none;width:100%;background:var(--laranja-light);color:var(--laranja-dark);border:1.5px dashed var(--laranja);border-radius:10px;padding:11px;font-size:13.5px;font-weight:600;cursor:pointer;margin-bottom:14px;align-items:center;justify-content:center;gap:8px;">
@@ -2816,6 +2814,10 @@ async function verificarAvaliacaoPendente() {
   if (!pedido || pedido.avaliacao) return;
 
   pedidoParaAvaliarId = meta.pedidoId;
+  const container = document.getElementById('estrelas-banner-container');
+  if (container) {
+    container.innerHTML = [1,2,3,4,5].map(n => `<span class="estrela-banner" data-n="${n}" onclick="avaliarDoCardapio(${n})" style="cursor:pointer;">☆</span>`).join('');
+  }
   const banner = document.getElementById('banner-avaliacao');
   if (banner) banner.style.display = 'block';
 }
