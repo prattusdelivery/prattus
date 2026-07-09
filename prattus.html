@@ -891,7 +891,8 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
   </div>
   <div class="form-group">
     <label>Descrição</label>
-    <input type="text" id="item-desc" placeholder="Ingredientes, detalhes...">
+    <input type="text" id="item-desc" placeholder="Ex: Pão brioche, hambúrguer 180g, queijo cheddar, alface e tomate">
+    <div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Capriche aqui — quanto mais detalhe (ingredientes, tamanho), mais o cliente confia antes de comprar.</div>
   </div>
   <div class="form-group">
     <label>Preço (R$)</label>
@@ -903,6 +904,7 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
   </div>
   <div class="form-group">
     <label>Foto do item</label>
+    <div style="font-size:11px;color:var(--texto-muted);margin-bottom:6px;">Dica: foto bem iluminada, de perto e quadrada funciona melhor que foto escura ou de longe.</div>
     <input type="file" id="item-foto-arquivo" accept="image/*" onchange="uploadFotoItem(this)">
     <div id="item-foto-status" style="font-size:12px;color:var(--texto-muted);margin-top:6px;"></div>
     <img id="item-foto-preview" style="display:none;width:100%;max-width:200px;height:120px;object-fit:cover;border-radius:10px;margin-top:8px;">
@@ -3160,18 +3162,32 @@ function precoExibicaoItem(item) {
 
 function renderCardItem(item) {
   const esgotado = item.esgotado_ate && new Date(item.esgotado_ate) > new Date();
-  const onclickAttr = esgotado ? '' : `abrirModalItemPorId('${item.id}')`;
+  const temOpcoes = item.opcoes && item.opcoes.length > 0;
+  const acaoBotao = temOpcoes ? `abrirModalItemPorId('${item.id}')` : `adicionarItemRapidoPorId('${item.id}')`;
   return `
-    <div class="pub-item" style="${esgotado?'opacity:0.55;':''}">
+    <div class="pub-item" ${esgotado ? 'style="opacity:0.55;"' : `onclick="abrirModalItemPorId('${item.id}')" style="cursor:pointer;"`}>
       <div class="pub-item-foto">${item.foto_url ? `<img src="${esc(item.foto_url)}" onerror="this.parentElement.textContent='🍽️'">` : '🍽️'}</div>
       <div style="flex:1;">
         <div class="pub-item-nome">${esc(item.nome)} ${esgotado ? '<span style="font-size:10px;background:#FBE1DE;color:#B3261E;padding:2px 8px;border-radius:10px;font-weight:700;">ESGOTADO</span>' : ''}</div>
         <div class="pub-item-desc">${esc(item.descricao)}</div>
         <div class="pub-item-preco">${precoExibicaoItem(item)}</div>
       </div>
-      ${esgotado ? '' : `<button class="pub-add" onclick="${onclickAttr}">+</button>`}
+      ${esgotado ? '' : `<button class="pub-add" onclick="event.stopPropagation();${acaoBotao}">+</button>`}
     </div>
   `;
+}
+
+function adicionarItemRapidoPorId(id) {
+  const item = todosItensPublico.find(i => i.id === id);
+  if (!item) return;
+  const idx = carrinho.findIndex(c => c.id === item.id && !c.variacao && !c.obs);
+  if (idx >= 0) {
+    carrinho[idx].qtd++;
+  } else {
+    carrinho.push({ id: item.id, nome: item.nome, preco: parseFloat(item.preco), foto: item.foto_url || '', variacao: null, qtd: 1, obs: '' });
+  }
+  atualizarCarrinho();
+  toast(item.nome + ' adicionado!', 'ok');
 }
 
 function renderItensPublico(itens) {
