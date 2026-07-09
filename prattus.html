@@ -632,7 +632,7 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
       Clientes
     </div>
     <div class="nav-section">Análise</div>
-    <div class="nav-item" onclick="irPara('relatorios')">
+    <div class="nav-item nav-somente-dono" onclick="irPara('relatorios')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
       Relatórios
     </div>
@@ -649,7 +649,7 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
       Equipe
     </div>
-    <div class="nav-item" onclick="irPara('config')">
+    <div class="nav-item nav-somente-dono" onclick="irPara('config')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
       Configurações
     </div>
@@ -1493,13 +1493,21 @@ async function fazerCadastro() {
     }
 
     const whatsappLimpo = whatsapp.replace(/\D/g, '');
-    const { data: existentes } = await db.from('restaurantes')
-      .select('id')
-      .or(`cpf_cnpj.eq.${cpfCnpjLimpo},whatsapp.eq.${whatsappLimpo}`)
-      .limit(1);
-    if (existentes && existentes.length > 0) {
+    try {
+      const respDup = await fetch('/api/verificar-duplicado', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cpfCnpj: cpfCnpjLimpo, whatsapp: whatsappLimpo })
+      });
+      const dataDup = await respDup.json();
+      if (dataDup.duplicado) {
+        msg.className = 'auth-msg erro';
+        msg.textContent = 'Esse CPF/CNPJ ou WhatsApp já usou o teste grátis antes. Pra assinar direto, fale com a gente pelo e-mail contato@servidelivery.com.br.';
+        return;
+      }
+    } catch (e) {
       msg.className = 'auth-msg erro';
-      msg.textContent = 'Esse CPF/CNPJ ou WhatsApp já usou o teste grátis antes. Pra assinar direto, fale com a gente pelo e-mail contato@servidelivery.com.br.';
+      msg.textContent = 'Erro ao verificar dados. Tente de novo.';
       return;
     }
   }
@@ -1524,13 +1532,14 @@ async function fazerCadastro() {
     const cpfCnpjLimpo = document.getElementById('cad-cpf-cnpj').value.replace(/\D/g, '');
     const slug = await gerarSlugUnico(restNome);
     const { data: novoRest, error: restError } = await db.from('restaurantes').insert({
-      nome: restNome, whatsapp, user_id: usuarioAtual.id, slug, cpf_cnpj: cpfCnpjLimpo
+      nome: restNome, whatsapp, user_id: usuarioAtual.id, slug
     }).select().single();
     if (restError) {
       msg.className = 'auth-msg erro';
       msg.textContent = 'Erro ao salvar restaurante: ' + restError.message;
       return;
     }
+    await db.from('restaurante_privado').insert({ restaurante_id: novoRest.id, cpf_cnpj: cpfCnpjLimpo });
     await criarCardapioExemplo(novoRest.id);
     await carregarRestaurante();
   } else {
@@ -1558,6 +1567,11 @@ function fecharSidebar() {
 
 // ===== NAVEGACAO =====
 function irPara(pagina) {
+  const paginasSomenteDono = ['relatorios', 'config', 'equipe'];
+  if (paginasSomenteDono.includes(pagina) && meuPapel !== 'dono') {
+    toast('Só o dono do restaurante tem acesso a essa área.', 'erro');
+    return;
+  }
   paginaAtual = pagina;
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('ativo'));
   event && event.currentTarget && event.currentTarget.classList.add('ativo');
@@ -2783,7 +2797,8 @@ function statusTrial(rest) {
 async function iniciarAssinatura(plano, btnEl) {
   if (!restauranteAtual || !usuarioAtual) return;
 
-  let cpfCnpj = restauranteAtual.cpf_cnpj || '';
+  const { data: privado } = await db.from('restaurante_privado').select('cpf_cnpj').eq('restaurante_id', restauranteAtual.id).maybeSingle();
+  let cpfCnpj = privado?.cpf_cnpj || '';
   if (!cpfCnpj) {
     cpfCnpj = prompt('Pra gerar o pagamento, informe seu CPF ou CNPJ (só números):');
     if (!cpfCnpj) return;
@@ -2792,9 +2807,8 @@ async function iniciarAssinatura(plano, btnEl) {
       toast('CPF ou CNPJ inválido. Digite só os números (11 ou 14 dígitos).', 'erro');
       return;
     }
-    // Salva no cadastro do restaurante pra não precisar perguntar de novo
-    await db.from('restaurantes').update({ cpf_cnpj: cpfCnpj }).eq('id', restauranteAtual.id);
-    restauranteAtual.cpf_cnpj = cpfCnpj;
+    // Salva na tabela protegida (só o dono acessa), pra não precisar perguntar de novo
+    await db.from('restaurante_privado').upsert({ restaurante_id: restauranteAtual.id, cpf_cnpj: cpfCnpj });
   }
 
   const textoOriginal = btnEl ? btnEl.textContent : '';
