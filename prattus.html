@@ -698,6 +698,13 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
     <div id="pub-fechado" style="display:none;background:rgba(0,0,0,0.5);border-radius:8px;padding:8px 16px;margin-top:10px;font-size:13px;color:#fff;">🔴 Fechado no momento</div>
   </div>
   <div class="pub-card">
+    <!-- AVALIAÇÃO PENDENTE -->
+    <div id="banner-avaliacao" style="display:none;background:var(--laranja-light);border:1.5px dashed var(--laranja);border-radius:10px;padding:16px;margin-bottom:14px;text-align:center;">
+      <div style="font-size:13.5px;font-weight:600;color:var(--laranja-dark);margin-bottom:10px;">Como foi sua última comida?</div>
+      <div style="font-size:28px;letter-spacing:6px;user-select:none;">
+        ${[1,2,3,4,5].map(n => `<span class="estrela-banner" data-n="${n}" onclick="avaliarDoCardapio(${n})" style="cursor:pointer;">☆</span>`).join('')}
+      </div>
+    </div>
     <!-- PEÇA DE NOVO -->
     <button id="btn-pedir-novo" onclick="pedirDeNovo()" style="display:none;width:100%;background:var(--laranja-light);color:var(--laranja-dark);border:1.5px dashed var(--laranja);border-radius:10px;padding:11px;font-size:13.5px;font-weight:600;cursor:pointer;margin-bottom:14px;align-items:center;justify-content:center;gap:8px;">
       🔁 Peça de novo — repetir seu último pedido
@@ -2778,6 +2785,7 @@ async function carregarPublico(restId) {
   }
 
   mostrarBotaoPedirNovo();
+  verificarAvaliacaoPendente();
   mostrarTela('cliente');
 }
 
@@ -2789,6 +2797,57 @@ function mostrarBotaoPedirNovo() {
     const salvo = JSON.parse(raw);
     if (Array.isArray(salvo) && salvo.length > 0) btn.style.display = 'flex';
   } catch (e) {}
+}
+
+let pedidoParaAvaliarId = null;
+const TEMPO_MINIMO_AVALIACAO_MS = 45 * 60 * 1000; // 45 minutos
+
+async function verificarAvaliacaoPendente() {
+  const raw = localStorage.getItem('servidelivery_ultimopedido_meta_' + restPublico.id);
+  if (!raw) return;
+  let meta;
+  try { meta = JSON.parse(raw); } catch (e) { return; }
+  if (!meta.pedidoId || !meta.criado_em) return;
+
+  const passou = Date.now() - new Date(meta.criado_em).getTime();
+  if (passou < TEMPO_MINIMO_AVALIACAO_MS) return;
+
+  const { data: pedido } = await db.from('pedidos').select('avaliacao').eq('id', meta.pedidoId).maybeSingle();
+  if (!pedido || pedido.avaliacao) return;
+
+  pedidoParaAvaliarId = meta.pedidoId;
+  const banner = document.getElementById('banner-avaliacao');
+  if (banner) banner.style.display = 'block';
+}
+
+async function avaliarPedidoGenerico(pedidoId, nota) {
+  try {
+    const resp = await fetch('/api/avaliar-pedido', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pedidoId, nota })
+    });
+    const data = await resp.json();
+    if (!resp.ok) { toast(data.error || 'Erro ao avaliar.', 'erro'); return false; }
+    toast('Obrigado pela avaliação! ⭐', 'ok');
+    return true;
+  } catch (e) {
+    toast('Erro de conexão. Tente de novo.', 'erro');
+    return false;
+  }
+}
+
+async function avaliarDoCardapio(nota) {
+  document.querySelectorAll('.estrela-banner').forEach(el => {
+    el.textContent = parseInt(el.dataset.n) <= nota ? '⭐' : '☆';
+  });
+  const ok = await avaliarPedidoGenerico(pedidoParaAvaliarId, nota);
+  if (ok) {
+    setTimeout(() => {
+      const banner = document.getElementById('banner-avaliacao');
+      if (banner) banner.style.display = 'none';
+    }, 1200);
+  }
 }
 
 function pedirDeNovo() {
@@ -3261,7 +3320,7 @@ async function mostrarAcompanhamento(pedidoId) {
         </div>
       </div>
 
-      ${pedido?.status === 'entregue' ? (
+      ${pedido && (Date.now() - new Date(pedido.criado_em).getTime() > TEMPO_MINIMO_AVALIACAO_MS) ? (
         pedido.avaliacao ? `
         <div style="background:var(--branco);border-radius:16px;padding:20px;border:1px solid var(--creme-borda);margin-bottom:16px;text-align:center;">
           <div style="font-size:13px;color:var(--texto-muted);margin-bottom:6px;">Sua avaliação</div>
@@ -3294,18 +3353,7 @@ function pintarEstrelas(nota) {
 
 async function avaliarPedido(pedidoId, nota) {
   pintarEstrelas(nota);
-  try {
-    const resp = await fetch('/api/avaliar-pedido', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pedidoId, nota })
-    });
-    const data = await resp.json();
-    if (!resp.ok) { toast(data.error || 'Erro ao avaliar.', 'erro'); return; }
-    toast('Obrigado pela avaliação! ⭐', 'ok');
-  } catch (e) {
-    toast('Erro de conexão. Tente de novo.', 'erro');
-  }
+  await avaliarPedidoGenerico(pedidoId, nota);
 }
 
 function adicionarItem(item) {
@@ -3612,6 +3660,9 @@ async function finalizarPedido() {
   window.open(`https://wa.me/${restPublico.whatsapp}?text=${encodeURIComponent(msg)}`, '_blank');
   try {
     localStorage.setItem('servidelivery_ultimopedido_' + restPublico.id, JSON.stringify(carrinho));
+    if (pedido) {
+      localStorage.setItem('servidelivery_ultimopedido_meta_' + restPublico.id, JSON.stringify({ pedidoId: pedido.id, criado_em: pedido.criado_em }));
+    }
   } catch (e) {}
   carrinho = [];
   descontoAtual = 0;
