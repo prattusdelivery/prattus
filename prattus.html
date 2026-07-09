@@ -698,11 +698,6 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
     <div id="pub-fechado" style="display:none;background:rgba(0,0,0,0.5);border-radius:8px;padding:8px 16px;margin-top:10px;font-size:13px;color:#fff;">🔴 Fechado no momento</div>
   </div>
   <div class="pub-card">
-    <!-- AVALIAÇÃO PENDENTE -->
-    <div id="banner-avaliacao" style="display:none;background:var(--laranja-light);border:1.5px dashed var(--laranja);border-radius:10px;padding:16px;margin-bottom:14px;text-align:center;">
-      <div style="font-size:13.5px;font-weight:600;color:var(--laranja-dark);margin-bottom:10px;">Como foi sua última comida?</div>
-      <div id="estrelas-banner-container" style="font-size:28px;letter-spacing:6px;user-select:none;"></div>
-    </div>
     <!-- PEÇA DE NOVO -->
     <button id="btn-pedir-novo" onclick="pedirDeNovo()" style="display:none;width:100%;background:var(--laranja-light);color:var(--laranja-dark);border:1.5px dashed var(--laranja);border-radius:10px;padding:11px;font-size:13.5px;font-weight:600;cursor:pointer;margin-bottom:14px;align-items:center;justify-content:center;gap:8px;">
       🔁 Peça de novo — repetir seu último pedido
@@ -729,6 +724,17 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
     </div>
     <span id="carr-total" style="font-weight:700">R$ 0,00</span>
   </div>
+</div>
+</div>
+
+<!-- MODAL: AVALIAÇÃO PENDENTE -->
+<div class="modal-overlay" id="modal-avaliacao">
+<div class="modal" style="max-width:360px;text-align:center;">
+  <button class="modal-fechar" style="margin-left:auto;display:flex;" onclick="fecharModal('modal-avaliacao')">×</button>
+  <div style="font-size:40px;margin-bottom:10px;">🍽️</div>
+  <div style="font-family:var(--font-display);font-size:19px;font-weight:600;margin-bottom:6px;">Como foi seu último pedido?</div>
+  <div style="font-size:13px;color:var(--texto-muted);margin-bottom:18px;">Sua opinião ajuda o restaurante a melhorar.</div>
+  <div id="estrelas-banner-container" style="font-size:36px;letter-spacing:10px;user-select:none;margin-bottom:6px;"></div>
 </div>
 </div>
 
@@ -2818,8 +2824,7 @@ async function verificarAvaliacaoPendente() {
   if (container) {
     container.innerHTML = [1,2,3,4,5].map(n => `<span class="estrela-banner" data-n="${n}" onclick="avaliarDoCardapio(${n})" style="cursor:pointer;">☆</span>`).join('');
   }
-  const banner = document.getElementById('banner-avaliacao');
-  if (banner) banner.style.display = 'block';
+  setTimeout(() => abrirModal('modal-avaliacao'), 900);
 }
 
 async function avaliarPedidoGenerico(pedidoId, nota) {
@@ -2845,10 +2850,7 @@ async function avaliarDoCardapio(nota) {
   });
   const ok = await avaliarPedidoGenerico(pedidoParaAvaliarId, nota);
   if (ok) {
-    setTimeout(() => {
-      const banner = document.getElementById('banner-avaliacao');
-      if (banner) banner.style.display = 'none';
-    }, 1200);
+    setTimeout(() => fecharModal('modal-avaliacao'), 900);
   }
 }
 
