@@ -22,13 +22,12 @@ export default async function handler(req, res) {
       'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
     };
 
-    // Confere se o pedido existe, já foi entregue e ainda não foi avaliado
-    const buscaResp = await fetch(`${SUPABASE_URL}/rest/v1/pedidos?id=eq.${pedidoId}&select=status,avaliacao`, { headers });
+    // Confere se o pedido existe e ainda não foi avaliado
+    const buscaResp = await fetch(`${SUPABASE_URL}/rest/v1/pedidos?id=eq.${pedidoId}&select=avaliacao,criado_em`, { headers });
     const buscaData = await buscaResp.json();
     const pedido = Array.isArray(buscaData) ? buscaData[0] : null;
 
     if (!pedido) return res.status(404).json({ error: 'Pedido não encontrado' });
-    if (pedido.status !== 'entregue') return res.status(400).json({ error: 'Esse pedido ainda não foi entregue.' });
     if (pedido.avaliacao) return res.status(400).json({ error: 'Esse pedido já foi avaliado.' });
 
     await fetch(`${SUPABASE_URL}/rest/v1/pedidos?id=eq.${pedidoId}`, {
