@@ -414,7 +414,7 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
 
 /* ===== RANKING (mais pedidos / peça também) - visual próprio, estilo etiqueta de comanda ===== */
 .pub-ranking-titulo{font-family:var(--font-display,serif);font-size:15px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
-.pub-ranking-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;margin-bottom:16px;-webkit-overflow-scrolling:touch;scrollbar-width:none;scroll-snap-type:x mandatory;scroll-padding-left:2px;}
+.pub-ranking-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;margin-bottom:16px;-webkit-overflow-scrolling:touch;scrollbar-width:none;scroll-snap-type:x mandatory;scroll-padding-left:2px;mask-image:linear-gradient(to right, black 92%, transparent 100%);-webkit-mask-image:linear-gradient(to right, black 92%, transparent 100%);}
 .pub-ranking-scroll::-webkit-scrollbar{display:none;}
 .pub-ranking-card{flex:0 0 auto;width:118px;background:var(--branco,#fff);border:1px solid var(--creme-borda);border-top:3px dashed var(--laranja);border-radius:10px;padding:8px;cursor:pointer;position:relative;scroll-snap-align:start;}
 .pub-ranking-foto{width:100%;height:72px;border-radius:6px;overflow:hidden;background:var(--creme);display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:6px;}
