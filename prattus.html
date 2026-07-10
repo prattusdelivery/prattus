@@ -412,6 +412,19 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
 }
 .pub-add:hover{background:var(--laranja-dark);transform:scale(1.06);}
 
+/* ===== RANKING (mais pedidos / peça também) - visual próprio, estilo etiqueta de comanda ===== */
+.pub-ranking-titulo{font-family:var(--font-display,serif);font-size:15px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.pub-ranking-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;margin-bottom:16px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.pub-ranking-scroll::-webkit-scrollbar{display:none;}
+.pub-ranking-card{flex:0 0 auto;width:118px;background:var(--branco,#fff);border:1px solid var(--creme-borda);border-top:3px dashed var(--laranja);border-radius:10px;padding:8px;cursor:pointer;position:relative;}
+.pub-ranking-foto{width:100%;height:72px;border-radius:6px;overflow:hidden;background:var(--creme);display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:6px;}
+.pub-ranking-foto img{width:100%;height:100%;object-fit:cover;}
+.pub-ranking-nome{font-size:11.5px;font-weight:600;line-height:1.25;margin-bottom:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:28px;}
+.pub-ranking-preco{font-size:11px;font-weight:700;color:var(--laranja);font-family:monospace;}
+.pub-ranking-plus{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:var(--laranja);color:#fff;border:none;font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.dark-mode .pub-ranking-card{background:#242424;border-color:#3a3a3a;}
+.dark-mode .pub-ranking-foto{background:#1c1c1c;}
+
 /* ===== MODAL ITEM - GRUPOS DE OPÇÕES (estilo card) ===== */
 .mic-grupo{margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--creme-borda);}
 .mic-grupo:last-child{border-bottom:none;}
@@ -719,6 +732,7 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
         🌙 Modo escuro
       </button>
     </div>
+    <div id="pub-ranking-wrap"></div>
     <div class="pub-cats" id="pub-cats"></div>
     <div id="pub-itens"></div>
   </div>
@@ -762,6 +776,7 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
     <button class="modal-fechar" onclick="fecharModal('modal-carrinho')">×</button>
   </div>
   <div id="carr-lista"></div>
+  <div id="carr-ranking-wrap" style="margin-top:6px;"></div>
 
   <!-- RESUMO -->
   <div style="margin-top:14px;border-top:1px solid var(--creme-borda);padding-top:12px;">
@@ -2878,6 +2893,7 @@ async function carregarPublico(restId) {
   // Itens
   todosItensPublico = itens || [];
   renderItensPublico(itens||[]);
+  carregarRankingPublico(rest.id).then(renderRankingHome);
 
   // Fretes no select
   const sel = document.getElementById('ped-bairro');
@@ -2957,6 +2973,61 @@ function pedirDeNovo(indice) {
   atualizarCarrinho();
   fecharModal('modal-meus-pedidos');
   abrirCarrinho();
+}
+
+let rankingItensPublico = [];
+
+async function carregarRankingPublico(restId) {
+  try {
+    const { data } = await db.from('pedido_itens')
+      .select('nome, quantidade, pedidos!inner(restaurante_id)')
+      .eq('pedidos.restaurante_id', restId)
+      .limit(500);
+    const contagem = {};
+    (data || []).forEach(i => { contagem[i.nome] = (contagem[i.nome] || 0) + (i.quantidade || 1); });
+    const ordenado = Object.entries(contagem).sort((a,b) => b[1] - a[1]).map(([nome]) => nome);
+    rankingItensPublico = ordenado
+      .map(nome => todosItensPublico.find(it => it.nome.toLowerCase() === nome.toLowerCase()))
+      .filter(item => item && !(item.esgotado_ate && new Date(item.esgotado_ate) > new Date()));
+  } catch (e) {
+    rankingItensPublico = [];
+  }
+}
+
+function renderRankingCard(item) {
+  const temOpcoes = item.opcoes && item.opcoes.length > 0;
+  const acao = temOpcoes ? `abrirModalItemPorId('${item.id}')` : `adicionarItemRapidoPorId('${item.id}')`;
+  return `
+    <div class="pub-ranking-card" onclick="abrirModalItemPorId('${item.id}')">
+      <div class="pub-ranking-foto">${item.foto_url ? `<img src="${esc(item.foto_url)}" onerror="this.parentElement.textContent='🍽️'">` : '🍽️'}</div>
+      <div class="pub-ranking-nome">${esc(item.nome)}</div>
+      <div class="pub-ranking-preco">${precoExibicaoItem(item)}</div>
+      <button class="pub-ranking-plus" onclick="event.stopPropagation();${acao}">+</button>
+    </div>
+  `;
+}
+
+function renderRankingHome() {
+  const wrap = document.getElementById('pub-ranking-wrap');
+  if (!wrap) return;
+  const top = rankingItensPublico.slice(0, 6);
+  if (top.length === 0) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = `
+    <div class="pub-ranking-titulo">🔥 Os mais pedidos da casa</div>
+    <div class="pub-ranking-scroll">${top.map(renderRankingCard).join('')}</div>
+  `;
+}
+
+function renderRankingCarrinho() {
+  const wrap = document.getElementById('carr-ranking-wrap');
+  if (!wrap) return;
+  const idsNoCarrinho = new Set(carrinho.map(c => c.id));
+  const sugestoes = rankingItensPublico.filter(item => !idsNoCarrinho.has(item.id)).slice(0, 6);
+  if (sugestoes.length === 0) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = `
+    <div class="pub-ranking-titulo" style="margin-top:4px;">✨ Vai bem junto</div>
+    <div class="pub-ranking-scroll">${sugestoes.map(renderRankingCard).join('')}</div>
+  `;
 }
 
 let pedidoParaAvaliarId = null;
@@ -3517,6 +3588,7 @@ function atualizarCarrinho() {
   document.getElementById('carr-qty').textContent = qtd;
   document.getElementById('carr-total').textContent = 'R$ ' + (total + fretesSelecionado).toFixed(2).replace('.',',');
   document.getElementById('carrinho-bar').className = 'carrinho-bar' + (qtd > 0 ? ' visivel' : '');
+  if (document.getElementById('modal-carrinho')?.classList.contains('aberto')) renderRankingCarrinho();
 }
 
 let modoAtual = 'delivery';
@@ -3693,6 +3765,7 @@ function alternarFormaPagamento() {
 function abrirCarrinho() {
   atualizarTotalCarrinho();
   alternarFormaPagamento();
+  renderRankingCarrinho();
 
   if (carrinho.length === 0) {
     document.getElementById('carr-lista').innerHTML = '<div class="empty"><div class="empty-ico">🛒</div><div class="empty-txt">Seu carrinho está vazio</div></div>';
