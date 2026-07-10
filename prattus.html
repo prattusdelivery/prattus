@@ -414,9 +414,9 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
 
 /* ===== RANKING (mais pedidos / peça também) - visual próprio, estilo etiqueta de comanda ===== */
 .pub-ranking-titulo{font-family:var(--font-display,serif);font-size:15px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
-.pub-ranking-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;margin-bottom:16px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.pub-ranking-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;margin-bottom:16px;-webkit-overflow-scrolling:touch;scrollbar-width:none;scroll-snap-type:x mandatory;scroll-padding-left:2px;}
 .pub-ranking-scroll::-webkit-scrollbar{display:none;}
-.pub-ranking-card{flex:0 0 auto;width:118px;background:var(--branco,#fff);border:1px solid var(--creme-borda);border-top:3px dashed var(--laranja);border-radius:10px;padding:8px;cursor:pointer;position:relative;}
+.pub-ranking-card{flex:0 0 auto;width:118px;background:var(--branco,#fff);border:1px solid var(--creme-borda);border-top:3px dashed var(--laranja);border-radius:10px;padding:8px;cursor:pointer;position:relative;scroll-snap-align:start;}
 .pub-ranking-foto{width:100%;height:72px;border-radius:6px;overflow:hidden;background:var(--creme);display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:6px;}
 .pub-ranking-foto img{width:100%;height:100%;object-fit:cover;}
 .pub-ranking-nome{font-size:11.5px;font-weight:600;line-height:1.25;margin-bottom:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:28px;}
@@ -1838,6 +1838,12 @@ async function mudarStatus(id, status) {
 }
 
 // ===== CARDAPIO =====
+async function toggleDestaque(itemId, destacarAgora) {
+  await db.from('itens').update({ destaque_manual: destacarAgora }).eq('id', itemId);
+  toast(destacarAgora ? 'Item forçado em destaque!' : 'Destaque removido.', 'ok');
+  renderCardapio();
+}
+
 async function toggleEsgotado(itemId, esgotarAgora) {
   let esgotadoAte = null;
   if (esgotarAgora) {
@@ -1871,11 +1877,12 @@ async function renderCardapio() {
         </div>
         ${(itens||[]).filter(i => i.categoria_id === cat.id).map(item => {
           const esgotado = item.esgotado_ate && new Date(item.esgotado_ate) > new Date();
+          const destacado = !!item.destaque_manual;
           return `
           <div class="item-card" style="${esgotado?'opacity:0.6;':''}">
             <div class="item-foto">${item.foto_url ? `<img src="${item.foto_url}" onerror="this.parentElement.textContent='🍽️'">` : '🍽️'}</div>
             <div style="flex:1;">
-              <div class="item-nome">${esc(item.nome)} ${esgotado?'<span style="font-size:10px;background:#FBE1DE;color:#B3261E;padding:2px 8px;border-radius:10px;font-weight:700;">ESGOTADO HOJE</span>':''}</div>
+              <div class="item-nome">${esc(item.nome)} ${esgotado?'<span style="font-size:10px;background:#FBE1DE;color:#B3261E;padding:2px 8px;border-radius:10px;font-weight:700;">ESGOTADO HOJE</span>':''} ${destacado?'<span style="font-size:10px;background:#FFF1E6;color:#C4522E;padding:2px 8px;border-radius:10px;font-weight:700;">⭐ EM DESTAQUE</span>':''}</div>
               <div class="item-desc">${esc(item.descricao)}</div>
               <div style="display:flex;gap:6px;margin-top:4px;">
                 ${item.vegetariano?'<span style="font-size:10px;background:#E1F5EE;color:#0F6E56;padding:2px 6px;border-radius:10px;">Vegetariano</span>':''}
@@ -1886,6 +1893,7 @@ async function renderCardapio() {
             <div style="text-align:right;">
               <div class="item-preco">R$ ${parseFloat(item.preco).toFixed(2).replace('.',',')}</div>
               <div class="item-acoes" style="margin-top:6px;">
+                <button class="btn-sm" onclick="toggleDestaque('${item.id}', ${destacado?'false':'true'})" style="${destacado?'background:var(--laranja-light);color:var(--laranja-dark);':''}">${destacado?'⭐ Tirar destaque':'☆ Forçar destaque'}</button>
                 <button class="btn-sm" onclick="toggleEsgotado('${item.id}', ${esgotado?'false':'true'})" style="${esgotado?'background:var(--verde-bg,#E1F5EE);color:#0F6E56;':'background:#FBE1DE;color:#B3261E;'}">${esgotado?'✅ Disponível':'🚫 Esgotou hoje'}</button>
                 <button class="btn-sm" onclick="editarItem('${item.id}')">Editar</button>
                 <button class="btn-sm perigo" onclick="excluirItem('${item.id}')">Excluir</button>
@@ -2986,9 +2994,16 @@ async function carregarRankingPublico(restId) {
     const contagem = {};
     (data || []).forEach(i => { contagem[i.nome] = (contagem[i.nome] || 0) + (i.quantidade || 1); });
     const ordenado = Object.entries(contagem).sort((a,b) => b[1] - a[1]).map(([nome]) => nome);
-    rankingItensPublico = ordenado
+    let porVendas = ordenado
       .map(nome => todosItensPublico.find(it => it.nome.toLowerCase() === nome.toLowerCase()))
       .filter(item => item && !(item.esgotado_ate && new Date(item.esgotado_ate) > new Date()));
+
+    // Itens que o dono forçou em destaque entram sempre primeiro, mesmo sem venda ainda
+    const destacados = todosItensPublico.filter(it => it.destaque_manual && !(it.esgotado_ate && new Date(it.esgotado_ate) > new Date()));
+    const idsDestacados = new Set(destacados.map(d => d.id));
+    porVendas = porVendas.filter(it => !idsDestacados.has(it.id));
+
+    rankingItensPublico = [...destacados, ...porVendas];
   } catch (e) {
     rankingItensPublico = [];
   }
