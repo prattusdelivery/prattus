@@ -3043,20 +3043,19 @@ function renderRankingCarrinho() {
   if (sugestoes.length === 0) { wrap.innerHTML = ''; return; }
   wrap.innerHTML = `
     <div class="pub-ranking-titulo" style="margin-top:4px;">✨ Vai bem junto</div>
-    <div class="pub-ranking-outer"><div class="pub-ranking-scroll">${sugestoes.map(renderRankingCard).join('')}</div></div>
+    <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-bottom:16px;">${sugestoes.map(renderRankingCard).join('')}</div>
   `;
-  ajustarRankingScrolls();
 }
 
 function ajustarRankingScrolls(tentativa) {
   tentativa = tentativa || 0;
   requestAnimationFrame(() => {
-    const CARD = 132, GAP = 10, MAX_VISIVEL = 3;
+    const CARD = 132, GAP = 10;
     let algumZerado = false;
     document.querySelectorAll('.pub-ranking-outer').forEach(outer => {
       const disponivel = outer.clientWidth;
       if (!disponivel) { algumZerado = true; return; }
-      const qtdCabe = Math.min(MAX_VISIVEL, Math.max(1, Math.floor((disponivel + GAP) / (CARD + GAP))));
+      const qtdCabe = Math.max(1, Math.floor((disponivel + GAP) / (CARD + GAP)));
       outer.style.width = (qtdCabe * (CARD + GAP) - GAP) + 'px';
     });
     if (algumZerado && tentativa < 5) setTimeout(() => ajustarRankingScrolls(tentativa + 1), 80);
