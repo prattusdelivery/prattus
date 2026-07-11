@@ -2294,6 +2294,15 @@ async function renderRelatorios(dataInicio = null, dataFim = null) {
   }
   const maxFat = Math.max(...dias.map(d => d.fat), 1);
 
+  // Horário de pico: quantidade de pedidos por hora do dia
+  const contagemHora = new Array(24).fill(0);
+  (pedPeriodo||[]).forEach(p => {
+    const h = new Date(p.criado_em).getHours();
+    contagemHora[h]++;
+  });
+  const maxPedidosHora = Math.max(...contagemHora, 1);
+  const horaPico = contagemHora.indexOf(Math.max(...contagemHora));
+
   const labelPeriodo = dataInicio ? `${dataInicio} a ${dataFim||'hoje'}` : 'Este mês';
 
   document.getElementById('conteudo').innerHTML = `
@@ -2350,6 +2359,19 @@ async function renderRelatorios(dataInicio = null, dataFim = null) {
             <div style="font-size:12px;color:var(--texto-muted);">Menos pedido: <strong>${esc(demandaOrdenada[demandaOrdenada.length-1]?.[0])||'-'}</strong></div>
           </div>
         ` : ''}
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <div class="card-titulo">⏰ Horário de pico</div>
+      <div style="font-size:12px;color:var(--texto-muted);margin-bottom:12px;">Quando os pedidos mais chegam — use isso pra organizar escala e estoque. Pico às <strong>${String(horaPico).padStart(2,'0')}h</strong>.</div>
+      <div class="barras" style="height:70px;">
+        ${contagemHora.map((qtd, h) => `
+          <div class="barra-wrap" style="${h%2!==0?'opacity:0.55;':''}">
+            <div class="barra" style="height:${Math.max(3, (qtd/maxPedidosHora)*60)}px;${h===horaPico?'background:var(--laranja-dark);':''}" title="${String(h).padStart(2,'0')}h — ${qtd} pedido(s)"></div>
+            <div class="barra-label" style="font-size:9px;">${h%3===0?String(h).padStart(2,'0'):''}</div>
+          </div>
+        `).join('')}
       </div>
     </div>
   `;
