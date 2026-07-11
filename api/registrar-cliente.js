@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { restauranteId, nome, telefone, totalPedido, pontosResgatados, fidelidadeAtiva } = req.body || {};
+    const { restauranteId, nome, telefone, totalPedido, pontosResgatados, fidelidadeAtiva, dataNascimento } = req.body || {};
     if (!restauranteId || !telefone || totalPedido == null) {
       return res.status(400).json({ error: 'Dados incompletos (restauranteId, telefone e totalPedido são obrigatórios)' });
     }
@@ -44,7 +44,8 @@ export default async function handler(req, res) {
           nome: nome || existente.nome,
           total_gasto: parseFloat(existente.total_gasto || 0) + parseFloat(totalPedido),
           total_pedidos: (existente.total_pedidos || 0) + 1,
-          pontos: pontosNovos
+          pontos: pontosNovos,
+          data_nascimento: dataNascimento || existente.data_nascimento || null
         })
       });
     } else {
@@ -54,7 +55,8 @@ export default async function handler(req, res) {
         headers: { ...headers, 'Prefer': 'return=representation' },
         body: JSON.stringify({
           restaurante_id: restauranteId, nome, telefone,
-          total_gasto: totalPedido, total_pedidos: 1, pontos: pontosGanhos
+          total_gasto: totalPedido, total_pedidos: 1, pontos: pontosGanhos,
+          data_nascimento: dataNascimento || null
         })
       });
       const criaData = await criaResp.json();
