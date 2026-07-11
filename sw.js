@@ -12,7 +12,7 @@ self.addEventListener('push', (event) => {
     icon: '/icon-192.png',
     badge: '/icon-192.png',
     vibrate: [200, 100, 200, 100, 200],
-    tag: 'novo-pedido',
+    tag: dados.tag || ('notif-' + Date.now()),
     renotify: true,
     data: { url: dados.url || '/prattus.html' }
   };
