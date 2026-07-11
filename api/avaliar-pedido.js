@@ -44,15 +44,20 @@ export default async function handler(req, res) {
         webpush.setVapidDetails('mailto:contato@servidelivery.com.br', process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
         const inscResp = await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?restaurante_id=eq.${pedido.restaurante_id}&select=id,subscription`, { headers });
         const inscricoes = await inscResp.json();
+        console.log('DEBUG inscricoes encontradas:', JSON.stringify(inscricoes));
         const payload = JSON.stringify({
           titulo: '⚠️ Avaliação baixa recebida',
           corpo: `Um cliente avaliou o pedido #${pedidoId.slice(-6).toUpperCase()} com ${notaNum} estrela${notaNum>1?'s':''}. Vale a pena entrar em contato.`,
           url: '/prattus.html'
         });
         for (const insc of (Array.isArray(inscricoes) ? inscricoes : [])) {
-          webpush.sendNotification(insc.subscription, payload).catch(() => {});
+          await webpush.sendNotification(insc.subscription, payload).catch(e => console.log('DEBUG erro sendNotification:', e.message));
         }
-      } catch (e) {}
+      } catch (e) {
+        console.log('DEBUG erro geral no bloco de notificação:', e.message);
+      }
+    } else {
+      console.log('DEBUG não entrou no bloco de notificação. notaNum:', notaNum, 'VAPID_PUBLIC_KEY existe:', !!process.env.VAPID_PUBLIC_KEY, 'VAPID_PRIVATE_KEY existe:', !!process.env.VAPID_PRIVATE_KEY);
     }
 
     return res.status(200).json({ ok: true });
