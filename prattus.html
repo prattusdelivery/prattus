@@ -805,11 +805,16 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
         <label class="modo-btn" id="modo-local" onclick="selecionarModo('local')">🍽️ Consumir no local</label>
       </div>
     </div>
+    <div class="form-group" id="campo-mesa" style="display:none;">
+      <label>Número da mesa</label>
+      <input type="text" id="ped-mesa" placeholder="Ex: 4">
+    </div>
 
     <!-- DADOS PESSOAIS -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <div class="form-group"><label>Nome completo</label><input type="text" id="ped-nome" placeholder="Seu nome"></div>
       <div class="form-group"><label>Telefone (com DDD)</label><input type="text" id="ped-telefone" placeholder="55999999999"></div>
+      <div class="form-group"><label>Data de nascimento (opcional)</label><input type="date" id="ped-nascimento"></div>
     </div>
 
     <!-- ENDERECO (só delivery) -->
@@ -2121,6 +2126,24 @@ function enviarPromocao(telefone) {
   window.open(`https://wa.me/${telefone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
+function estaAniversarioProximo(dataNasc, diasJanela) {
+  if (!dataNasc) return false;
+  const nasc = new Date(dataNasc + 'T00:00:00');
+  const hoje = new Date();
+  for (let i = 0; i <= diasJanela; i++) {
+    const d = new Date(hoje);
+    d.setDate(hoje.getDate() + i);
+    if (d.getMonth() === nasc.getMonth() && d.getDate() === nasc.getDate()) return true;
+  }
+  return false;
+}
+
+function enviarParabens(telefone, nome) {
+  if (!telefone) { toast('Esse cliente não tem telefone cadastrado.', 'erro'); return; }
+  const msg = `Feliz aniversário, ${nome}! 🎉🎂 Pra comemorar, preparamos uma condição especial pra você hoje. Bora pedir?`;
+  window.open(`https://wa.me/${telefone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
 async function renderClientes() {
   if (!restauranteAtual) return;
   const { data: clientes } = await db.from('clientes').select('*')
@@ -2128,7 +2151,24 @@ async function renderClientes() {
   const { data: recompensas } = await db.from('recompensas').select('*')
     .eq('restaurante_id', restauranteAtual.id).order('pontos_necessarios');
 
+  const aniversariantes = (clientes||[]).filter(c => estaAniversarioProximo(c.data_nascimento, 7));
+
   document.getElementById('conteudo').innerHTML = `
+    ${aniversariantes.length > 0 ? `
+    <div class="card" style="margin-bottom:20px;background:var(--laranja-light);border:1.5px dashed var(--laranja);">
+      <div class="card-titulo">🎂 Aniversariantes da semana</div>
+      ${aniversariantes.map(c => `
+        <div class="frete-row">
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:600;">${esc(c.nome)}</div>
+            <div style="font-size:12px;color:var(--texto-muted);">${new Date(c.data_nascimento+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'long'})}</div>
+          </div>
+          <button class="btn-sm" onclick="enviarParabens('${c.telefone}','${esc(c.nome).replace(/'/g,"\\'")}')">🎉 Enviar parabéns</button>
+        </div>
+      `).join('')}
+    </div>
+    ` : ''}
+
     <div class="card" style="margin-bottom:20px;">
       <div class="card-titulo">🎁 Recompensas de fidelidade</div>
       <div style="font-size:12px;color:var(--texto-muted);margin-bottom:14px;">O cliente acumula 1 ponto por real gasto. Crie prêmios que ele pode trocar na hora de fechar o pedido.</div>
@@ -2320,6 +2360,71 @@ function filtrarRelatorio() {
   const fim = document.getElementById('rel-fim').value;
   if (!inicio) { toast('Selecione a data inicial!', 'erro'); return; }
   renderRelatorios(inicio, fim || inicio);
+}
+
+function gerarCSV(linhas) {
+  return linhas.map(linha => linha.map(campo => {
+    const txt = String(campo ?? '');
+    return /[",;\n]/.test(txt) ? '"' + txt.replace(/"/g,'""') + '"' : txt;
+  }).join(';')).join('\r\n');
+}
+
+function baixarArquivoTexto(conteudo, nomeArquivo, tipo) {
+  const blob = new Blob(['\uFEFF' + conteudo], { type: tipo });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nomeArquivo;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function gerarQRMesas() {
+  const qtd = parseInt(document.getElementById('qtd-mesas').value);
+  if (!qtd || qtd < 1) { toast('Digite a quantidade de mesas.', 'erro'); return; }
+  const slug = restauranteAtual.slug;
+  const grid = document.getElementById('mesas-qr-grid');
+  let html = '';
+  for (let n = 1; n <= qtd; n++) {
+    const url = `https://servidelivery.com.br/${slug}?mesa=${n}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(url)}`;
+    html += `
+      <div style="text-align:center;border:1px solid var(--creme-borda);border-radius:10px;padding:12px;">
+        <img src="${qrUrl}" width="140" height="140" style="border-radius:6px;">
+        <div style="font-size:13px;font-weight:700;margin-top:6px;">Mesa ${n}</div>
+        <a href="${qrUrl}" download="mesa-${n}.png" style="font-size:11px;color:var(--laranja);">Baixar</a>
+      </div>
+    `;
+  }
+  grid.innerHTML = html;
+  toast(`${qtd} QR Codes gerados!`, 'ok');
+}
+
+async function exportarClientesCSV() {
+  if (!restauranteAtual) return;
+  toast('Gerando arquivo...', 'ok');
+  const { data: clientes } = await db.from('clientes').select('*').eq('restaurante_id', restauranteAtual.id).order('total_gasto', {ascending:false});
+  const linhas = [['Nome','Telefone','Total gasto','Total de pedidos','Pontos','Aniversário']];
+  (clientes||[]).forEach(c => linhas.push([
+    c.nome, c.telefone, parseFloat(c.total_gasto||0).toFixed(2).replace('.',','),
+    c.total_pedidos, c.pontos, c.data_nascimento ? new Date(c.data_nascimento+'T00:00:00').toLocaleDateString('pt-BR') : ''
+  ]));
+  baixarArquivoTexto(gerarCSV(linhas), `clientes-${restauranteAtual.nome.replace(/\s+/g,'-')}.csv`, 'text/csv;charset=utf-8');
+  toast('Arquivo de clientes baixado!', 'ok');
+}
+
+async function exportarPedidosCSV() {
+  if (!restauranteAtual) return;
+  toast('Gerando arquivo...', 'ok');
+  const { data: pedidos } = await db.from('pedidos').select('*').eq('restaurante_id', restauranteAtual.id).order('criado_em', {ascending:false}).limit(1000);
+  const linhas = [['Data','Subtotal','Frete','Total','Status','Avaliação']];
+  (pedidos||[]).forEach(p => linhas.push([
+    new Date(p.criado_em).toLocaleString('pt-BR'), parseFloat(p.subtotal||0).toFixed(2).replace('.',','),
+    parseFloat(p.frete||0).toFixed(2).replace('.',','), parseFloat(p.total||0).toFixed(2).replace('.',','),
+    p.status||'', p.avaliacao||''
+  ]));
+  baixarArquivoTexto(gerarCSV(linhas), `pedidos-${restauranteAtual.nome.replace(/\s+/g,'-')}.csv`, 'text/csv;charset=utf-8');
+  toast('Arquivo de pedidos baixado!', 'ok');
 }
 
 function exportarRelatorio() {
@@ -2680,11 +2785,30 @@ Não atendemos pedidos por aqui. Use o link acima 😊</div>
       </div>
 
       <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--creme-borda);">
+        <div style="font-size:15px;font-weight:600;margin-bottom:6px;">🍽️ QR Code das mesas</div>
+        <div style="font-size:13px;color:var(--texto-muted);margin-bottom:14px;">Gere um QR Code pra cada mesa. O cliente escaneia, o cardápio abre e o pedido já cai identificado ("Mesa 4") no seu painel.</div>
+        <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:14px;">
+          <div class="form-group" style="margin:0;">
+            <label style="font-size:12px;">Quantidade de mesas</label>
+            <input type="number" id="qtd-mesas" placeholder="Ex: 10" min="1" max="60" style="width:120px;">
+          </div>
+          <button class="btn-sm" onclick="gerarQRMesas()">Gerar QR Codes</button>
+        </div>
+        <div id="mesas-qr-grid" style="display:flex;flex-wrap:wrap;gap:16px;"></div>
+      </div>
+
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--creme-borda);">
         <div style="font-size:15px;font-weight:600;margin-bottom:6px;">🛡️ Segurança e emergência</div>
         <div style="font-size:13px;color:var(--texto-muted);margin-bottom:14px;">Proteja seus dados e mantenha os pedidos funcionando mesmo se o sistema sair do ar.</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <button onclick="baixarBackup()" class="btn btn-outline" style="width:auto;padding:10px 18px;display:flex;align-items:center;gap:8px;">
             💾 Baixar backup completo
+          </button>
+          <button onclick="exportarClientesCSV()" class="btn btn-outline" style="width:auto;padding:10px 18px;display:flex;align-items:center;gap:8px;">
+            📊 Baixar clientes (Excel)
+          </button>
+          <button onclick="exportarPedidosCSV()" class="btn btn-outline" style="width:auto;padding:10px 18px;display:flex;align-items:center;gap:8px;">
+            📊 Baixar pedidos (Excel)
           </button>
           <button onclick="cardapioEmergencia()" class="btn btn-outline" style="width:auto;padding:10px 18px;display:flex;align-items:center;gap:8px;border-color:var(--verde);color:var(--verde);">
             🆘 Cardápio de emergência via WhatsApp
@@ -2922,6 +3046,14 @@ async function carregarPublico(restId) {
   mostrarBotaoPedirNovo();
   verificarAvaliacaoPendente();
   mostrarTela('cliente');
+
+  // Se veio de um QR Code de mesa, já seleciona "consumir no local" com a mesa preenchida
+  const mesaParam = new URLSearchParams(window.location.search).get('mesa');
+  if (mesaParam) {
+    selecionarModo('local');
+    const campoMesaInput = document.getElementById('ped-mesa');
+    if (campoMesaInput) { campoMesaInput.value = mesaParam; campoMesaInput.readOnly = true; }
+  }
 }
 
 function mostrarBotaoPedirNovo() {
@@ -3623,8 +3755,10 @@ function selecionarModo(modo) {
   document.getElementById('modo-'+modo)?.classList.add('ativo');
   const blocoEndereco = document.getElementById('bloco-endereco');
   const blocoAgendamento = document.getElementById('bloco-agendamento');
+  const campoMesa = document.getElementById('campo-mesa');
   if (blocoEndereco) blocoEndereco.style.display = modo === 'delivery' ? 'block' : 'none';
   if (blocoAgendamento) blocoAgendamento.style.display = modo === 'retirada' ? 'block' : 'none';
+  if (campoMesa) campoMesa.style.display = modo === 'local' ? 'block' : 'none';
   if (modo !== 'delivery') { fretesSelecionado = 0; atualizarTotalCarrinho(); }
 }
 
@@ -3871,7 +4005,7 @@ async function finalizarPedido() {
     const respCliente = await fetch('/api/registrar-cliente', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ restauranteId: restPublico.id, nome, telefone, totalPedido: total, pontosResgatados: resgateAplicado ? resgateAplicado.pontosNecessarios : 0, fidelidadeAtiva: restPublico.fidelidade_ativa !== false })
+      body: JSON.stringify({ restauranteId: restPublico.id, nome, telefone, totalPedido: total, pontosResgatados: resgateAplicado ? resgateAplicado.pontosNecessarios : 0, fidelidadeAtiva: restPublico.fidelidade_ativa !== false, dataNascimento: document.getElementById('ped-nascimento')?.value || null })
     });
     const dataCliente = await respCliente.json();
     if (dataCliente.ok) clienteId = dataCliente.clienteId;
@@ -3882,7 +4016,8 @@ async function finalizarPedido() {
     ? (referencia ? `${endereco} (Ref: ${referencia})` : endereco)
     : (modoAtual === 'retirada' ? `Retirada no local${agendamento ? ' — '+agendamento : ''}` : 'Consumir no local');
 
-  const modoLabel = {delivery:'Delivery', retirada:'Retirar no local', local:'Consumir no local'}[modoAtual];
+  const mesaInformada = document.getElementById('ped-mesa')?.value?.trim();
+  const modoLabel = {delivery:'Delivery', retirada:'Retirar no local', local: mesaInformada ? `Consumir no local — Mesa ${mesaInformada}` : 'Consumir no local'}[modoAtual];
 
   const { data: pedido } = await db.from('pedidos').insert({
     restaurante_id: restPublico.id, cliente_id: clienteId,
