@@ -413,18 +413,20 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
 .pub-add:hover{background:var(--laranja-dark);transform:scale(1.06);}
 
 /* ===== RANKING (mais pedidos / peça também) - visual próprio, estilo etiqueta de comanda ===== */
-.pub-ranking-titulo{font-family:var(--font-display,serif);font-size:15px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
-.pub-ranking-outer{overflow:hidden;}
-.pub-ranking-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;margin-bottom:16px;-webkit-overflow-scrolling:touch;scrollbar-width:none;scroll-snap-type:x mandatory;}
-.pub-ranking-scroll::-webkit-scrollbar{display:none;}
-.pub-ranking-card{flex:0 0 auto;width:132px;background:var(--branco,#fff);border:1px solid var(--creme-borda);border-top:3px dashed var(--laranja);border-radius:10px;padding:9px;cursor:pointer;position:relative;scroll-snap-align:start;}
+.pub-ranking-titulo{font-family:var(--font-display,serif);font-size:15px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.pub-ranking-grid{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;}
+.pub-ranking-card{flex:0 0 auto;width:calc(33.333% - 7px);min-width:100px;max-width:140px;background:var(--branco,#fff);border:1px solid var(--creme-borda);border-top:3px dashed var(--laranja);border-radius:10px;padding:9px;cursor:pointer;position:relative;}
 .pub-ranking-foto{width:100%;height:86px;border-radius:6px;overflow:hidden;background:var(--creme);display:flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:6px;}
 .pub-ranking-foto img{width:100%;height:100%;object-fit:cover;}
 .pub-ranking-nome{font-size:11.5px;font-weight:600;line-height:1.25;margin-bottom:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:28px;}
 .pub-ranking-preco{font-size:11px;font-weight:700;color:var(--laranja);font-family:monospace;}
 .pub-ranking-plus{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:var(--laranja);color:#fff;border:none;font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.pub-ranking-caixa{background:var(--laranja-light,#FFF1E6);border:1.5px dashed var(--laranja);border-radius:12px;padding:14px;margin:14px 0;}
 .dark-mode .pub-ranking-card{background:#242424;border-color:#3a3a3a;}
 .dark-mode .pub-ranking-foto{background:#1c1c1c;}
+.dark-mode .pub-ranking-caixa{background:#2a1f18;}
+.pub-sugestao-box{background:var(--laranja-light);border-radius:12px;padding:14px 12px 4px;margin:12px 0 16px;}
+.dark-mode .pub-sugestao-box{background:rgba(232,99,57,0.12);}
 
 /* ===== MODAL ITEM - GRUPOS DE OPÇÕES (estilo card) ===== */
 .mic-grupo{margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--creme-borda);}
@@ -3030,25 +3032,7 @@ function renderRankingHome() {
   if (top.length === 0) { wrap.innerHTML = ''; return; }
   wrap.innerHTML = `
     <div class="pub-ranking-titulo">🔥 Os mais pedidos da casa</div>
-    <div class="pub-ranking-outer"><div class="pub-ranking-scroll">${top.map(renderRankingCard).join('')}</div></div>
-  `;
-  ajustarRankingScrolls();
-}
-
-function renderRankingLinha(item) {
-  const temOpcoes = item.opcoes && item.opcoes.length > 0;
-  const acao = temOpcoes ? `abrirModalItemPorId('${item.id}')` : `adicionarItemRapidoPorId('${item.id}')`;
-  return `
-    <div onclick="abrirModalItemPorId('${item.id}')" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px dashed var(--creme-borda);cursor:pointer;">
-      <div style="width:46px;height:46px;border-radius:8px;overflow:hidden;background:var(--creme);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">
-        ${item.foto_url ? `<img src="${esc(item.foto_url)}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.textContent='🍽️'">` : '🍽️'}
-      </div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(item.nome)}</div>
-        <div style="font-size:12px;color:var(--laranja);font-weight:700;font-family:monospace;">${precoExibicaoItem(item)}</div>
-      </div>
-      <button class="pub-ranking-plus" style="position:static;flex-shrink:0;" onclick="event.stopPropagation();${acao}">+</button>
-    </div>
+    <div class="pub-ranking-grid">${top.map(renderRankingCard).join('')}</div>
   `;
 }
 
@@ -3056,27 +3040,14 @@ function renderRankingCarrinho() {
   const wrap = document.getElementById('carr-ranking-wrap');
   if (!wrap) return;
   const idsNoCarrinho = new Set(carrinho.map(c => c.id));
-  const sugestoes = rankingItensPublico.filter(item => !idsNoCarrinho.has(item.id)).slice(0, 6);
+  const sugestoes = rankingItensPublico.filter(item => !idsNoCarrinho.has(item.id)).slice(0, 4);
   if (sugestoes.length === 0) { wrap.innerHTML = ''; return; }
   wrap.innerHTML = `
-    <div class="pub-ranking-titulo" style="margin-top:4px;">✨ Vai bem junto</div>
-    <div>${sugestoes.map(renderRankingLinha).join('')}</div>
+    <div class="pub-ranking-caixa">
+      <div class="pub-ranking-titulo" style="margin-bottom:8px;">✨ Vai bem junto <span style="font-size:11px;font-weight:400;color:var(--texto-muted);">(ainda não está no seu pedido)</span></div>
+      <div class="pub-ranking-grid">${sugestoes.map(renderRankingCard).join('')}</div>
+    </div>
   `;
-}
-
-function ajustarRankingScrolls(tentativa) {
-  tentativa = tentativa || 0;
-  requestAnimationFrame(() => {
-    const CARD = 132, GAP = 10;
-    let algumZerado = false;
-    document.querySelectorAll('.pub-ranking-outer').forEach(outer => {
-      const disponivel = outer.clientWidth;
-      if (!disponivel) { algumZerado = true; return; }
-      const qtdCabe = Math.max(1, Math.floor((disponivel + GAP) / (CARD + GAP)));
-      outer.style.width = (qtdCabe * (CARD + GAP) - GAP) + 'px';
-    });
-    if (algumZerado && tentativa < 5) setTimeout(() => ajustarRankingScrolls(tentativa + 1), 80);
-  });
 }
 
 let pedidoParaAvaliarId = null;
