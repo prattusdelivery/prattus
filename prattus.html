@@ -2289,10 +2289,16 @@ async function renderRelatorios(dataInicio = null, dataFim = null) {
   const periodoInicio = dataInicio ? new Date(dataInicio).toISOString() : inicioMes;
   const periodoFim = dataFim ? new Date(dataFim + 'T23:59:59').toISOString() : fimHoje;
 
-  const [{ data: pedPeriodo }, { data: pedAno }, { data: todosIds }] = await Promise.all([
+  // Período anterior de mesmo tamanho, pra comparação
+  const duracaoMs = new Date(periodoFim) - new Date(periodoInicio);
+  const periodoAnteriorFim = new Date(new Date(periodoInicio) - 1);
+  const periodoAnteriorInicio = new Date(periodoAnteriorFim.getTime() - duracaoMs);
+
+  const [{ data: pedPeriodo }, { data: pedAno }, { data: todosIds }, { data: pedAnterior }] = await Promise.all([
     db.from('pedidos').select('total,criado_em').eq('restaurante_id', rid).gte('criado_em', periodoInicio).lte('criado_em', periodoFim),
     db.from('pedidos').select('total,criado_em').eq('restaurante_id', rid).gte('criado_em', inicioAno),
-    db.from('pedidos').select('id').eq('restaurante_id', rid)
+    db.from('pedidos').select('id').eq('restaurante_id', rid),
+    db.from('pedidos').select('total').eq('restaurante_id', rid).gte('criado_em', periodoAnteriorInicio.toISOString()).lte('criado_em', periodoAnteriorFim.toISOString())
   ]);
 
   const { data: itensPed } = await db.from('pedido_itens').select('nome,quantidade')
@@ -2301,6 +2307,12 @@ async function renderRelatorios(dataInicio = null, dataFim = null) {
   const fatPeriodo = (pedPeriodo||[]).reduce((s,p) => s+parseFloat(p.total||0),0);
   const fatAno = (pedAno||[]).reduce((s,p) => s+parseFloat(p.total||0),0);
   const ticketMedio = (pedPeriodo||[]).length ? fatPeriodo / (pedPeriodo||[]).length : 0;
+
+  const fatAnterior = (pedAnterior||[]).reduce((s,p) => s+parseFloat(p.total||0),0);
+  const variacaoFat = fatAnterior > 0 ? ((fatPeriodo - fatAnterior) / fatAnterior * 100) : (fatPeriodo > 0 ? 100 : 0);
+  const variacaoTxt = fatAnterior > 0
+    ? `${variacaoFat >= 0 ? '↑' : '↓'} ${Math.abs(variacaoFat).toFixed(0)}% vs período anterior`
+    : (fatPeriodo > 0 ? 'Sem dados do período anterior pra comparar' : '');
 
   // Demanda por item
   const demanda = {};
@@ -2348,7 +2360,7 @@ async function renderRelatorios(dataInicio = null, dataFim = null) {
     </div>
 
     <div class="metricas" style="margin-bottom:24px;">
-      <div class="metrica"><div class="metrica-label">Faturamento (${labelPeriodo})</div><div class="metrica-val laranja">R$ ${fatPeriodo.toFixed(2).replace('.',',')}</div></div>
+      <div class="metrica"><div class="metrica-label">Faturamento (${labelPeriodo})</div><div class="metrica-val laranja">R$ ${fatPeriodo.toFixed(2).replace('.',',')}</div>${variacaoTxt ? `<div style="font-size:11px;font-weight:600;margin-top:2px;color:${variacaoFat>=0?'#0F6E56':'#C0392B'};">${variacaoTxt}</div>` : ''}</div>
       <div class="metrica"><div class="metrica-label">Pedidos no período</div><div class="metrica-val">${(pedPeriodo||[]).length}</div></div>
       <div class="metrica"><div class="metrica-label">Ticket médio</div><div class="metrica-val">R$ ${ticketMedio.toFixed(2).replace('.',',')}</div></div>
       <div class="metrica"><div class="metrica-label">Faturamento do ano</div><div class="metrica-val">R$ ${fatAno.toFixed(2).replace('.',',')}</div></div>
