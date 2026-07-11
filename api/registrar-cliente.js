@@ -45,7 +45,7 @@ export default async function handler(req, res) {
           total_gasto: parseFloat(existente.total_gasto || 0) + parseFloat(totalPedido),
           total_pedidos: (existente.total_pedidos || 0) + 1,
           pontos: pontosNovos,
-          data_nascimento: dataNascimento || existente.data_nascimento || null
+          data_nascimento: existente.data_nascimento || dataNascimento || null
         })
       });
     } else {
