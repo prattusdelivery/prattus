@@ -3814,7 +3814,11 @@ function atualizarCarrinho() {
   document.getElementById('carr-qty').textContent = qtd;
   document.getElementById('carr-total').textContent = 'R$ ' + (total + fretesSelecionado).toFixed(2).replace('.',',');
   document.getElementById('carrinho-bar').className = 'carrinho-bar' + (qtd > 0 ? ' visivel' : '');
-  if (document.getElementById('modal-carrinho')?.classList.contains('aberto')) renderRankingCarrinho();
+  if (document.getElementById('modal-carrinho')?.classList.contains('aberto')) {
+    renderListaCarrinho();
+    atualizarTotalCarrinho();
+    renderRankingCarrinho();
+  }
 }
 
 let modoAtual = 'delivery';
@@ -3990,23 +3994,20 @@ function alternarFormaPagamento() {
   }
 }
 
-function abrirCarrinho() {
-  atualizarTotalCarrinho();
-  alternarFormaPagamento();
-
+function renderListaCarrinho() {
   if (carrinho.length === 0) {
     document.getElementById('carr-lista').innerHTML = '<div class="empty"><div class="empty-ico">🛒</div><div class="empty-txt">Seu carrinho está vazio</div></div>';
   } else {
     document.getElementById('carr-lista').innerHTML = carrinho.map((item,idx) => `
       <div class="carr-item">
-        <div class="carr-item-foto">${item.foto ? `<img src="${item.foto}" onerror="this.parentElement.textContent='🍽️'">` : '🍽️'}</div>
+        <div class="carr-item-foto">${item.foto ? `<img src="${esc(item.foto)}" onerror="this.parentElement.textContent='🍽️'">` : '🍽️'}</div>
         <div style="flex:1;min-width:0;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
-            <div style="font-size:14px;font-weight:600;">${item.nome}${item.variacao ? `<span style="font-size:11px;font-weight:500;background:var(--laranja-light);color:var(--laranja);padding:2px 6px;border-radius:6px;margin-left:6px;">${item.variacao}</span>` : ''}</div>
+            <div style="font-size:14px;font-weight:600;">${esc(item.nome)}${item.variacao ? `<span style="font-size:11px;font-weight:500;background:var(--laranja-light);color:var(--laranja);padding:2px 6px;border-radius:6px;margin-left:6px;">${esc(item.variacao)}</span>` : ''}</div>
             <button class="carr-remove" onclick="removerItem(${idx})" title="Remover">×</button>
           </div>
           <div style="font-size:12px;color:var(--texto-muted);margin:2px 0 8px;">R$ ${parseFloat(item.preco).toFixed(2).replace('.',',')} cada</div>
-          <input type="text" class="carr-obs-input" placeholder="Observação (ex: sem cebola)" value="${item.obs||''}" onchange="atualizarObsItem(${idx}, this.value)">
+          <input type="text" class="carr-obs-input" placeholder="Observação (ex: sem cebola)" value="${esc(item.obs||'')}" onchange="atualizarObsItem(${idx}, this.value)">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
             <div class="carr-qty-ctrl">
               <button class="carr-btn" onclick="mudarQtd(${idx},-1)">−</button>
@@ -4019,6 +4020,12 @@ function abrirCarrinho() {
       </div>
     `).join('');
   }
+}
+
+function abrirCarrinho() {
+  atualizarTotalCarrinho();
+  alternarFormaPagamento();
+  renderListaCarrinho();
   abrirModal('modal-carrinho');
   renderRankingCarrinho();
 }
