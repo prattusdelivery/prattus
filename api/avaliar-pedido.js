@@ -1,4 +1,6 @@
-// Registra a nota (1 a 5) que o cliente deu pro pedido, só depois de entregue.
+// Registra a nota (1 a 5) que o cliente deu pro pedido, e alerta o dono se for nota baixa.
+import webpush from 'web-push';
+
 const SUPABASE_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
 
 export default async function handler(req, res) {
@@ -23,7 +25,7 @@ export default async function handler(req, res) {
     };
 
     // Confere se o pedido existe e ainda não foi avaliado
-    const buscaResp = await fetch(`${SUPABASE_URL}/rest/v1/pedidos?id=eq.${pedidoId}&select=avaliacao,criado_em`, { headers });
+    const buscaResp = await fetch(`${SUPABASE_URL}/rest/v1/pedidos?id=eq.${pedidoId}&select=avaliacao,criado_em,restaurante_id`, { headers });
     const buscaData = await buscaResp.json();
     const pedido = Array.isArray(buscaData) ? buscaData[0] : null;
 
@@ -35,6 +37,23 @@ export default async function handler(req, res) {
       headers: { ...headers, 'Prefer': 'return=minimal' },
       body: JSON.stringify({ avaliacao: notaNum })
     });
+
+    // Nota baixa (1 ou 2) dispara um alerta separado pro dono, pra ele poder tentar reverter
+    if (notaNum <= 2 && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+      try {
+        webpush.setVapidDetails('mailto:contato@servidelivery.com.br', process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
+        const inscResp = await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?restaurante_id=eq.${pedido.restaurante_id}&select=id,subscription`, { headers });
+        const inscricoes = await inscResp.json();
+        const payload = JSON.stringify({
+          titulo: '⚠️ Avaliação baixa recebida',
+          corpo: `Um cliente avaliou o pedido #${pedidoId.slice(-6).toUpperCase()} com ${notaNum} estrela${notaNum>1?'s':''}. Vale a pena entrar em contato.`,
+          url: '/prattus.html'
+        });
+        for (const insc of (Array.isArray(inscricoes) ? inscricoes : [])) {
+          webpush.sendNotification(insc.subscription, payload).catch(() => {});
+        }
+      } catch (e) {}
+    }
 
     return res.status(200).json({ ok: true });
   } catch (e) {
