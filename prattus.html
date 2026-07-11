@@ -647,6 +647,10 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
       Clientes
     </div>
+    <div class="nav-item" onclick="irPara('avaliacoes')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 16.8 5.8 20.3l1.6-6.8-5.2-4.6 6.9-.6z"/></svg>
+      Avaliações
+    </div>
     <div class="nav-section">Análise</div>
     <div class="nav-item nav-somente-dono" onclick="irPara('relatorios')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
@@ -1666,7 +1670,7 @@ function irPara(pagina) {
   
   const titulos = {
     dashboard:'Dashboard', pedidos:'Pedidos', cardapio:'Cardápio',
-    clientes:'Clientes', relatorios:'Relatórios', fretes:'Fretes por bairro',
+    clientes:'Clientes', avaliacoes:'Avaliações', relatorios:'Relatórios', fretes:'Fretes por bairro',
     cupons:'Cupons', config:'Configurações', equipe:'Equipe'
   };
   document.getElementById('topbar-titulo').textContent = titulos[pagina] || pagina;
@@ -1676,7 +1680,7 @@ function irPara(pagina) {
 
   const fns = {
     dashboard: renderDashboard, pedidos: renderPedidos,
-    cardapio: renderCardapio, clientes: renderClientes,
+    cardapio: renderCardapio, clientes: renderClientes, avaliacoes: renderAvaliacoes,
     relatorios: renderRelatorios, fretes: renderFretes,
     cupons: renderCupons, config: renderConfig, equipe: renderEquipe
   };
@@ -1773,6 +1777,47 @@ async function renderPedidos() {
         <div class="kanban-col-titulo"><span class="kanban-dot entrega"></span>A caminho / Finalizado <span class="kanban-count">${finalizados.length}</span></div>
         ${finalizados.length === 0 ? '<div class="kanban-empty">Nenhum pedido finalizado</div>' : finalizados.map(montaCard).join('')}
       </div>
+    </div>
+  `;
+}
+
+async function renderAvaliacoes() {
+  if (!restauranteAtual) return;
+  const { data: pedidos } = await db.from('pedidos')
+    .select('id,criado_em,total,avaliacao,observacao,pedido_itens(nome)')
+    .eq('restaurante_id', restauranteAtual.id)
+    .not('avaliacao', 'is', null)
+    .order('criado_em', {ascending: false});
+
+  const media = (pedidos||[]).length ? ((pedidos||[]).reduce((s,p)=>s+p.avaliacao,0) / (pedidos||[]).length) : 0;
+  const ruins = (pedidos||[]).filter(p => p.avaliacao <= 2);
+
+  document.getElementById('conteudo').innerHTML = `
+    <div class="metricas" style="margin-bottom:24px;">
+      <div class="metrica"><div class="metrica-label">Nota média</div><div class="metrica-val laranja">${media.toFixed(1)} ⭐</div></div>
+      <div class="metrica"><div class="metrica-label">Total de avaliações</div><div class="metrica-val">${(pedidos||[]).length}</div></div>
+      <div class="metrica"><div class="metrica-label">Avaliações ruins (1-2⭐)</div><div class="metrica-val" style="color:${ruins.length>0?'#C0392B':'inherit'};">${ruins.length}</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-titulo">Todas as avaliações</div>
+      ${(pedidos||[]).length === 0 ? '<div class="empty"><div class="empty-ico">⭐</div><div class="empty-txt">Nenhuma avaliação recebida ainda</div></div>' :
+        (pedidos||[]).map(p => {
+          const ruim = p.avaliacao <= 2;
+          const telefone = extrairTelefone(p);
+          const itensTxt = (p.pedido_itens||[]).map(i => esc(i.nome)).join(', ');
+          return `
+          <div class="frete-row" style="${ruim?'background:#FBE9E7;border-radius:8px;padding:10px;margin-bottom:6px;':''}">
+            <div style="flex:1;">
+              <div style="font-size:15px;">${'⭐'.repeat(p.avaliacao)}${'☆'.repeat(5-p.avaliacao)}</div>
+              <div style="font-size:12px;color:var(--texto-muted);margin-top:2px;">#${p.id.slice(-4).toUpperCase()} · ${new Date(p.criado_em).toLocaleDateString('pt-BR')} · R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
+              ${itensTxt ? `<div style="font-size:12px;color:var(--texto-muted);margin-top:2px;">${itensTxt}</div>` : ''}
+            </div>
+            ${ruim && telefone ? `<button class="btn-sm" onclick="window.open('https://wa.me/${telefone.replace(/\D/g,'')}?text=${encodeURIComponent('Olá! Vimos que sua última experiência não foi das melhores. Podemos conversar sobre o que houve?')}','_blank')">💬 Entrar em contato</button>` : ''}
+          </div>
+        `;
+        }).join('')
+      }
     </div>
   `;
 }
