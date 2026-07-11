@@ -1369,6 +1369,29 @@ async function ativarNotificacoes() {
     toast('Seu navegador não suporta notificações push.', 'erro');
     return;
   }
+
+  const jaAtiva = localStorage.getItem('notif_ativada_' + restauranteAtual.id) === 'true' && Notification.permission === 'granted';
+
+  if (jaAtiva) {
+    if (!confirm('Desativar as notificações de novo pedido nesse aparelho?')) return;
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = await reg?.pushManager.getSubscription();
+      if (sub) {
+        await fetch('/api/remover-push-subscription', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: sub.endpoint })
+        });
+        await sub.unsubscribe();
+      }
+    } catch (e) {}
+    localStorage.removeItem('notif_ativada_' + restauranteAtual.id);
+    toast('Notificações desativadas.', 'ok');
+    atualizarBotaoNotificacao();
+    return;
+  }
+
   const permissao = await Notification.requestPermission();
   if (permissao !== 'granted') {
     toast('Permissão de notificação negada. Ative nas configurações do navegador.', 'erro');
@@ -1401,9 +1424,9 @@ function atualizarBotaoNotificacao() {
   if (!suportado) { btn.style.display = 'none'; return; }
   const ativada = localStorage.getItem('notif_ativada_' + restauranteAtual.id) === 'true' && Notification.permission === 'granted';
   btn.style.display = 'inline-block';
-  btn.textContent = ativada ? '🔔 Notificações ativas' : '🔕 Ativar notificações';
-  btn.style.opacity = ativada ? '0.6' : '1';
-  btn.disabled = ativada;
+  btn.textContent = ativada ? '🔔 Notificações ativas · clique pra desativar' : '🔕 Ativar notificações';
+  btn.style.opacity = ativada ? '0.75' : '1';
+  btn.disabled = false;
 }
 
 function atualizarBotaoPausa() {
@@ -1820,7 +1843,8 @@ async function avancarStatus(id, novoStatus, nomeCliente, telefone, numPedido) {
   await db.from('pedidos').update({ status: novoStatus }).eq('id', id);
   toast('Status atualizado!', 'ok');
 
-  if (telefone) {
+  const avisosConfig = restauranteAtual?.avisos_whatsapp || {};
+  if (telefone && avisosConfig[novoStatus] !== false) {
     const mensagens = {
       preparando: `Olá ${nomeCliente}! Seu pedido #${numPedido} foi confirmado e já está sendo preparado.`,
       entrega: `Seu pedido #${numPedido} está pronto e saiu para entrega! Chegará em breve.`
@@ -2731,6 +2755,18 @@ async function renderConfig() {
         <div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Desligado, o cliente não acumula nem vê a opção de resgatar pontos no checkout.</div>
       </div>
       <div class="form-group">
+        <label style="font-weight:600;">Avisos automáticos por WhatsApp</label>
+        <div style="font-size:11px;color:var(--texto-muted);margin-bottom:8px;">Escolha em quais etapas o WhatsApp abre sozinho pra avisar o cliente.</div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;">
+          <input type="checkbox" id="cfg-aviso-preparando" ${(r.avisos_whatsapp?.preparando !== false) ? 'checked' : ''} style="width:auto;">
+          Avisar quando eu <strong>aceitar o pedido</strong>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="cfg-aviso-entrega" ${(r.avisos_whatsapp?.entrega !== false) ? 'checked' : ''} style="width:auto;">
+          Avisar quando <strong>sair para entrega</strong>
+        </label>
+      </div>
+      <div class="form-group">
         <label>Logo da loja</label>
         <input type="file" id="cfg-logo-arquivo" accept="image/*" onchange="uploadFotoGenerica(this,'cfg-logo','cfg-logo-preview','logo')">
         <div id="cfg-logo-status" style="font-size:12px;color:var(--texto-muted);margin-top:6px;"></div>
@@ -2896,6 +2932,10 @@ async function salvarConfig() {
     banner_url: document.getElementById('cfg-banner').value || null,
     cor_primaria: document.getElementById('cfg-cor').value,
     fidelidade_ativa: document.getElementById('cfg-fidelidade').checked,
+    avisos_whatsapp: {
+      preparando: document.getElementById('cfg-aviso-preparando').checked,
+      entrega: document.getElementById('cfg-aviso-entrega').checked
+    },
     tempo_entrega: document.getElementById('cfg-tempo').value || null,
     pedido_minimo: parseFloat(document.getElementById('cfg-minimo').value) || null,
     horarios_semana: horariosSemana,
