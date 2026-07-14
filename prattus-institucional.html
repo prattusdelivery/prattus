@@ -3,463 +3,458 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Prattus — Sistema de pedidos para restaurantes</title>
+<title>ServiDelivery — Sistema de pedidos para restaurantes</title>
+<meta name="description" content="Cardápio digital, painel de pedidos em tempo real e aviso automático pro cliente. Teste grátis por 30 dias.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --ink:#1B1917;
-    --ink-soft:#252019;
-    --paper:#F3EEE1;
-    --paper-dim:#E7E0CC;
-    --red:#E1503A;
-    --yellow:#E7A73D;
-    --green:#3C9F68;
-    --text-dark:#EDE4D3;
-    --text-muted:#A89C87;
-    --text-ink:#241F1A;
-    --display:'Space Grotesk',sans-serif;
-    --body:'Inter',sans-serif;
-    --mono:'JetBrains Mono',monospace;
-  }
-  *{box-sizing:border-box;margin:0;padding:0;}
-  html{scroll-behavior:smooth;}
-  body{
-    background:var(--ink);
-    color:var(--text-dark);
-    font-family:var(--body);
-    line-height:1.5;
-    -webkit-font-smoothing:antialiased;
-  }
-  a{color:inherit;text-decoration:none;}
-  img,svg{display:block;max-width:100%;}
-  .wrap{max-width:1180px;margin:0 auto;padding:0 28px;}
-  .eyebrow{
-    font-family:var(--mono);
-    font-size:12.5px;
-    letter-spacing:.14em;
-    text-transform:uppercase;
-    color:var(--text-muted);
-  }
-  h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:-.01em;}
-  :focus-visible{outline:2px solid var(--yellow);outline-offset:3px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --laranja:#E86339;
+  --laranja-dark:#C4522E;
+  --laranja-light:#FFF1E6;
+  --preto:#231914;
+  --creme:#FAF6F0;
+  --creme-2:#F1EAE0;
+  --creme-borda:#E8DFD3;
+  --texto:#231914;
+  --texto-muted:#8A7B6C;
+  --branco:#FFFFFF;
+  --verde:#0F6E56;
+  --verde-bg:#E5F3EE;
+  --font-display:'Fraunces',Georgia,serif;
+  --font-body:'Inter',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+}
+html{scroll-behavior:smooth;}
+body{font-family:var(--font-body);background:var(--creme);color:var(--texto);line-height:1.5;overflow-x:hidden;}
+a{color:inherit;text-decoration:none;}
+img{max-width:100%;display:block;}
+.wrap{max-width:1160px;margin:0 auto;padding:0 24px;}
+button, .btn{font-family:var(--font-body);cursor:pointer;border:none;}
 
-  /* ---------- NAV ---------- */
-  nav{
-    position:sticky;top:0;z-index:50;
-    background:rgba(27,25,23,.88);
-    backdrop-filter:blur(10px);
-    border-bottom:1px solid rgba(237,228,211,.08);
-  }
-  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:72px;}
-  .logo{font-family:var(--display);font-weight:700;font-size:21px;display:flex;align-items:center;gap:8px;}
-  .logo .dot{width:9px;height:9px;border-radius:50%;background:var(--green);display:inline-block;}
-  .navlinks{display:flex;gap:32px;font-size:14.5px;color:var(--text-muted);}
-  .navlinks a:hover{color:var(--text-dark);}
-  .btn{
-    font-family:var(--body);font-weight:600;font-size:14.5px;
-    padding:11px 22px;border-radius:8px;display:inline-block;
-    transition:transform .15s ease, background .15s ease;
-  }
-  .btn-primary{background:var(--green);color:#0F1A13;}
-  .btn-primary:hover{transform:translateY(-1px);background:#48B279;}
-  .btn-ghost{border:1px solid rgba(237,228,211,.25);color:var(--text-dark);}
-  .btn-ghost:hover{border-color:var(--text-dark);}
-  @media(max-width:760px){.navlinks{display:none;}}
+:focus-visible{outline:2.5px solid var(--laranja-dark);outline-offset:3px;}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:0.01ms !important;animation-iteration-count:1 !important;transition-duration:0.01ms !important;scroll-behavior:auto !important;}
+}
 
-  /* ---------- HERO ---------- */
-  .hero{padding:88px 0 64px;}
-  .hero .wrap{display:grid;grid-template-columns:1.05fr 1fr;gap:56px;align-items:center;}
-  .hero h1{font-size:clamp(34px,4.6vw,54px);line-height:1.06;margin:18px 0 20px;}
-  .hero h1 em{font-style:normal;color:var(--green);}
-  .hero p.lead{font-size:17.5px;color:var(--text-muted);max-width:46ch;margin-bottom:32px;}
-  .hero-ctas{display:flex;gap:14px;flex-wrap:wrap;}
-  @media(max-width:940px){.hero .wrap{grid-template-columns:1fr;}}
+.perf{height:28px;position:relative;background:radial-gradient(circle at 14px 14px, transparent 8px, var(--creme) 8.5px) repeat-x;background-size:28px 28px;}
 
-  /* ---------- KANBAN MOCKUP (signature element) ---------- */
-  .board{
-    background:var(--ink-soft);
-    border:1px solid rgba(237,228,211,.08);
-    border-radius:16px;
-    padding:18px;
-  }
-  .board-head{
-    display:flex;justify-content:space-between;align-items:center;
-    font-family:var(--mono);font-size:11.5px;color:var(--text-muted);
-    padding:2px 4px 14px;
-  }
-  .board-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
-  .col-label{
-    font-family:var(--mono);font-size:11px;letter-spacing:.06em;
-    display:flex;align-items:center;gap:6px;margin-bottom:10px;color:var(--text-muted);
-  }
-  .col-label .dot{width:7px;height:7px;border-radius:50%;}
-  .dot-red{background:var(--red);} .dot-yellow{background:var(--yellow);} .dot-green{background:var(--green);}
-  .ticket{
-    background:var(--paper);
-    color:var(--text-ink);
-    border-radius:6px;
-    padding:12px 12px 14px;
-    margin-bottom:10px;
-    position:relative;
-    box-shadow:0 6px 14px rgba(0,0,0,.25);
-  }
-  .ticket::before{
-    content:"";position:absolute;top:0;left:10px;right:10px;height:1px;
-    background:repeating-linear-gradient(90deg,rgba(36,31,26,.35) 0 6px,transparent 6px 12px);
-  }
-  .ticket .id{font-family:var(--mono);font-size:10.5px;color:#7A6E5B;}
-  .ticket .item{font-family:var(--body);font-weight:600;font-size:13.5px;margin:4px 0 2px;}
-  .ticket .meta{font-family:var(--mono);font-size:10.5px;color:#7A6E5B;}
-  .col-red .ticket{border-left:3px solid var(--red);}
-  .col-yellow .ticket{border-left:3px solid var(--yellow);}
-  .col-green .ticket{border-left:3px solid var(--green);}
-  .pulse{animation:pulse 2.6s ease-in-out infinite;}
-  @keyframes pulse{0%,100%{box-shadow:0 6px 14px rgba(225,80,58,.15);}50%{box-shadow:0 6px 22px rgba(225,80,58,.45);}}
-  @media (prefers-reduced-motion:reduce){.pulse{animation:none;}}
-  @media(max-width:520px){.board-cols{grid-template-columns:1fr;}}
+header{position:sticky;top:0;z-index:50;background:rgba(250,246,240,0.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--creme-borda);}
+nav{display:flex;align-items:center;justify-content:space-between;padding:18px 24px;max-width:1160px;margin:0 auto;}
+.logo{font-family:var(--font-display);font-size:22px;font-weight:600;letter-spacing:-0.3px;}
+.logo .d{color:var(--laranja);}
+.nav-links{display:flex;gap:32px;font-size:14px;font-weight:500;color:var(--texto);}
+.nav-links a:hover{color:var(--laranja-dark);}
+.nav-cta{background:var(--preto);color:var(--branco);padding:11px 22px;border-radius:8px;font-size:14px;font-weight:600;white-space:nowrap;}
+.nav-cta:hover{background:var(--laranja-dark);}
+@media(max-width:760px){.nav-links{display:none;}}
 
-  /* ---------- FEATURE STRIP ---------- */
-  .strip{border-top:1px solid rgba(237,228,211,.08);border-bottom:1px solid rgba(237,228,211,.08);padding:20px 0;}
-  .strip .wrap{display:flex;flex-wrap:wrap;gap:10px 26px;justify-content:center;font-family:var(--mono);font-size:12.5px;color:var(--text-muted);}
-  .strip span::before{content:"·";margin-right:26px;color:var(--text-muted);}
-  .strip span:first-child::before{content:none;}
+.hero{padding:76px 0 40px;position:relative;}
+.hero-grid{display:grid;grid-template-columns:1.05fr 0.95fr;gap:56px;align-items:center;}
+@media(max-width:900px){.hero-grid{grid-template-columns:1fr;gap:44px;}}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:11.5px;letter-spacing:1.5px;color:var(--laranja-dark);text-transform:uppercase;background:var(--laranja-light);padding:6px 12px;border-radius:100px;margin-bottom:22px;}
+.eyebrow::before{content:'●';font-size:8px;color:var(--verde);}
+h1{font-family:var(--font-display);font-size:clamp(34px,5vw,54px);line-height:1.06;font-weight:600;letter-spacing:-1px;margin-bottom:22px;}
+h1 .hl{color:var(--laranja);}
+.hero-sub{font-size:17px;color:var(--texto-muted);max-width:480px;margin-bottom:32px;line-height:1.65;}
+.hero-ctas{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:28px;}
+.btn-primary{background:var(--preto);color:var(--branco);padding:15px 28px;border-radius:9px;font-size:15px;font-weight:600;transition:transform .15s, background .15s;display:inline-block;}
+.btn-primary:hover{background:var(--laranja-dark);transform:translateY(-1px);}
+.btn-ghost{border:1.5px solid var(--creme-borda);padding:14.5px 26px;border-radius:9px;font-size:15px;font-weight:600;color:var(--texto);transition:border-color .15s,color .15s;display:inline-block;}
+.btn-ghost:hover{border-color:var(--laranja);color:var(--laranja-dark);}
+.hero-note{font-family:var(--font-mono);font-size:12px;color:var(--texto-muted);}
 
-  /* ---------- SECTIONS ---------- */
-  section{padding:96px 0;}
-  .section-head{max-width:640px;margin:0 auto 52px;text-align:center;}
-  .section-head h2{font-size:clamp(26px,3.4vw,36px);margin-top:12px;}
-  .section-head p{color:var(--text-muted);margin-top:14px;font-size:16px;}
+.hero-visual{position:relative;height:420px;}
+.mock-kanban{position:absolute;top:0;left:0;width:82%;background:var(--preto);border-radius:16px;padding:20px;box-shadow:0 30px 60px -20px rgba(35,25,20,0.35);z-index:2;}
+.mock-topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+.mock-title{color:var(--branco);font-family:var(--font-mono);font-size:12px;letter-spacing:0.5px;opacity:.55;}
+.mock-live{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;color:var(--verde);}
+.mock-live::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--verde);animation:pulse 1.8s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.mock-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.mock-col-label{font-family:var(--font-mono);font-size:9.5px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
+.mock-card{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px;margin-bottom:8px;}
+.mock-card.new{border-left:3px solid var(--laranja);}
+.mock-card.prep{border-left:3px solid #E0B84A;}
+.mock-card.way{border-left:3px solid var(--verde);}
+.mock-card-id{font-family:var(--font-mono);font-size:10px;color:rgba(255,255,255,0.45);}
+.mock-card-name{color:var(--branco);font-size:12.5px;font-weight:600;margin-top:2px;}
+.mock-card-sub{color:rgba(255,255,255,0.4);font-size:10.5px;margin-top:2px;}
 
-  /* Como funciona */
-  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:32px;}
-  .step{border-top:1px solid rgba(237,228,211,.15);padding-top:20px;}
-  .step .num{font-family:var(--mono);font-size:13px;color:var(--green);}
-  .step h3{font-size:19px;margin:10px 0 8px;}
-  .step p{color:var(--text-muted);font-size:15px;}
-  @media(max-width:800px){.steps{grid-template-columns:1fr;}}
+.mock-comanda{position:absolute;bottom:-6px;right:0;width:210px;background:var(--branco);border-radius:4px 4px 0 0;box-shadow:0 20px 40px -12px rgba(35,25,20,0.25);z-index:3;font-family:var(--font-mono);font-size:11px;padding:18px 16px 22px;transform:rotate(3deg);}
+.mock-comanda::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:12px;background:radial-gradient(circle at 10px 6px, var(--creme) 6px, transparent 6.5px) repeat-x;background-size:20px 12px;}
+.mock-comanda-h{text-align:center;font-weight:700;letter-spacing:1px;border-bottom:1px dashed var(--creme-borda);padding-bottom:8px;margin-bottom:8px;}
+.mock-comanda-row{display:flex;justify-content:space-between;color:var(--texto-muted);margin-bottom:4px;}
+.mock-comanda-total{display:flex;justify-content:space-between;font-weight:700;color:var(--texto);border-top:1px dashed var(--creme-borda);margin-top:8px;padding-top:8px;}
 
-  /* Recursos */
-  .grid-features{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
-  .fcard{
-    background:var(--ink-soft);border:1px solid rgba(237,228,211,.08);
-    border-radius:14px;padding:26px 24px;
-  }
-  .fcard svg{width:26px;height:26px;stroke:var(--green);margin-bottom:16px;}
-  .fcard h3{font-size:16.5px;margin-bottom:8px;}
-  .fcard p{font-size:14px;color:var(--text-muted);}
-  @media(max-width:900px){.grid-features{grid-template-columns:1fr 1fr;}}
-  @media(max-width:600px){.grid-features{grid-template-columns:1fr;}}
+section{padding:88px 0;}
+.section-head{max-width:640px;margin-bottom:56px;}
+.section-eyebrow{font-family:var(--font-mono);font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--laranja-dark);margin-bottom:14px;}
+h2{font-family:var(--font-display);font-size:clamp(28px,4vw,40px);font-weight:600;letter-spacing:-0.5px;line-height:1.15;}
+.section-sub{color:var(--texto-muted);font-size:16px;margin-top:14px;max-width:560px;}
 
-  /* Sem risco */
-  .trust-grid{grid-template-columns:repeat(3,1fr);max-width:940px;margin:0 auto;}
-  @media(max-width:700px){.trust-grid{grid-template-columns:1fr;}}
-  .lock-note{
-    font-family:var(--mono);font-size:11.5px;color:#3C8F63;
-    margin:2px 0 16px;
-  }
+.trilha{position:relative;}
+.trilha-linha{position:absolute;top:34px;left:0;right:0;height:0;border-top:2.5px dashed var(--creme-borda);z-index:0;}
+@media(max-width:820px){.trilha-linha{display:none;}}
+.trilha-passos{display:grid;grid-template-columns:repeat(3,1fr);gap:36px;position:relative;z-index:1;}
+@media(max-width:820px){.trilha-passos{grid-template-columns:1fr;}}
+.passo-num{width:68px;height:68px;border-radius:50%;background:var(--branco);border:2.5px dashed var(--creme-borda);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--laranja-dark);margin-bottom:20px;}
+.passo h3{font-family:var(--font-display);font-size:20px;font-weight:600;margin-bottom:10px;}
+.passo p{color:var(--texto-muted);font-size:14.5px;line-height:1.65;}
 
-  /* Preços */
-  .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;align-items:start;}
-  .plan{
-    background:var(--paper);color:var(--text-ink);border-radius:14px;
-    padding:30px 26px;position:relative;
-  }
-  .plan::before{
-    content:"";position:absolute;top:0;left:14px;right:14px;height:1px;
-    background:repeating-linear-gradient(90deg,rgba(36,31,26,.3) 0 6px,transparent 6px 12px);
-  }
-  .plan.popular{outline:2px solid var(--green);}
-  .tag-popular{
-    position:absolute;top:-12px;right:24px;background:var(--green);color:#0F1A13;
-    font-family:var(--mono);font-size:11px;padding:4px 10px;border-radius:20px;font-weight:700;
-  }
-  .plan .pname{font-family:var(--mono);font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#7A6E5B;margin-top:8px;}
-  .plan .price{font-family:var(--display);font-size:38px;margin:8px 0 2px;}
-  .plan .price span{font-family:var(--mono);font-size:14px;color:#7A6E5B;}
-  .plan ul{margin:20px 0 26px;list-style:none;}
-  .plan li{font-size:14px;padding:7px 0;border-top:1px dashed rgba(36,31,26,.18);}
-  .plan li:first-child{border-top:none;}
-  .plan .btn{width:100%;text-align:center;background:var(--text-ink);color:var(--paper);}
-  .plan .btn:hover{background:#3A322A;}
-  @media(max-width:900px){.plans{grid-template-columns:1fr;}}
+.recursos-nota{background:var(--branco);border-radius:14px;box-shadow:0 20px 50px -30px rgba(35,25,20,0.25);overflow:hidden;}
+.recurso-item{display:grid;grid-template-columns:56px 1fr;gap:20px;padding:26px 32px;border-bottom:1px dashed var(--creme-borda);align-items:flex-start;}
+.recurso-item:last-child{border-bottom:none;}
+.recurso-stamp{width:44px;height:44px;border-radius:50%;background:var(--laranja-light);color:var(--laranja-dark);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.recurso-item h3{font-family:var(--font-display);font-size:17.5px;font-weight:600;margin-bottom:4px;}
+.recurso-item p{color:var(--texto-muted);font-size:14px;line-height:1.6;}
+.recurso-tag{font-family:var(--font-mono);font-size:11px;color:var(--verde);background:var(--verde-bg);padding:2px 8px;border-radius:100px;margin-left:8px;white-space:nowrap;}
 
-  .plans-2{grid-template-columns:repeat(2,1fr);max-width:740px;margin:0 auto;}
-  @media(max-width:900px){.plans-2{grid-template-columns:1fr;}}
+.trocar-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;}
+@media(max-width:820px){.trocar-grid{grid-template-columns:1fr;}}
+.trocar-card{background:var(--preto);color:var(--branco);border-radius:14px;padding:30px 26px;}
+.trocar-card h3{font-family:var(--font-display);font-size:19px;font-weight:600;margin-bottom:10px;color:var(--branco);}
+.trocar-card p{color:rgba(255,255,255,0.6);font-size:14px;line-height:1.65;}
+.trocar-icon{width:36px;height:36px;border-radius:8px;background:rgba(232,99,57,0.18);color:var(--laranja);display:flex;align-items:center;justify-content:center;margin-bottom:18px;}
 
-  /* Comparativo de mercado */
-  .market-compare{
-    background:var(--paper);color:var(--text-ink);border-radius:14px;
-    padding:32px 34px;margin:40px auto 0;max-width:740px;
-  }
-  .market-compare .eyebrow{text-align:center;color:#7A6E5B;margin-bottom:22px;}
-  .compare-row{display:flex;align-items:center;gap:16px;margin-bottom:16px;}
-  .compare-row:last-of-type{margin-bottom:0;}
-  .compare-label{font-family:var(--mono);font-size:12.5px;width:170px;flex-shrink:0;}
-  .bar-track{flex:1;background:rgba(36,31,26,.08);border-radius:6px;height:16px;overflow:hidden;}
-  .bar-fill{height:100%;border-radius:6px;}
-  .bar-fill.prattus{background:var(--green);}
-  .bar-fill.market{background:#B0A48C;}
-  .compare-value{font-family:var(--mono);font-size:13px;font-weight:700;width:130px;text-align:right;flex-shrink:0;}
-  .compare-note{font-size:13.5px;color:#5C5344;text-align:center;margin-top:22px;padding-top:18px;border-top:1px dashed rgba(36,31,26,.18);}
-  .compare-source{font-family:var(--mono);font-size:10.5px;color:#8C8069;text-align:center;margin-top:10px;}
-  @media(max-width:600px){
-    .compare-row{flex-wrap:wrap;}
-    .compare-label{width:100%;}
-    .compare-value{width:100%;text-align:left;}
-  }
+.preco-wrap{display:flex;justify-content:center;}
+.recibo{width:100%;max-width:400px;background:var(--branco);border-radius:2px;box-shadow:0 30px 70px -30px rgba(35,25,20,0.35);font-family:var(--font-mono);position:relative;padding:36px 32px 32px;}
+.recibo::before,.recibo::after{content:'';position:absolute;left:0;right:0;height:12px;background:radial-gradient(circle at 10px 6px, var(--creme) 6px, transparent 6.5px) repeat-x;background-size:20px 12px;}
+.recibo::before{top:-1px;}
+.recibo::after{bottom:-1px;transform:scaleY(-1);}
+.recibo-h{text-align:center;margin-bottom:4px;}
+.recibo-h .rlogo{font-family:var(--font-display);font-size:22px;font-weight:600;}
+.recibo-h .rsub{font-size:11px;color:var(--texto-muted);letter-spacing:1px;text-transform:uppercase;margin-top:4px;}
+.recibo-div{border-top:1px dashed var(--creme-borda);margin:18px 0;}
+.recibo-item{display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0;color:var(--texto);}
+.recibo-item .ok{color:var(--verde);margin-right:6px;}
+.recibo-plans{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px;}
+.recibo-plan{border:1.5px solid var(--creme-borda);border-radius:10px;padding:16px 14px;text-align:center;position:relative;}
+.recibo-plan.destaque{border-color:var(--laranja);background:var(--laranja-light);}
+.recibo-plan .tag{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--laranja);color:#fff;font-size:9.5px;padding:3px 10px;border-radius:100px;letter-spacing:.5px;white-space:nowrap;}
+.recibo-plan .label{font-size:10.5px;color:var(--texto-muted);text-transform:uppercase;letter-spacing:1px;}
+.recibo-plan .price{font-family:var(--font-display);font-size:24px;font-weight:600;margin:6px 0 2px;}
+.recibo-plan .per{font-size:10px;color:var(--texto-muted);}
+.recibo-cta{display:block;text-align:center;background:var(--preto);color:var(--branco);padding:13px;border-radius:8px;font-size:12.5px;font-weight:700;margin-top:8px;letter-spacing:.3px;}
+.recibo-cta:hover{background:var(--laranja-dark);}
+.recibo-foot{text-align:center;font-size:10px;color:var(--texto-muted);margin-top:16px;}
 
-  /* CTA final */
-  .cta-final{text-align:center;background:var(--ink-soft);border-radius:20px;padding:64px 32px;margin:0 auto;max-width:1180px;}
-  .cta-final h2{font-size:clamp(26px,3.6vw,38px);margin-bottom:16px;}
-  .cta-final p{color:var(--text-muted);margin-bottom:30px;}
+.comp{background:var(--creme-2);border-radius:16px;padding:44px;display:flex;align-items:center;gap:48px;flex-wrap:wrap;}
+.comp-bars{flex:1;min-width:260px;}
+.comp-row{margin-bottom:18px;}
+.comp-row-label{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;}
+.comp-row-label b{font-family:var(--font-mono);}
+.comp-bar-bg{height:14px;background:var(--branco);border-radius:100px;overflow:hidden;}
+.comp-bar{height:100%;border-radius:100px;}
+.comp-text{flex:1;min-width:240px;}
+.comp-text p{color:var(--texto-muted);font-size:14px;line-height:1.65;}
+.comp-text .note{font-size:11.5px;color:var(--texto-muted);opacity:.7;margin-top:12px;font-style:italic;}
 
-  footer{padding:48px 0 40px;border-top:1px solid rgba(237,228,211,.08);}
-  footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:16px;font-size:13px;color:var(--text-muted);}
+.cta-final{background:var(--preto);color:var(--branco);border-radius:20px;padding:64px 40px;text-align:center;position:relative;overflow:hidden;}
+.cta-final h2{color:var(--branco);}
+.cta-final .section-sub2{color:rgba(255,255,255,0.55);font-size:16px;max-width:460px;margin:16px auto 32px;}
+.cta-final .btn-primary{background:var(--laranja);}
+.cta-final .btn-primary:hover{background:var(--laranja-dark);}
+
+footer{padding:40px 0 32px;border-top:1px solid var(--creme-borda);margin-top:20px;}
+.foot-row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;font-size:13px;color:var(--texto-muted);}
+
+.reveal{opacity:0;transform:translateY(16px);transition:opacity .6s ease, transform .6s ease;}
+.reveal.in{opacity:1;transform:translateY(0);}
 </style>
 </head>
 <body>
 
-<nav>
-  <div class="wrap">
-    <div class="logo"><span class="dot"></span>Prattus Delivery</div>
-    <div class="navlinks">
+<header>
+  <nav>
+    <div class="logo">Servi<span class="d">Delivery</span></div>
+    <div class="nav-links">
       <a href="#como-funciona">Como funciona</a>
       <a href="#recursos">Recursos</a>
       <a href="#precos">Preços</a>
     </div>
-    <a href="#precos" class="btn btn-primary">Começar agora</a>
-  </div>
-</nav>
-
-<header class="hero">
-  <div class="wrap">
-    <div>
-      <p class="eyebrow">Sistema de pedidos para restaurantes</p>
-      <h1>Seu pedido não some mais no meio do <em>WhatsApp</em>.</h1>
-      <p class="lead">Cardápio digital, painel de pedidos em tempo real e aviso automático pro cliente — tudo num só lugar, sem planilha e sem grupo lotado de mensagem.</p>
-      <div class="hero-ctas">
-        <a href="#precos" class="btn btn-primary">Ver planos</a>
-        <a href="#como-funciona" class="btn btn-ghost">Como funciona</a>
-      </div>
-    </div>
-
-    <div class="board" aria-hidden="true">
-      <div class="board-head">
-        <span>PAINEL · PEDIDOS DE HOJE</span>
-        <span>AO VIVO</span>
-      </div>
-      <div class="board-cols">
-        <div class="col-red">
-          <div class="col-label"><span class="dot dot-red"></span>NOVOS</div>
-          <div class="ticket pulse">
-            <div class="id">#0842</div>
-            <div class="item">Combo X2 + Coca</div>
-            <div class="meta">Delivery · Rua das Flores</div>
-          </div>
-        </div>
-        <div class="col-yellow">
-          <div class="col-label"><span class="dot dot-yellow"></span>EM PREPARO</div>
-          <div class="ticket">
-            <div class="id">#0839</div>
-            <div class="item">Pizza Marguerita G</div>
-            <div class="meta">Retirar · 18:40</div>
-          </div>
-        </div>
-        <div class="col-green">
-          <div class="col-label"><span class="dot dot-green"></span>A CAMINHO</div>
-          <div class="ticket">
-            <div class="id">#0835</div>
-            <div class="item">Marmita Fit</div>
-            <div class="meta">Delivery · Bairro Centro</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+    <a class="nav-cta" href="https://servidelivery.com.br/prattus.html?cadastro=true">Começar agora</a>
+  </nav>
 </header>
 
-<div class="strip">
-  <div class="wrap">
-    <span>Cardápio digital</span>
-    <span>Painel Kanban</span>
-    <span>WhatsApp automático</span>
-    <span>Pix</span>
-    <span>Fidelidade</span>
-    <span>Relatórios</span>
-  </div>
-</div>
+<main class="wrap">
 
-<section id="como-funciona">
-  <div class="wrap">
-    <div class="section-head">
-      <p class="eyebrow">Como funciona</p>
-      <h2>Do pedido à entrega, em três etapas</h2>
+  <section class="hero">
+    <div class="hero-grid">
+      <div>
+        <span class="eyebrow">Sistema de pedidos para restaurantes</span>
+        <h1>Seu pedido não some mais no meio do <span class="hl">WhatsApp.</span></h1>
+        <p class="hero-sub">Cardápio digital, painel de pedidos em tempo real e aviso automático pro cliente — tudo num só lugar, sem planilha e sem grupo lotado de mensagem.</p>
+        <div class="hero-ctas">
+          <a class="btn-primary" href="#precos">Ver planos</a>
+          <a class="btn-ghost" href="#como-funciona">Como funciona</a>
+        </div>
+        <div class="hero-note">Teste grátis por 30 dias · sem cartão de crédito</div>
+      </div>
+      <div class="hero-visual reveal">
+        <div class="mock-kanban">
+          <div class="mock-topbar">
+            <span class="mock-title">PAINEL · PEDIDOS DE HOJE</span>
+            <span class="mock-live">AO VIVO</span>
+          </div>
+          <div class="mock-cols">
+            <div>
+              <div class="mock-col-label">Novos</div>
+              <div class="mock-card new">
+                <div class="mock-card-id">#0842</div>
+                <div class="mock-card-name">Combo X2 + Coca</div>
+                <div class="mock-card-sub">Delivery · Rua das Flores</div>
+              </div>
+            </div>
+            <div>
+              <div class="mock-col-label">Em preparo</div>
+              <div class="mock-card prep">
+                <div class="mock-card-id">#0839</div>
+                <div class="mock-card-name">Pizza Marguerita G</div>
+                <div class="mock-card-sub">Retirar · 18:40</div>
+              </div>
+            </div>
+            <div>
+              <div class="mock-col-label">A caminho</div>
+              <div class="mock-card way">
+                <div class="mock-card-id">#0835</div>
+                <div class="mock-card-name">Marmita Fit</div>
+                <div class="mock-card-sub">Delivery · Bairro Centro</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mock-comanda">
+          <div class="mock-comanda-h">COMANDA #0842</div>
+          <div class="mock-comanda-row"><span>1x Combo X2</span><span>32,00</span></div>
+          <div class="mock-comanda-row"><span>1x Coca 600ml</span><span>7,00</span></div>
+          <div class="mock-comanda-row"><span>Taxa entrega</span><span>6,00</span></div>
+          <div class="mock-comanda-total"><span>TOTAL</span><span>R$45,00</span></div>
+        </div>
+      </div>
     </div>
-    <div class="steps">
-      <div class="step">
-        <p class="num">01</p>
-        <h3>Cliente faz o pedido</h3>
-        <p>Ele acessa seu cardápio digital, escolhe os itens com variações, aplica cupom e paga por Pix — sem baixar aplicativo.</p>
-      </div>
-      <div class="step">
-        <p class="num">02</p>
-        <h3>Pedido cai no seu painel</h3>
-        <p>Aparece na coluna <strong>Novos</strong> com som de aviso. Você arrasta pelo kanban conforme prepara, e o cliente recebe o WhatsApp certo a cada etapa.</p>
-      </div>
-      <div class="step">
-        <p class="num">03</p>
-        <h3>Cliente acompanha em tempo real</h3>
-        <p>Um link mostra o status ao vivo, sem precisar ficar perguntando "já saiu?". No fim, ele ganha pontos de fidelidade.</p>
-      </div>
-    </div>
-  </div>
-</section>
+  </section>
 
-<section id="recursos" style="background:var(--ink-soft);">
-  <div class="wrap">
-    <div class="section-head">
-      <p class="eyebrow">Recursos</p>
-      <h2>Feito para quem cansou de gerenciar pedido por print</h2>
-    </div>
-    <div class="grid-features">
-      <div class="fcard">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
-        <h3>Cardápio público</h3>
-        <p>Com busca, modo escuro, fotos e variações por item. Funciona pra delivery, retirada e consumo no local.</p>
-      </div>
-      <div class="fcard">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg>
-        <h3>Painel Kanban</h3>
-        <p>Três colunas coloridas — Novos, Em preparo, A caminho — com auto-atualização a cada 30 segundos.</p>
-      </div>
-      <div class="fcard">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M21 11.5a8.5 8.5 0 1 1-4-7.2L21 3l-1.3 4.3A8.4 8.4 0 0 1 21 11.5Z"/></svg>
-        <h3>WhatsApp automático</h3>
-        <p>Um clique dispara a mensagem certa pro cliente em cada etapa do pedido — sem digitar nada.</p>
-      </div>
-      <div class="fcard">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 2 4 6v6c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6l-8-4Z"/></svg>
-        <h3>Fidelidade</h3>
-        <p>Clientes sobem de nível — Bronze, Prata, Ouro — e acompanham os pontos pelo próprio link do pedido.</p>
-      </div>
-      <div class="fcard">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg>
-        <h3>Pix no checkout</h3>
-        <p>Chave exibida na hora do pagamento, com aviso pro cliente confirmar o envio direto no WhatsApp.</p>
-      </div>
-      <div class="fcard">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
-        <h3>Relatórios</h3>
-        <p>Faturamento, ranking de clientes e gráficos com filtro por período — pra saber o que realmente vende.</p>
-      </div>
-    </div>
-  </div>
-</section>
+  <div class="perf" aria-hidden="true"></div>
 
-<section id="sem-risco">
-  <div class="wrap">
-    <div class="section-head">
-      <p class="eyebrow">Por que trocar sem medo</p>
-      <h2>Você não larga o que já usa até ter certeza</h2>
-      <p>Perder pedido no meio da troca é o maior medo de quem já tem uma operação rodando. O Prattus foi pensado pra isso não acontecer.</p>
+  <section id="como-funciona">
+    <div class="section-head reveal">
+      <div class="section-eyebrow">Como funciona</div>
+      <h2>Do pedido à entrega, em três etapas.</h2>
+      <p class="section-sub">Sem manual de instruções — o fluxo é o mesmo que você já faz, só que sem planilha e sem perder mensagem no meio do caminho.</p>
     </div>
-    <div class="grid-features trust-grid">
-      <div class="fcard">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M7 7h10M7 7l3-3M7 7l3 3M17 17H7M17 17l-3-3M17 17l-3 3"/></svg>
+    <div class="trilha">
+      <div class="trilha-linha"></div>
+      <div class="trilha-passos">
+        <div class="passo reveal">
+          <div class="passo-num">01</div>
+          <h3>Cliente faz o pedido</h3>
+          <p>Ele acessa seu cardápio digital, escolhe os itens com variações, aplica cupom e paga por Pix — sem baixar aplicativo.</p>
+        </div>
+        <div class="passo reveal">
+          <div class="passo-num">02</div>
+          <h3>Pedido cai no seu painel</h3>
+          <p>Aparece na coluna Novos com som de aviso. Você arrasta o pedido de uma coluna pra outra conforme vai preparando, e o cliente recebe o WhatsApp certo a cada etapa.</p>
+        </div>
+        <div class="passo reveal">
+          <div class="passo-num">03</div>
+          <h3>Cliente acompanha ao vivo</h3>
+          <p>Um link mostra o status em tempo real, sem precisar ficar perguntando "já saiu?". No fim, ele ganha pontos de fidelidade.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="perf" aria-hidden="true"></div>
+
+  <section id="recursos">
+    <div class="section-head reveal">
+      <div class="section-eyebrow">Recursos</div>
+      <h2>Feito pra quem cansou de gerenciar pedido por print.</h2>
+    </div>
+    <div class="recursos-nota reveal">
+      <div class="recurso-item">
+        <div class="recurso-stamp">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-6 9 6-9 6-9-6z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M3 9v6l9 6 9-6V9" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        </div>
+        <div>
+          <h3>Cardápio público <span class="recurso-tag">sempre online</span></h3>
+          <p>Com busca, modo escuro, fotos e variações por item. Funciona pra delivery, retirada e consumo no local.</p>
+        </div>
+      </div>
+      <div class="recurso-item">
+        <div class="recurso-stamp">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18M9 10v10" stroke="currentColor" stroke-width="1.8"/></svg>
+        </div>
+        <div>
+          <h3>Painel de pedidos</h3>
+          <p>Três colunas coloridas — Novos, Em preparo, A caminho. Você só arrasta o pedido de uma coluna pra outra conforme vai preparando, sem precisar digitar nada.</p>
+        </div>
+      </div>
+      <div class="recurso-item">
+        <div class="recurso-stamp">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M21 11.5a8.4 8.4 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.4 8.4 0 01-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.4 8.4 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        </div>
+        <div>
+          <h3>WhatsApp automático</h3>
+          <p>Um clique dispara a mensagem certa pro cliente em cada etapa do pedido — sem digitar nada.</p>
+        </div>
+      </div>
+      <div class="recurso-item">
+        <div class="recurso-stamp">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.5 5.5L20 8l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5L12 2z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+        </div>
+        <div>
+          <h3>Fidelidade</h3>
+          <p>Clientes sobem de nível — Bronze, Prata, Ouro — e acompanham os pontos pelo próprio link do pedido.</p>
+        </div>
+      </div>
+      <div class="recurso-item">
+        <div class="recurso-stamp">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M7 3v18M3 7h4M3 17h4M17 3v18M15 7h4M15 17h4M12 3v18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </div>
+        <div>
+          <h3>Pix na hora de pagar</h3>
+          <p>QR Code e código copia-e-cola aparecem na hora — o cliente paga direto pra sua chave, sem taxa extra.</p>
+        </div>
+      </div>
+      <div class="recurso-item">
+        <div class="recurso-stamp">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 19V9m6 10V5m6 14v-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </div>
+        <div>
+          <h3>Relatórios</h3>
+          <p>Faturamento, ranking de clientes e gráficos com filtro por período — pra saber o que realmente vende.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="perf" aria-hidden="true"></div>
+
+  <section>
+    <div class="section-head reveal">
+      <div class="section-eyebrow">Por que trocar sem medo</div>
+      <h2>Você não larga o que já usa até ter certeza.</h2>
+      <p class="section-sub">Perder pedido no meio da troca é o maior medo de quem já tem uma operação rodando. O ServiDelivery foi pensado pra isso não acontecer.</p>
+    </div>
+    <div class="trocar-grid">
+      <div class="trocar-card reveal">
+        <div class="trocar-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        </div>
         <h3>Roda em paralelo</h3>
-        <p>Continue atendendo do jeito que já atende. Testa o Prattus por 30 dias sem desligar nada — só migra de verdade quando confiar.</p>
+        <p>Continue atendendo do jeito que já atende. Testa o ServiDelivery por 30 dias sem desligar nada — só migra de verdade quando confiar.</p>
       </div>
-      <div class="fcard">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7-2.6"/></svg>
+      <div class="trocar-card reveal">
+        <div class="trocar-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="9" rx="1.5" stroke="currentColor" stroke-width="1.8"/><path d="M8 11V7a4 4 0 018 0v4" stroke="currentColor" stroke-width="1.8"/></svg>
+        </div>
         <h3>Sem fidelidade</h3>
         <p>Cancela quando quiser, sem multa e sem burocracia. Se não funcionar pro seu restaurante, você não fica preso.</p>
       </div>
-      <div class="fcard">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M9 11l2 2 4-4"/><rect x="4" y="4" width="16" height="16" rx="3"/></svg>
+      <div class="trocar-card reveal">
+        <div class="trocar-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 11l3 3L22 4M21 12v6a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2h11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
         <h3>Cadastro guiado</h3>
         <p>Um passo a passo dentro do próprio painel leva você do zero ao cardápio pronto — sem depender de ninguém pra começar.</p>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<section id="precos" style="background:var(--ink-soft);">
-  <div class="wrap">
-    <div class="section-head">
-      <p class="eyebrow">Preços</p>
+  <div class="perf" aria-hidden="true"></div>
+
+  <section id="precos">
+    <div class="section-head reveal" style="margin-left:auto;margin-right:auto;text-align:center;">
+      <div class="section-eyebrow">Preços</div>
       <h2>Um preço só. Tudo incluso.</h2>
-      <p>Sem plano reduzido, sem letra miúda. Escolha só como prefere pagar.</p>
+      <p class="section-sub" style="margin-left:auto;margin-right:auto;">Sem plano reduzido, sem letra miúda. Escolha só como prefere pagar.</p>
     </div>
-    <div class="plans plans-2">
-      <div class="plan">
-        <p class="pname">Mensal</p>
-        <p class="price">R$ 36<span>,90/mês</span></p>
-        <ul>
-          <li>Cardápio público próprio</li>
-          <li>Painel Kanban de pedidos</li>
-          <li>Pedidos ilimitados</li>
-          <li>WhatsApp automático por etapa</li>
-          <li>Pix no checkout</li>
-          <li>Fidelidade, cupons e fretes por bairro</li>
-          <li>Relatórios com gráficos</li>
-        </ul>
-        <p class="lock-note">💚 preço justo, sem letra miúda</p>
-        <a href="mailto:contato@prattusdelivery.com.br?subject=Quero%20o%20plano%20mensal%20do%20Prattus" class="btn">Assinar mensal</a>
-      </div>
-      <div class="plan popular">
-        <span class="tag-popular">Economize R$73,80</span>
-        <p class="pname">Anual</p>
-        <p class="price">R$ 369<span>,00/ano</span></p>
-        <ul>
-          <li>Cardápio público próprio</li>
-          <li>Painel Kanban de pedidos</li>
-          <li>Pedidos ilimitados</li>
-          <li>WhatsApp automático por etapa</li>
-          <li>Pix no checkout</li>
-          <li>Fidelidade, cupons e fretes por bairro</li>
-          <li>Relatórios com gráficos</li>
-        </ul>
-        <p class="lock-note">🔒 sai por R$30,75/mês</p>
-        <a href="mailto:contato@prattusdelivery.com.br?subject=Quero%20o%20plano%20anual%20do%20Prattus" class="btn">Assinar anual</a>
+    <div class="preco-wrap reveal">
+      <div class="recibo">
+        <div class="recibo-h">
+          <div class="rlogo">Servi<span style="color:var(--laranja);">Delivery</span></div>
+          <div class="rsub">plano único</div>
+        </div>
+        <div class="recibo-div"></div>
+        <div class="recibo-item"><span><span class="ok">✓</span>Cardápio público próprio</span></div>
+        <div class="recibo-item"><span><span class="ok">✓</span>Painel de pedidos em tempo real</span></div>
+        <div class="recibo-item"><span><span class="ok">✓</span>Pedidos ilimitados</span></div>
+        <div class="recibo-item"><span><span class="ok">✓</span>WhatsApp automático por etapa</span></div>
+        <div class="recibo-item"><span><span class="ok">✓</span>Pix no checkout</span></div>
+        <div class="recibo-item"><span><span class="ok">✓</span>Fidelidade, cupons e fretes por bairro</span></div>
+        <div class="recibo-item"><span><span class="ok">✓</span>Relatórios com gráficos</span></div>
+        <div class="recibo-plans">
+          <div class="recibo-plan">
+            <div class="label">Mensal</div>
+            <div class="price">R$36,90</div>
+            <div class="per">/mês</div>
+          </div>
+          <div class="recibo-plan destaque">
+            <span class="tag">ECONOMIZE R$73,80</span>
+            <div class="label">Anual</div>
+            <div class="price">R$369</div>
+            <div class="per">R$30,75/mês</div>
+          </div>
+        </div>
+        <a class="recibo-cta" href="https://servidelivery.com.br/prattus.html?cadastro=true">COMEÇAR TESTE GRÁTIS →</a>
+        <div class="recibo-foot">30 dias grátis · cancele quando quiser</div>
       </div>
     </div>
+  </section>
 
-    <div class="market-compare">
-      <p class="eyebrow">Comparado ao que o setor cobra hoje</p>
-      <div class="compare-row">
-        <span class="compare-label">Prattus</span>
-        <div class="bar-track"><div class="bar-fill prattus" style="width:17%"></div></div>
-        <span class="compare-value">R$ 36,90/mês</span>
+  <section style="padding-top:0;">
+    <div class="comp reveal">
+      <div class="comp-bars">
+        <div class="comp-row">
+          <div class="comp-row-label"><span>ServiDelivery</span><b>R$ 36,90/mês</b></div>
+          <div class="comp-bar-bg"><div class="comp-bar" style="width:13%;background:var(--laranja);"></div></div>
+        </div>
+        <div class="comp-row">
+          <div class="comp-row-label"><span>Líder de mercado</span><b>a partir de R$ 299,99/mês</b></div>
+          <div class="comp-bar-bg"><div class="comp-bar" style="width:100%;background:var(--preto);opacity:.75;"></div></div>
+        </div>
       </div>
-      <div class="compare-row">
-        <span class="compare-label">Líder de mercado</span>
-        <div class="bar-track"><div class="bar-fill market" style="width:100%"></div></div>
-        <span class="compare-value">a partir de R$ 219,99/mês</span>
+      <div class="comp-text">
+        <p>87% mais barato que o principal concorrente do mercado — com o essencial pra seu delivery rodar bem: cardápio, painel de pedidos, WhatsApp automático, fidelidade e relatórios.</p>
+        <div class="note">* com base em preços públicos divulgados por plataformas do setor</div>
       </div>
-      <p class="compare-note"><strong>83% mais em conta</strong> que o líder de mercado, com cardápio, kanban, WhatsApp automático, fidelidade e relatórios já inclusos desde o primeiro plano.</p>
-      <p class="compare-source">com base em preços públicos divulgados por plataformas do setor</p>
     </div>
-  </div>
-</section>
+  </section>
 
-<section>
-  <div class="wrap">
-    <div class="cta-final">
+  <section>
+    <div class="cta-final reveal">
       <h2>Bora tirar o pedido do WhatsApp bagunçado?</h2>
-      <p>Fala com a gente e coloca seu restaurante no Prattus ainda essa semana.</p>
-      <a href="mailto:contato@prattusdelivery.com.br?subject=Quero%20conhecer%20o%20Prattus" class="btn btn-primary">Falar com a gente</a>
+      <p class="section-sub2">Cria sua conta agora e testa grátis por 30 dias — sem cartão de crédito.</p>
+      <a class="btn-primary" href="https://servidelivery.com.br/prattus.html?cadastro=true">Criar conta grátis</a>
+      <div style="margin-top:18px;"><a href="https://wa.me/55997092904?text=Quero%20conhecer%20o%20ServiDelivery" style="color:rgba(255,255,255,0.55);font-size:13px;text-decoration:underline;">ou prefere conversar antes? Fala com a gente no WhatsApp</a></div>
     </div>
-  </div>
-</section>
+  </section>
 
-<footer>
-  <div class="wrap">
-    <div><strong style="font-family:var(--display);">Prattus</strong> — prattusdelivery.com.br</div>
-    <div>contato@prattusdelivery.com.br</div>
+</main>
+
+<footer class="wrap">
+  <div class="foot-row">
+    <div class="logo" style="font-size:16px;">Servi<span class="d">Delivery</span></div>
+    <span>© 2026 ServiDelivery · Frederico Westphalen, RS</span>
+    <a href="mailto:contato@servidelivery.com.br">contato@servidelivery.com.br</a>
   </div>
 </footer>
+
+<script>
+(function(){
+  var els = document.querySelectorAll('.reveal');
+  if (!('IntersectionObserver' in window)) { els.forEach(function(e){e.classList.add('in');}); return; }
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if (entry.isIntersecting) { entry.target.classList.add('in'); io.unobserve(entry.target); }
+    });
+  }, {threshold:0.15});
+  els.forEach(function(e){ io.observe(e); });
+})();
+</script>
 
 </body>
 </html>
