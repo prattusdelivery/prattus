@@ -606,7 +606,7 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
         <input type="password" id="cad-senha" placeholder="Mínimo 6 caracteres">
       </div>
       <div id="campo-trial-info" style="background:var(--laranja-light);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--laranja-dark,#C4522E);">
-        🎁 <strong>Teste grátis de 30 dias</strong> incluso automaticamente, sem cartão de crédito.
+        🎁 <strong>Teste grátis de 14 dias</strong> incluso automaticamente, sem cartão de crédito.
       </div>
       <button class="btn btn-laranja" onclick="fazerCadastro()">Criar conta</button>
       <div id="cad-msg"></div>
@@ -1248,7 +1248,7 @@ async function carregarSuperAdmin() {
   function statusDe(r) {
     const diasDesde = Math.floor((Date.now() - new Date(r.criado_em)) / 86400000);
     if (r.plano_ativo) return 'ativo';
-    if (diasDesde <= 30) return 'teste';
+    if (diasDesde <= 14) return 'teste';
     return 'vencido';
   }
 
@@ -1262,7 +1262,7 @@ async function carregarSuperAdmin() {
     const status = statusDe(r);
     const badges = {
       ativo: { txt: '💚 Assinante pago', cor: '#2ea043' },
-      teste: { txt: `🎁 Teste (${30-diasDesde}d restantes)`, cor: '#E86339' },
+      teste: { txt: `🎁 Teste (${14-diasDesde}d restantes)`, cor: '#E86339' },
       vencido: { txt: '⏳ Teste vencido', cor: 'rgba(255,255,255,0.35)' }
     }[status];
     const whatsLimpo = (r.whatsapp||'').replace(/\D/g,'');
@@ -3391,7 +3391,7 @@ function mostrarErroConexao(restId) {
 function statusTrial(rest) {
   if (rest.plano_ativo) return { trial: false, bloqueado: false };
   const diasPassados = Math.floor((new Date() - new Date(rest.criado_em)) / 86400000);
-  const diasRestantes = 30 - diasPassados;
+  const diasRestantes = 14 - diasPassados;
   return { trial: true, bloqueado: diasRestantes <= 0, diasRestantes: Math.max(0, diasRestantes) };
 }
 
@@ -3452,7 +3452,7 @@ function mostrarBloqueioTrial() {
   document.body.innerHTML = `
     <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;background:var(--creme);font-family:var(--font-body);">
       <div style="font-size:56px;margin-bottom:16px;">⏳</div>
-      <div style="font-family:var(--font-display);font-size:22px;font-weight:600;color:var(--texto);margin-bottom:8px;">Seu teste grátis de 30 dias terminou</div>
+      <div style="font-family:var(--font-display);font-size:22px;font-weight:600;color:var(--texto);margin-bottom:8px;">Seu teste grátis de 14 dias terminou</div>
       <div style="font-size:14px;color:var(--texto-muted);margin-bottom:28px;max-width:360px;">
         Assine agora pra voltar a acessar o painel e seu cardápio voltar a receber pedidos.
       </div>
