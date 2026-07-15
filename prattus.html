@@ -4255,10 +4255,13 @@ async function finalizarPedido() {
   }).select().single();
 
   if (pedido) {
-    await db.from('pedido_itens').insert(carrinho.map(i => ({
-      pedido_id: pedido.id, item_id: i.id, nome: i.nome,
+    const { error: erroItens } = await db.from('pedido_itens').insert(carrinho.map(i => ({
+      pedido_id: pedido.id, item_id: i.resgate ? null : i.id, nome: i.nome,
       preco: i.preco, quantidade: i.qtd, observacao: i.obs || null
     })));
+    if (erroItens) {
+      console.error('Erro ao salvar itens do pedido:', erroItens);
+    }
 
     fetch('/api/notificar-pedido', {
       method: 'POST',
