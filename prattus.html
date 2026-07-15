@@ -1078,6 +1078,8 @@ function esc(str) {
 
 // ===== ESTADO =====
 let usuarioAtual = null;
+let restaurantesSA = [];
+let pedidosSA = [];
 let restauranteAtual = null;
 let paginaAtual = 'dashboard';
 let carrinho = [];
@@ -1154,6 +1156,139 @@ async function init() {
   }
 }
 
+async function toggleDetalhesSA(restauranteId) {
+  const el = document.getElementById('sa-detalhes-' + restauranteId);
+  if (!el) return;
+  if (el.style.display === 'block') { el.style.display = 'none'; return; }
+
+  el.style.display = 'block';
+  el.innerHTML = 'Carregando...';
+
+  const { data: sessao } = await db.auth.getSession();
+  const tokenAdmin = sessao?.session?.access_token;
+
+  try {
+    const resp = await fetch('/api/super-admin-detalhes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ restauranteId, tokenAdmin })
+    });
+    const data = await resp.json();
+    if (!resp.ok) { el.innerHTML = `<span style="color:#e57373;">${data.error || 'Erro ao buscar detalhes'}</span>`; return; }
+
+    const r = restaurantesSA.find(x => x.id === restauranteId);
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+        <div>E-mail: <strong style="color:rgba(255,255,255,0.8);">${data.email || '—'}</strong></div>
+        <div>CPF/CNPJ: <strong style="color:rgba(255,255,255,0.8);">${data.cpfCnpj || '—'}</strong></div>
+        <div>Plano: <strong style="color:rgba(255,255,255,0.8);">${r?.plano_tipo || '—'}</strong></div>
+        <div>Dias extras de teste: <strong style="color:rgba(255,255,255,0.8);">${r?.trial_extra_dias || 0}</strong></div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button onclick="gerenciarLojaSA('${restauranteId}','ativar')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:#2ea043;color:#fff;border:none;cursor:pointer;">Ativar assinatura</button>
+        <button onclick="gerenciarLojaSA('${restauranteId}','desativar')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:#c0392b;color:#fff;border:none;cursor:pointer;">Desativar assinatura</button>
+        <button onclick="gerenciarLojaSA('${restauranteId}','estender_teste')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:var(--laranja);color:#fff;border:none;cursor:pointer;">+7 dias de teste</button>
+      </div>
+    `;
+  } catch (e) {
+    el.innerHTML = '<span style="color:#e57373;">Erro de conexão.</span>';
+  }
+}
+
+async function gerenciarLojaSA(restauranteId, acao) {
+  const confirmTxts = { ativar: 'Ativar a assinatura dessa loja manualmente?', desativar: 'Desativar a assinatura dessa loja?', estender_teste: 'Dar mais 7 dias de teste grátis pra essa loja?' };
+  if (!confirm(confirmTxts[acao])) return;
+
+  const { data: sessao } = await db.auth.getSession();
+  const tokenAdmin = sessao?.session?.access_token;
+
+  const resp = await fetch('/api/super-admin-gerenciar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ restauranteId, tokenAdmin, acao, dias: 7 })
+  });
+  const data = await resp.json();
+  if (resp.ok) {
+    toast('Feito!', 'ok');
+    carregarSuperAdmin();
+  } else {
+    toast(data.error || 'Erro ao atualizar.', 'erro');
+  }
+}
+
+function exportarAssinantesCSV() {
+  const linhas = [['Nome','WhatsApp','Status','Plano','Cadastrado em','Faturamento gerado','Pedidos']];
+  restaurantesSA.forEach(r => {
+    const pedRest = pedidosSA.filter(p => p.restaurante_id === r.id);
+    const fatRest = pedRest.reduce((s,p) => s + parseFloat(p.total||0), 0);
+    linhas.push([
+      r.nome, r.whatsapp||'', statusDeSA(r), r.plano_tipo||'',
+      new Date(r.criado_em).toLocaleDateString('pt-BR'),
+      fatRest.toFixed(2).replace('.',','), pedRest.length
+    ]);
+  });
+  const csv = linhas.map(l => l.map(c => {
+    const t = String(c ?? '');
+    return /[",;\n]/.test(t) ? '"'+t.replace(/"/g,'""')+'"' : t;
+  }).join(';')).join('\r\n');
+  const blob = new Blob(['\uFEFF'+csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'assinantes-servidelivery.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+const VAPID_PUBLIC_KEY_ADMIN = 'BM-ZTeZYmD7DMS6OTSnyOpQwThxVM5N7i_I4z294uFhA5oleHfis8wQfVzEbAuXzQ-V_YG-miLvAeAaoYi91fCo';
+
+async function ativarNotificacoesAdmin() {
+  if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+    toast('Seu navegador não suporta notificações push.', 'erro');
+    return;
+  }
+  const jaAtiva = localStorage.getItem('notif_admin_ativada') === 'true' && Notification.permission === 'granted';
+
+  if (jaAtiva) {
+    if (!confirm('Desativar as notificações administrativas nesse aparelho?')) return;
+    localStorage.removeItem('notif_admin_ativada');
+    toast('Notificações administrativas desativadas.', 'ok');
+    atualizarBotaoNotifAdmin();
+    return;
+  }
+
+  const permissao = await Notification.requestPermission();
+  if (permissao !== 'granted') { toast('Permissão negada.', 'erro'); return; }
+  const reg = await registrarServiceWorker();
+  if (!reg) { toast('Erro ao registrar o service worker.', 'erro'); return; }
+
+  const { data: sessao } = await db.auth.getSession();
+  const tokenAdmin = sessao?.session?.access_token;
+
+  try {
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY_ADMIN)
+    });
+    const resp = await fetch('/api/salvar-push-admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscription: sub, tokenAdmin })
+    });
+    if (!resp.ok) { toast('Erro ao ativar.', 'erro'); return; }
+    localStorage.setItem('notif_admin_ativada', 'true');
+    toast('Notificações administrativas ativadas! 🔔', 'ok');
+    atualizarBotaoNotifAdmin();
+  } catch (e) {
+    toast('Erro ao ativar notificações.', 'erro');
+  }
+}
+
+function atualizarBotaoNotifAdmin() {
+  const btn = document.getElementById('sa-btn-notif');
+  if (!btn) return;
+  const ativada = localStorage.getItem('notif_admin_ativada') === 'true' && Notification?.permission === 'granted';
+  btn.textContent = ativada ? '🔔 Notificações ativas' : '🔕 Ativar notificações';
+}
+
 async function carregarSuperAdmin() {
   const { data: restaurantes } = await db.from('restaurantes').select('*').order('criado_em', {ascending: false});
   const { data: pedidos } = await db.from('pedidos').select('total,criado_em,restaurante_id');
@@ -1176,7 +1311,11 @@ async function carregarSuperAdmin() {
     <div style="min-height:100vh;background:var(--preto);font-family:var(--font-body);">
       <div style="background:#1a1a1a;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.08);">
         <div style="font-family:var(--font-display);font-size:22px;font-weight:600;color:var(--branco);">Servi<span style="color:var(--laranja);">Delivery</span> <span style="font-size:13px;color:rgba(255,255,255,0.4);font-family:var(--font-body);font-weight:400;">Super Admin</span></div>
-        <button onclick="db.auth.signOut().then(()=>location.reload())" style="background:none;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.5);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:13px;">Sair</button>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <button id="sa-btn-notif" onclick="ativarNotificacoesAdmin()" style="background:none;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.6);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;"></button>
+          <button onclick="exportarAssinantesCSV()" style="background:none;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.6);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;">📊 Exportar CSV</button>
+          <button onclick="db.auth.signOut().then(()=>location.reload())" style="background:none;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.5);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:13px;">Sair</button>
+        </div>
       </div>
       <div style="padding:28px;max-width:1100px;margin:0 auto;">
 
@@ -1222,6 +1361,9 @@ async function carregarSuperAdmin() {
 
         <div id="sa-crescimento" style="margin-bottom:28px;"></div>
 
+        <input type="text" id="sa-busca" placeholder="🔍 Buscar loja pelo nome..." oninput="filtrarRestaurantesSA(this.value)"
+          style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:#232323;color:var(--branco);font-size:14px;margin-bottom:16px;outline:none;">
+
         <div id="sa-grupos"></div>
       </div>
     </div>
@@ -1253,30 +1395,36 @@ async function carregarSuperAdmin() {
     </div>
   `;
 
-  function statusDe(r) {
-    const diasDesde = Math.floor((Date.now() - new Date(r.criado_em)) / 86400000);
-    if (r.plano_ativo) return 'ativo';
-    if (diasDesde <= 14) return 'teste';
-    return 'vencido';
-  }
+  restaurantesSA = restaurantes || [];
+  pedidosSA = pedidos || [];
+  renderGruposSA();
+  atualizarBotaoNotifAdmin();
+}
 
-  const grupos = { ativo: [], teste: [], vencido: [] };
-  (restaurantes||[]).forEach(r => grupos[statusDe(r)].push(r));
+function statusDeSA(r) {
+  const diasDesde = Math.floor((Date.now() - new Date(r.criado_em)) / 86400000);
+  const limiteTeste = 14 + (r.trial_extra_dias || 0);
+  if (r.plano_ativo) return 'ativo';
+  if (diasDesde <= limiteTeste) return 'teste';
+  return 'vencido';
+}
 
-  function cardRestaurante(r) {
-    const pedRest = (pedidos||[]).filter(p => p.restaurante_id === r.id);
-    const fatRest = pedRest.reduce((s,p) => s + parseFloat(p.total||0), 0);
-    const diasDesde = Math.floor((Date.now() - new Date(r.criado_em)) / 86400000);
-    const status = statusDe(r);
-    const badges = {
-      ativo: { txt: '💚 Assinante pago', cor: '#2ea043' },
-      teste: { txt: `🎁 Teste (${14-diasDesde}d restantes)`, cor: '#E86339' },
-      vencido: { txt: '⏳ Teste vencido', cor: 'rgba(255,255,255,0.35)' }
-    }[status];
-    const whatsLimpo = (r.whatsapp||'').replace(/\D/g,'');
-    const msgOferta = encodeURIComponent(`Olá! Aqui é da equipe ServiDelivery. Notamos que o teste grátis do ${r.nome} venceu. Quer continuar usando o painel de pedidos? Responde esse WhatsApp que a gente ativa pra você, com um desconto especial de quem já testou.`);
-    return `
-      <div style="display:flex;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.04);">
+function cardRestauranteSA(r) {
+  const pedRest = (pedidosSA||[]).filter(p => p.restaurante_id === r.id);
+  const fatRest = pedRest.reduce((s,p) => s + parseFloat(p.total||0), 0);
+  const diasDesde = Math.floor((Date.now() - new Date(r.criado_em)) / 86400000);
+  const limiteTeste = 14 + (r.trial_extra_dias || 0);
+  const status = statusDeSA(r);
+  const badges = {
+    ativo: { txt: '💚 Assinante pago', cor: '#2ea043' },
+    teste: { txt: `🎁 Teste (${limiteTeste-diasDesde}d restantes)`, cor: '#E86339' },
+    vencido: { txt: '⏳ Teste vencido', cor: 'rgba(255,255,255,0.35)' }
+  }[status];
+  const whatsLimpo = (r.whatsapp||'').replace(/\D/g,'');
+  const msgOferta = encodeURIComponent(`Olá! Aqui é da equipe ServiDelivery. Notamos que o teste grátis do ${r.nome} venceu. Quer continuar usando o painel de pedidos? Responde esse WhatsApp que a gente ativa pra você, com um desconto especial de quem já testou.`);
+  return `
+    <div style="padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.04);">
+      <div style="display:flex;align-items:center;gap:16px;">
         <div style="width:38px;height:38px;border-radius:50%;background:var(--laranja);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex-shrink:0;">${r.nome.charAt(0).toUpperCase()}</div>
         <div style="flex:1;min-width:0;">
           <div style="font-size:14px;font-weight:600;color:var(--branco);">${r.nome}</div>
@@ -1287,29 +1435,43 @@ async function carregarSuperAdmin() {
           <div style="font-size:14px;font-weight:700;color:var(--laranja);">R$ ${fatRest.toFixed(2).replace('.',',')}</div>
           <div style="font-size:12px;color:rgba(255,255,255,0.4);">${pedRest.length} pedidos</div>
         </div>
-        <div style="display:flex;gap:6px;flex-shrink:0;">
+        <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;max-width:220px;justify-content:flex-end;">
           ${status === 'vencido' && whatsLimpo ? `<a href="https://wa.me/${whatsLimpo}?text=${msgOferta}" target="_blank" style="font-size:11px;padding:4px 10px;border-radius:6px;background:var(--laranja);color:#fff;text-decoration:none;font-weight:600;">Enviar oferta</a>` : ''}
           <a href="?rest=${r.id}" target="_blank" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);text-decoration:none;">Ver cardápio</a>
+          <button onclick="toggleDetalhesSA('${r.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);border:none;cursor:pointer;">Detalhes</button>
         </div>
       </div>
-    `;
-  }
+      <div id="sa-detalhes-${r.id}" style="display:none;margin-top:12px;padding-top:12px;border-top:1px dashed rgba(255,255,255,0.08);font-size:12px;color:rgba(255,255,255,0.5);"></div>
+    </div>
+  `;
+}
 
-  function secao(titulo, cor, lista) {
-    return `
-      <div style="background:#232323;border-radius:14px;border:1px solid rgba(255,255,255,0.06);overflow:hidden;margin-bottom:20px;">
-        <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06);font-size:13px;font-weight:600;color:${cor};text-transform:uppercase;letter-spacing:0.5px;display:flex;justify-content:space-between;">
-          <span>${titulo}</span><span>${lista.length}</span>
-        </div>
-        ${lista.length ? lista.map(cardRestaurante).join('') : '<div style="padding:24px;text-align:center;color:rgba(255,255,255,0.25);font-size:13px;">Nenhum restaurante aqui</div>'}
+function secaoSA(titulo, cor, lista) {
+  return `
+    <div style="background:#232323;border-radius:14px;border:1px solid rgba(255,255,255,0.06);overflow:hidden;margin-bottom:20px;">
+      <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06);font-size:13px;font-weight:600;color:${cor};text-transform:uppercase;letter-spacing:0.5px;display:flex;justify-content:space-between;">
+        <span>${titulo}</span><span>${lista.length}</span>
       </div>
-    `;
-  }
+      ${lista.length ? lista.map(cardRestauranteSA).join('') : '<div style="padding:24px;text-align:center;color:rgba(255,255,255,0.25);font-size:13px;">Nenhum restaurante aqui</div>'}
+    </div>
+  `;
+}
 
-  document.getElementById('sa-grupos').innerHTML =
-    secao('💚 Assinantes ativos', '#2ea043', grupos.ativo) +
-    secao('🎁 Em teste grátis', 'var(--laranja)', grupos.teste) +
-    secao('⏳ Teste vencido', 'rgba(255,255,255,0.5)', grupos.vencido);
+function filtrarRestaurantesSA(valor) {
+  renderGruposSA(valor);
+}
+
+function renderGruposSA(filtro) {
+  const termo = (filtro || '').trim().toLowerCase();
+  const lista = termo ? restaurantesSA.filter(r => r.nome.toLowerCase().includes(termo)) : restaurantesSA;
+  const grupos = { ativo: [], teste: [], vencido: [] };
+  lista.forEach(r => grupos[statusDeSA(r)].push(r));
+  const elGrupos = document.getElementById('sa-grupos');
+  if (!elGrupos) return;
+  elGrupos.innerHTML =
+    secaoSA('💚 Assinantes ativos', '#2ea043', grupos.ativo) +
+    secaoSA('🎁 Em teste grátis', 'var(--laranja)', grupos.teste) +
+    secaoSA('⏳ Teste vencido', 'rgba(255,255,255,0.5)', grupos.vencido);
 }
 
 let meuPapel = 'dono';
@@ -1677,6 +1839,11 @@ async function fazerCadastro() {
       return;
     }
     await db.from('restaurante_privado').insert({ restaurante_id: novoRest.id, cpf_cnpj: cpfCnpjLimpo });
+    fetch('/api/notificar-admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ titulo: '📋 Novo cadastro!', corpo: `${restNome} acabou de se cadastrar no ServiDelivery.` })
+    }).catch(() => {});
     await criarCardapioExemplo(novoRest.id);
     await carregarRestaurante();
   } else {
@@ -3445,7 +3612,7 @@ function mostrarErroConexao(restId) {
 function statusTrial(rest) {
   if (rest.plano_ativo) return { trial: false, bloqueado: false };
   const diasPassados = Math.floor((new Date() - new Date(rest.criado_em)) / 86400000);
-  const diasRestantes = 14 - diasPassados;
+  const diasRestantes = 14 + (rest.trial_extra_dias || 0) - diasPassados;
   return { trial: true, bloqueado: diasRestantes <= 0, diasRestantes: Math.max(0, diasRestantes) };
 }
 
