@@ -631,7 +631,7 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
       <div class="s-rest" id="sb-rest-nome">Meu Restaurante</div>
     </div>
     <div class="nav-section">Menu</div>
-    <div class="nav-item ativo" onclick="irPara('dashboard')">
+    <div class="nav-item ativo nav-somente-dono" onclick="irPara('dashboard')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
       Dashboard
     </div>
@@ -895,7 +895,10 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
       <input type="text" id="ped-obs" placeholder="Alguma informação adicional...">
     </div>
 
-    <button class="btn btn-laranja" onclick="finalizarPedido()" style="margin-top:8px">
+    <div id="aviso-pausado-carrinho" style="display:none;background:#FBE9E7;border:1.5px dashed #C0392B;border-radius:10px;padding:12px;margin-bottom:10px;text-align:center;font-size:13px;color:#C0392B;font-weight:600;">
+      🔴 Este restaurante pausou os pedidos no momento. Tente novamente mais tarde.
+    </div>
+    <button class="btn btn-laranja" id="btn-finalizar-pedido" onclick="finalizarPedido()" style="margin-top:8px">
       Fechar pedido via WhatsApp
     </button>
     <div style="text-align:center;font-size:12px;color:var(--texto-muted);margin-top:10px;">
@@ -924,6 +927,11 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
   <div class="form-group">
     <label>Preço (R$)</label>
     <input type="number" id="item-preco" placeholder="0.00" step="0.01">
+  </div>
+  <div class="form-group">
+    <label>Preço promocional (opcional)</label>
+    <input type="number" id="item-preco-promo" placeholder="Deixe em branco se não estiver em promoção" step="0.01">
+    <div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Preenchido, o item aparece com o preço riscado e entra na seção "🔥 Promoções" do cardápio.</div>
   </div>
   <div class="form-group">
     <label>Categoria</label>
@@ -1337,7 +1345,7 @@ async function carregarRestaurante() {
     }
 
     mostrarTela('painel');
-    irPara('dashboard');
+    irPara(meuPapel === 'dono' ? 'dashboard' : 'pedidos');
     iniciarAutoRefresh();
     atualizarBotaoPausa();
     atualizarBotaoNotificacao();
@@ -1551,6 +1559,44 @@ async function criarCardapioExemplo(restauranteId) {
   }
 }
 
+function validarCPF(cpf) {
+  cpf = (cpf || '').replace(/\D/g, '');
+  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+  let soma = 0;
+  for (let i = 0; i < 9; i++) soma += parseInt(cpf[i]) * (10 - i);
+  let resto = (soma * 10) % 11;
+  if (resto === 10) resto = 0;
+  if (resto !== parseInt(cpf[9])) return false;
+  soma = 0;
+  for (let i = 0; i < 10; i++) soma += parseInt(cpf[i]) * (11 - i);
+  resto = (soma * 10) % 11;
+  if (resto === 10) resto = 0;
+  return resto === parseInt(cpf[10]);
+}
+
+function validarCNPJ(cnpj) {
+  cnpj = (cnpj || '').replace(/\D/g, '');
+  if (cnpj.length !== 14 || /^(\d)\1{13}$/.test(cnpj)) return false;
+  const calcularDigito = (base) => {
+    const pesos = base.length === 12 ? [5,4,3,2,9,8,7,6,5,4,3,2] : [6,5,4,3,2,9,8,7,6,5,4,3,2];
+    let soma = 0;
+    for (let i = 0; i < base.length; i++) soma += parseInt(base[i]) * pesos[i];
+    const resto = soma % 11;
+    return resto < 2 ? 0 : 11 - resto;
+  };
+  const d1 = calcularDigito(cnpj.slice(0,12));
+  if (d1 !== parseInt(cnpj[12])) return false;
+  const d2 = calcularDigito(cnpj.slice(0,13));
+  return d2 === parseInt(cnpj[13]);
+}
+
+function validarCpfCnpj(valor) {
+  const limpo = (valor || '').replace(/\D/g, '');
+  if (limpo.length === 11) return validarCPF(limpo);
+  if (limpo.length === 14) return validarCNPJ(limpo);
+  return false;
+}
+
 async function fazerCadastro() {
   const tipo = document.getElementById('cad-tipo').value;
   const nome = document.getElementById('cad-nome').value;
@@ -1577,9 +1623,9 @@ async function fazerCadastro() {
       msg.textContent = 'Preencha o nome do restaurante, WhatsApp e CPF/CNPJ.';
       return;
     }
-    if (cpfCnpjLimpo.length !== 11 && cpfCnpjLimpo.length !== 14) {
+    if (!validarCpfCnpj(cpfCnpjLimpo)) {
       msg.className = 'auth-msg erro';
-      msg.textContent = 'CPF ou CNPJ inválido. Digite só os números (11 ou 14 dígitos).';
+      msg.textContent = 'CPF ou CNPJ inválido. Confira os números digitados.';
       return;
     }
 
@@ -1658,7 +1704,7 @@ function fecharSidebar() {
 
 // ===== NAVEGACAO =====
 function irPara(pagina) {
-  const paginasSomenteDono = ['relatorios', 'equipe'];
+  const paginasSomenteDono = ['dashboard', 'relatorios', 'equipe'];
   if (paginasSomenteDono.includes(pagina) && meuPapel !== 'dono') {
     toast('Só o dono do restaurante tem acesso a essa área.', 'erro');
     return;
@@ -1745,12 +1791,14 @@ async function renderPedidos() {
   function montaCard(p) {
     const telefone = extrairTelefone(p);
     const itensTxt = (p.pedido_itens||[]).map(i => `${i.quantidade}x ${esc(i.nome)}${i.observacao?' ('+esc(i.observacao)+')':''}`).join(' · ');
+    const mesaMatch = (p.observacao||'').match(/Mesa\s+(\S+)/);
     return `
       <div class="kanban-card">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">
           <div class="pedido-num">#${p.id.slice(-4).toUpperCase()}</div>
           <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
         </div>
+        ${mesaMatch ? `<div style="display:inline-block;background:var(--laranja);color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;">🍽️ Mesa ${esc(mesaMatch[1])}</div>` : ''}
         <div class="pedido-cliente" style="margin-bottom:8px;">${esc(p.endereco)} — ${esc(p.bairro)}</div>
         <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">${itensTxt}</div>
         ${p.observacao ? `<div style="font-size:11px;color:var(--laranja);margin-bottom:10px;">${esc(p.observacao).replace(/\n/g,' · ')}</div>` : ''}
@@ -1775,7 +1823,8 @@ async function renderPedidos() {
       </div>
       <div class="kanban-col col-entrega">
         <div class="kanban-col-titulo"><span class="kanban-dot entrega"></span>A caminho / Finalizado <span class="kanban-count">${finalizados.length}</span></div>
-        ${finalizados.length === 0 ? '<div class="kanban-empty">Nenhum pedido finalizado</div>' : finalizados.map(montaCard).join('')}
+        ${finalizados.length === 0 ? '<div class="kanban-empty">Nenhum pedido finalizado</div>' : finalizados.slice(0,3).map(montaCard).join('')}
+        ${finalizados.length > 3 ? `<div style="text-align:center;font-size:11px;color:var(--texto-muted);padding:8px 0;">Mostrando os 3 mais recentes de ${finalizados.length}</div>` : ''}
       </div>
     </div>
   `;
@@ -2081,12 +2130,14 @@ async function uploadFotoItem(inputEl) {
 
 async function salvarItem() {
   const id = document.getElementById('item-id').value;
+  const precoPromoVal = document.getElementById('item-preco-promo').value;
   const dados = {
     restaurante_id: restauranteAtual.id,
     categoria_id: document.getElementById('item-cat').value || null,
     nome: document.getElementById('item-nome').value,
     descricao: document.getElementById('item-desc').value,
     preco: parseFloat(document.getElementById('item-preco').value),
+    preco_promocional: precoPromoVal ? parseFloat(precoPromoVal) : null,
     foto_url: document.getElementById('item-foto').value || null,
     vegetariano: document.getElementById('item-veg').checked,
     sem_gluten: document.getElementById('item-gluten').checked,
@@ -2110,6 +2161,7 @@ async function editarItem(id) {
   document.getElementById('item-nome').value = data.nome;
   document.getElementById('item-desc').value = data.descricao || '';
   document.getElementById('item-preco').value = data.preco;
+  document.getElementById('item-preco-promo').value = data.preco_promocional || '';
   document.getElementById('item-foto').value = data.foto_url || '';
   atualizarPreviewFotoItem(data.foto_url || '');
   document.getElementById('item-cat').value = data.categoria_id || '';
@@ -3172,6 +3224,8 @@ async function carregarPublico(restId) {
     selecionarModo('local');
     const campoMesaInput = document.getElementById('ped-mesa');
     if (campoMesaInput) { campoMesaInput.value = mesaParam; campoMesaInput.readOnly = true; }
+    document.getElementById('modo-delivery')?.style.setProperty('display', 'none');
+    document.getElementById('modo-retirada')?.style.setProperty('display', 'none');
   }
 }
 
@@ -3404,8 +3458,8 @@ async function iniciarAssinatura(plano, btnEl) {
     cpfCnpj = prompt('Pra gerar o pagamento, informe seu CPF ou CNPJ (só números):');
     if (!cpfCnpj) return;
     cpfCnpj = cpfCnpj.replace(/\D/g, '');
-    if (cpfCnpj.length !== 11 && cpfCnpj.length !== 14) {
-      toast('CPF ou CNPJ inválido. Digite só os números (11 ou 14 dígitos).', 'erro');
+    if (!validarCpfCnpj(cpfCnpj)) {
+      toast('CPF ou CNPJ inválido. Confira os números digitados.', 'erro');
       return;
     }
     // Salva na tabela protegida (só o dono acessa), pra não precisar perguntar de novo
@@ -3499,6 +3553,9 @@ function precoExibicaoItem(item) {
     const min = Math.min(...grupoPreco.opcoes.map(o => parseFloat(o.preco) || 0));
     return `A partir de R$ ${min.toFixed(2).replace('.',',')}`;
   }
+  if (item.preco_promocional && parseFloat(item.preco_promocional) < parseFloat(item.preco)) {
+    return `<span style="text-decoration:line-through;color:var(--texto-muted);font-size:12px;margin-right:6px;">R$ ${parseFloat(item.preco).toFixed(2).replace('.',',')}</span>R$ ${parseFloat(item.preco_promocional).toFixed(2).replace('.',',')}`;
+  }
   return `R$ ${parseFloat(item.preco).toFixed(2).replace('.',',')}`;
 }
 
@@ -3520,13 +3577,18 @@ function renderCardItem(item) {
 }
 
 function adicionarItemRapidoPorId(id) {
+  if (restPublico?.pausado_manual) {
+    toast('Este restaurante pausou os pedidos no momento. Tente novamente mais tarde.', 'erro');
+    return;
+  }
   const item = todosItensPublico.find(i => i.id === id);
   if (!item) return;
+  const precoFinal = (item.preco_promocional && parseFloat(item.preco_promocional) < parseFloat(item.preco)) ? parseFloat(item.preco_promocional) : parseFloat(item.preco);
   const idx = carrinho.findIndex(c => c.id === item.id && !c.variacao && !c.obs);
   if (idx >= 0) {
     carrinho[idx].qtd++;
   } else {
-    carrinho.push({ id: item.id, nome: item.nome, preco: parseFloat(item.preco), foto: item.foto_url || '', variacao: null, qtd: 1, obs: '' });
+    carrinho.push({ id: item.id, nome: item.nome, preco: precoFinal, foto: item.foto_url || '', variacao: null, qtd: 1, obs: '' });
   }
   atualizarCarrinho();
   toast(item.nome + ' adicionado!', 'ok');
@@ -3639,7 +3701,8 @@ function micSelecionar(gi, oi, el) {
 // Calcula o preço unitário do item já considerando grupos "única-preço" (substituem o preço base)
 function micCalcularUnitario() {
   const grupos = micItemAtual.opcoes || [];
-  let base = parseFloat(micItemAtual.preco) || 0;
+  const item = micItemAtual;
+  let base = (item.preco_promocional && parseFloat(item.preco_promocional) < parseFloat(item.preco)) ? parseFloat(item.preco_promocional) : (parseFloat(item.preco) || 0);
   let adicional = 0;
   grupos.forEach((g, gi) => {
     if (g.tipo === 'unica_preco') {
@@ -3682,6 +3745,11 @@ function micAtualizarTotal() {
 }
 
 function micAdicionar() {
+  if (restPublico?.pausado_manual) {
+    toast('Este restaurante pausou os pedidos no momento. Tente novamente mais tarde.', 'erro');
+    fecharModal('modal-item-cliente');
+    return;
+  }
   const item = micItemAtual;
   const grupos = item.opcoes || [];
   const variacaoPartes = [];
@@ -3926,10 +3994,14 @@ async function consultarPontos() {
 }
 
 function usarResgate(id, valor, pontosNecessarios, descricao) {
+  // Só pode ter 1 resgate por pedido — remove qualquer resgate anterior
+  carrinho = carrinho.filter(c => !c.resgate);
+  carrinho.push({ id: 'resgate-'+id, nome: descricao, preco: 0, qtd: 1, obs: '', resgate: true, foto: '', valorOriginal: valor });
   resgateAplicado = { id, valor, pontosNecessarios, descricao };
-  descontoResgate = valor;
-  toast('Prêmio aplicado: ' + descricao, 'ok');
+  toast('Prêmio adicionado ao carrinho: ' + descricao, 'ok');
+  renderListaCarrinho();
   atualizarTotalCarrinho();
+  atualizarCarrinho();
 }
 
 async function aplicarCupom() {
@@ -3953,7 +4025,7 @@ async function aplicarCupom() {
 
 function atualizarTotalCarrinho() {
   const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
-  const total = Math.max(0, sub + fretesSelecionado - descontoAtual - descontoResgate);
+  const total = Math.max(0, sub + fretesSelecionado - descontoAtual);
   const subEl = document.getElementById('carr-sub');
   const freteEl = document.getElementById('carr-frete-val');
   const totalEl = document.getElementById('carr-total-val');
@@ -3962,8 +4034,8 @@ function atualizarTotalCarrinho() {
   if (subEl) subEl.textContent = 'R$ ' + sub.toFixed(2).replace('.',',');
   if (freteEl) freteEl.textContent = fretesSelecionado === 0 ? 'Grátis' : 'R$ ' + fretesSelecionado.toFixed(2).replace('.',',');
   if (totalEl) totalEl.textContent = 'R$ ' + total.toFixed(2).replace('.',',');
-  if (descRow) descRow.style.display = (descontoAtual > 0 || descontoResgate > 0) ? 'flex' : 'none';
-  if (descVal) descVal.textContent = '- R$ ' + (descontoAtual + descontoResgate).toFixed(2).replace('.',',');
+  if (descRow) descRow.style.display = descontoAtual > 0 ? 'flex' : 'none';
+  if (descVal) descVal.textContent = '- R$ ' + descontoAtual.toFixed(2).replace('.',',');
   if (document.getElementById('ped-pagamento')?.value === 'Pix') alternarFormaPagamento();
 }
 
@@ -4043,7 +4115,22 @@ function renderListaCarrinho() {
   if (carrinho.length === 0) {
     document.getElementById('carr-lista').innerHTML = '<div class="empty"><div class="empty-ico">🛒</div><div class="empty-txt">Seu carrinho está vazio</div></div>';
   } else {
-    document.getElementById('carr-lista').innerHTML = carrinho.map((item,idx) => `
+    document.getElementById('carr-lista').innerHTML = carrinho.map((item,idx) => {
+      if (item.resgate) {
+        return `
+          <div class="carr-item" style="background:var(--laranja-light);border-radius:10px;">
+            <div class="carr-item-foto" style="background:var(--laranja);color:#fff;">🎁</div>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                <div style="font-size:14px;font-weight:600;">${esc(item.nome)}</div>
+                <button class="carr-remove" onclick="removerItem(${idx})" title="Remover">×</button>
+              </div>
+              <div style="font-size:11px;font-weight:700;color:var(--laranja-dark);margin-top:4px;">🎁 GRÁTIS · resgate de fidelidade</div>
+            </div>
+          </div>
+        `;
+      }
+      return `
       <div class="carr-item">
         <div class="carr-item-foto">${item.foto ? `<img src="${esc(item.foto)}" onerror="this.parentElement.textContent='🍽️'">` : '🍽️'}</div>
         <div style="flex:1;min-width:0;">
@@ -4063,7 +4150,8 @@ function renderListaCarrinho() {
           </div>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
   }
 }
 
@@ -4073,6 +4161,19 @@ function abrirCarrinho() {
   renderListaCarrinho();
   abrirModal('modal-carrinho');
   renderRankingCarrinho();
+  atualizarAvisoPausado();
+}
+
+function atualizarAvisoPausado() {
+  const aviso = document.getElementById('aviso-pausado-carrinho');
+  const btn = document.getElementById('btn-finalizar-pedido');
+  const pausado = !!restPublico?.pausado_manual;
+  if (aviso) aviso.style.display = pausado ? 'block' : 'none';
+  if (btn) {
+    btn.disabled = pausado;
+    btn.style.opacity = pausado ? '0.5' : '1';
+    btn.style.cursor = pausado ? 'not-allowed' : 'pointer';
+  }
 }
 
 function atualizarObsItem(idx, valor) {
@@ -4080,6 +4181,7 @@ function atualizarObsItem(idx, valor) {
 }
 
 function removerItem(idx) {
+  if (carrinho[idx]?.resgate) resgateAplicado = null;
   carrinho.splice(idx, 1);
   atualizarCarrinho();
   abrirCarrinho();
@@ -4123,7 +4225,7 @@ async function finalizarPedido() {
   const endereco = modoAtual === 'delivery' ? `${rua}, ${numero}${complemento ? ', '+complemento : ''}` : '';
   const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
   const frete = modoAtual === 'delivery' ? fretesSelecionado : 0;
-  const total = Math.max(0, sub + frete - descontoAtual - descontoResgate);
+  const total = Math.max(0, sub + frete - descontoAtual);
 
   // Busca/atualiza cliente (fidelidade) via função no servidor, sem expor dados publicamente
   let clienteId = null;
@@ -4183,7 +4285,7 @@ async function finalizarPedido() {
   }
 
   // Monta mensagem WhatsApp
-  const itensMsg = carrinho.map(i => `${i.qtd}x ${i.nome}${i.variacao ? ' ('+i.variacao+')' : ''}${i.obs ? ' - '+i.obs : ''} — R$ ${(parseFloat(i.preco)*i.qtd).toFixed(2)}`).join('\n');
+  const itensMsg = carrinho.map(i => `${i.qtd}x ${i.nome}${i.variacao ? ' ('+i.variacao+')' : ''}${i.obs ? ' - '+i.obs : ''} — ${i.resgate ? '🎁 GRÁTIS (resgate fidelidade)' : 'R$ ' + (parseFloat(i.preco)*i.qtd).toFixed(2)}`).join('\n');
   const linkRecibo = pedido ? `${window.location.href.split('?')[0]}?recibo=${pedido.id}` : '';
   const linkAcomp = pedido ? `${window.location.href.split('?')[0]}?acompanhar=${pedido.id}` : '';
   const msg = (
@@ -4198,7 +4300,7 @@ async function finalizarPedido() {
     `*Subtotal:* R$ ${sub.toFixed(2)}\n` +
     (frete > 0 ? `*Frete:* R$ ${frete.toFixed(2)}\n` : '') +
     (descontoAtual > 0 ? `*Desconto (cupom):* - R$ ${descontoAtual.toFixed(2)}\n` : '') +
-    (descontoResgate > 0 ? `*Prêmio resgatado:* ${resgateAplicado?.descricao || ''} (- R$ ${descontoResgate.toFixed(2)})\n` : '') +
+    (resgateAplicado ? `*Prêmio resgatado:* ${resgateAplicado.descricao} — grátis (valor de R$ ${resgateAplicado.valor.toFixed(2)} aplicado como desconto de fidelidade)\n` : '') +
     `*Total:* R$ ${total.toFixed(2)}\n` +
     `*Pagamento:* ${pagamento}${troco ? ' (troco para R$ '+parseFloat(troco).toFixed(2)+')' : ''}\n` +
     (obs ? `*Obs:* ${obs}\n` : '') +
