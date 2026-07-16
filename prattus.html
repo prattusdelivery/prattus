@@ -4627,6 +4627,7 @@ function fecharModal(id) {
 }
 function toast(msg, tipo='') {
   const el = document.getElementById('toast');
+  if (!el) { console.log('[toast]', msg); return; }
   el.textContent = msg;
   el.className = 'toast show' + (tipo ? ' '+tipo : '');
   setTimeout(() => el.className = 'toast', 3000);
