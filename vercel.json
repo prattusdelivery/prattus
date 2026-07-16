@@ -1,6 +1,6 @@
 {
   "rewrites": [
     { "source": "/", "destination": "/prattus-institucional.html" },
-    { "source": "/((?!prattus\\.html|prattus-institucional\\.html|api/).*)", "destination": "/prattus.html" }
+    { "source": "/((?!prattus\\.html|prattus-institucional\\.html|privacidade\\.html|manifest\\.json|sw\\.js|icon-192\\.png|icon-512\\.png|api/).*)", "destination": "/prattus.html" }
   ]
 }
