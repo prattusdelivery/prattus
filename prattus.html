@@ -3611,6 +3611,9 @@ function mostrarErroConexao(restId) {
 // ===== TESTE GRÁTIS =====
 function statusTrial(rest) {
   if (rest.plano_ativo) return { trial: false, bloqueado: false };
+  if (rest.graca_ativa_ate && new Date(rest.graca_ativa_ate) > new Date()) {
+    return { trial: false, bloqueado: false, emGraca: true };
+  }
   const diasPassados = Math.floor((new Date() - new Date(rest.criado_em)) / 86400000);
   const diasRestantes = 14 + (rest.trial_extra_dias || 0) - diasPassados;
   return { trial: true, bloqueado: diasRestantes <= 0, diasRestantes: Math.max(0, diasRestantes) };
@@ -3670,6 +3673,11 @@ function mostrarBannerTrial(dias) {
 }
 
 function mostrarBloqueioTrial() {
+  const r = restauranteAtual || {};
+  const jaFoiAssinante = !!r.plano_tipo;
+  const diasDesdeUltimaGraca = r.graca_usada_em ? Math.floor((Date.now() - new Date(r.graca_usada_em)) / 86400000) : 999;
+  const podeUsarGraca = jaFoiAssinante && diasDesdeUltimaGraca >= 30;
+
   document.body.innerHTML = `
     <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;background:var(--creme);font-family:var(--font-body);">
       <div style="font-size:56px;margin-bottom:16px;">⏳</div>
@@ -3679,9 +3687,34 @@ function mostrarBloqueioTrial() {
       </div>
       <button onclick="iniciarAssinatura('mensal', this)" style="background:var(--laranja);color:#fff;border:none;text-decoration:none;padding:13px 28px;border-radius:10px;font-size:14px;font-weight:600;margin-bottom:10px;cursor:pointer;">Assinar mensal — R$36,90/mês</button>
       <button onclick="iniciarAssinatura('anual', this)" style="background:none;border:1px solid var(--laranja);color:var(--laranja);padding:11px 24px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:14px;cursor:pointer;">Assinar anual — R$369,00/ano</button>
+      ${podeUsarGraca ? `
+        <button onclick="ativarGracaProvisoria()" style="background:none;border:none;color:var(--texto-muted);font-size:12px;text-decoration:underline;margin-bottom:14px;cursor:pointer;">
+          🕐 Já sou assinante — liberar acesso por 24h pra resolver o pagamento
+        </button>
+      ` : ''}
       <button onclick="db.auth.signOut().then(()=>location.reload())" style="background:none;border:1px solid var(--creme-borda);color:var(--texto-muted);padding:11px 24px;border-radius:10px;font-size:13px;cursor:pointer;">Sair da conta</button>
     </div>
   `;
+}
+
+async function ativarGracaProvisoria() {
+  if (!restauranteAtual) return;
+  if (!confirm('Liberar seu acesso por 24 horas pra você resolver o pagamento? Você só pode usar isso 1 vez por mês.')) return;
+
+  const agora = new Date();
+  const ate = new Date(agora.getTime() + 24*60*60*1000);
+
+  const { error } = await db.from('restaurantes').update({
+    graca_ativa_ate: ate.toISOString(),
+    graca_usada_em: agora.toISOString()
+  }).eq('id', restauranteAtual.id);
+
+  if (error) {
+    toast('Erro ao liberar o acesso. Tente de novo.', 'erro');
+    return;
+  }
+  toast('Acesso liberado por 24h! Não esqueça de resolver o pagamento.', 'ok');
+  location.reload();
 }
 
 function mostrarLojaIndisponivel() {
