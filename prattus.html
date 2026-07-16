@@ -1168,10 +1168,10 @@ async function toggleDetalhesSA(restauranteId) {
   const tokenAdmin = sessao?.session?.access_token;
 
   try {
-    const resp = await fetch('/api/super-admin-detalhes', {
+    const resp = await fetch('/api/super-admin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ restauranteId, tokenAdmin })
+      body: JSON.stringify({ acao: 'detalhes', restauranteId, tokenAdmin })
     });
     const data = await resp.json();
     if (!resp.ok) { el.innerHTML = `<span style="color:#e57373;">${data.error || 'Erro ao buscar detalhes'}</span>`; return; }
@@ -1202,7 +1202,7 @@ async function gerenciarLojaSA(restauranteId, acao) {
   const { data: sessao } = await db.auth.getSession();
   const tokenAdmin = sessao?.session?.access_token;
 
-  const resp = await fetch('/api/super-admin-gerenciar', {
+  const resp = await fetch('/api/super-admin', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ restauranteId, tokenAdmin, acao, dias: 7 })
@@ -1268,10 +1268,10 @@ async function ativarNotificacoesAdmin() {
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY_ADMIN)
     });
-    const resp = await fetch('/api/salvar-push-admin', {
+    const resp = await fetch('/api/push-subscription', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscription: sub, tokenAdmin })
+      body: JSON.stringify({ acao: 'salvar', tipo: 'admin', subscription: sub, tokenAdmin })
     });
     if (!resp.ok) { toast('Erro ao ativar.', 'erro'); return; }
     localStorage.setItem('notif_admin_ativada', 'true');
@@ -1552,10 +1552,10 @@ async function ativarNotificacoes() {
       const reg = await navigator.serviceWorker.getRegistration();
       const sub = await reg?.pushManager.getSubscription();
       if (sub) {
-        await fetch('/api/remover-push-subscription', {
+        await fetch('/api/push-subscription', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ endpoint: sub.endpoint })
+          body: JSON.stringify({ acao: 'remover', tipo: 'restaurante', endpoint: sub.endpoint })
         });
         await sub.unsubscribe();
       }
@@ -1578,10 +1578,10 @@ async function ativarNotificacoes() {
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
     });
-    await fetch('/api/salvar-push-subscription', {
+    await fetch('/api/push-subscription', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ restauranteId: restauranteAtual.id, subscription: sub })
+      body: JSON.stringify({ acao: 'salvar', tipo: 'restaurante', restauranteId: restauranteAtual.id, subscription: sub })
     });
     localStorage.setItem('notif_ativada_' + restauranteAtual.id, 'true');
     toast('Notificações ativadas! 🔔', 'ok');
@@ -1839,10 +1839,10 @@ async function fazerCadastro() {
       return;
     }
     await db.from('restaurante_privado').insert({ restaurante_id: novoRest.id, cpf_cnpj: cpfCnpjLimpo });
-    fetch('/api/notificar-admin', {
+    fetch('/api/notificar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ titulo: '📋 Novo cadastro!', corpo: `${restNome} acabou de se cadastrar no ServiDelivery.` })
+      body: JSON.stringify({ tipo: 'admin', titulo: '📋 Novo cadastro!', corpo: `${restNome} acabou de se cadastrar no ServiDelivery.` })
     }).catch(() => {});
     await criarCardapioExemplo(novoRest.id);
     await carregarRestaurante();
@@ -2941,10 +2941,10 @@ async function criarFuncionario() {
 
   msgEl.textContent = 'Criando acesso...';
   try {
-    const resp = await fetch('/api/criar-funcionario', {
+    const resp = await fetch('/api/equipe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ restauranteId: restauranteAtual.id, nome, email, senha, tokenDono })
+      body: JSON.stringify({ acao: 'criar', restauranteId: restauranteAtual.id, nome, email, senha, tokenDono })
     });
     const data = await resp.json();
     if (!resp.ok) {
@@ -2964,10 +2964,10 @@ async function removerFuncionario(vinculoId) {
   if (!confirm('Remover o acesso desse funcionário? Ele não vai conseguir mais entrar no painel.')) return;
   const { data: sessao } = await db.auth.getSession();
   const tokenDono = sessao?.session?.access_token;
-  const resp = await fetch('/api/remover-funcionario', {
+  const resp = await fetch('/api/equipe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ vinculoId, restauranteId: restauranteAtual.id, tokenDono })
+    body: JSON.stringify({ acao: 'remover', vinculoId, restauranteId: restauranteAtual.id, tokenDono })
   });
   if (resp.ok) {
     toast('Acesso removido.', 'ok');
@@ -4430,10 +4430,11 @@ async function finalizarPedido() {
       console.error('Erro ao salvar itens do pedido:', erroItens);
     }
 
-    fetch('/api/notificar-pedido', {
+    fetch('/api/notificar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        tipo: 'pedido',
         restauranteId: restPublico.id,
         titulo: '🛵 Novo pedido!',
         corpo: `Pedido #${pedido.id.slice(-6).toUpperCase()} — R$ ${total.toFixed(2)}`
