@@ -18,7 +18,7 @@ export default async function handler(req, res) {
 
   try {
     const { acao, restauranteId, tokenAdmin, dias } = req.body || {};
-    if (!acao || !restauranteId || !tokenAdmin) {
+    if (!acao || !tokenAdmin || (acao !== 'exportar_dados' && !restauranteId)) {
       return res.status(400).json({ error: 'Dados incompletos' });
     }
 
@@ -28,6 +28,36 @@ export default async function handler(req, res) {
     if (!userResp.ok) return res.status(401).json({ error: 'Sessão inválida' });
     const userData = await userResp.json();
     if (userData.email !== ADMIN_EMAIL) return res.status(403).json({ error: 'Só o Super Admin pode fazer isso.' });
+
+    if (acao === 'exportar_dados') {
+      // Busca todos os restaurantes + user_id
+      const todosResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?select=id,user_id`, { headers: svcHeaders });
+      const todos = await todosResp.json();
+
+      // Busca todos os CPF/CNPJ protegidos de uma vez
+      const privResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurante_privado?select=restaurante_id,cpf_cnpj`, { headers: svcHeaders });
+      const privDataArr = await privResp.json();
+      const cpfPorRestaurante = {};
+      (Array.isArray(privDataArr) ? privDataArr : []).forEach(p => { cpfPorRestaurante[p.restaurante_id] = p.cpf_cnpj; });
+
+      // Busca e-mail de cada dono (a Admin API não tem endpoint em lote, então faz um por um)
+      const resultado = {};
+      for (const r of (Array.isArray(todos) ? todos : [])) {
+        let email = null;
+        if (r.user_id) {
+          try {
+            const authResp = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${r.user_id}`, { headers: svcHeaders });
+            if (authResp.ok) {
+              const authData = await authResp.json();
+              email = authData.email || null;
+            }
+          } catch (e) {}
+        }
+        resultado[r.id] = { email, cpfCnpj: cpfPorRestaurante[r.id] || null };
+      }
+
+      return res.status(200).json({ ok: true, dados: resultado });
+    }
 
     if (acao === 'detalhes') {
       const restResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}&select=user_id`, { headers: svcHeaders });
