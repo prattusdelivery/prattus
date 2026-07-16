@@ -742,6 +742,10 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
     <div id="pub-ranking-wrap"></div>
     <div class="pub-cats" id="pub-cats"></div>
     <div id="pub-itens"></div>
+    <div style="text-align:center;padding:20px 0 4px;">
+      <a href="/privacidade.html" target="_blank" style="font-size:11px;color:var(--texto-muted);text-decoration:underline;margin-right:14px;">Política de Privacidade</a>
+      <button onclick="abrirModal('modal-privacidade')" style="background:none;border:none;font-size:11px;color:var(--texto-muted);text-decoration:underline;cursor:pointer;padding:0;">🔒 Meus dados</button>
+    </div>
   </div>
   <div class="carrinho-bar" id="carrinho-bar" onclick="abrirCarrinho()">
     <div style="display:flex;align-items:center;gap:10px;">
@@ -750,6 +754,24 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
     </div>
     <span id="carr-total" style="font-weight:700">R$ 0,00</span>
   </div>
+</div>
+</div>
+
+<!-- MODAL: MEUS DADOS (LGPD) -->
+<div class="modal-overlay" id="modal-privacidade">
+<div class="modal" style="max-width:400px;">
+  <div class="modal-header">
+    <div class="modal-titulo">🔒 Meus dados</div>
+    <button class="modal-fechar" onclick="fecharModal('modal-privacidade')">×</button>
+  </div>
+  <div style="font-size:13px;color:var(--texto-muted);margin-bottom:16px;">Digite o telefone que você usa pra pedir nesse restaurante. Você pode solicitar a exclusão do seu perfil (nome, pontos de fidelidade e histórico salvo aqui).</div>
+  <div class="form-group">
+    <label>Telefone (com DDD)</label>
+    <input type="text" id="priv-telefone" placeholder="55999999999">
+  </div>
+  <div id="priv-msg" style="font-size:12px;margin-bottom:10px;"></div>
+  <button class="btn" style="background:#C0392B;color:#fff;" onclick="excluirMeusDados()">Excluir meus dados</button>
+  <div style="font-size:11px;color:var(--texto-muted);margin-top:10px;text-align:center;">Pedidos já feitos podem ser mantidos pelo restaurante por exigência fiscal, mesmo após a exclusão do seu perfil.</div>
 </div>
 </div>
 
@@ -3431,6 +3453,38 @@ function lerHistoricoPedidos() {
   try {
     return JSON.parse(localStorage.getItem('servidelivery_historico_' + restPublico.id)) || [];
   } catch (e) { return []; }
+}
+
+async function excluirMeusDados() {
+  const telefone = document.getElementById('priv-telefone').value.replace(/\D/g, '');
+  const msgEl = document.getElementById('priv-msg');
+  if (!telefone) {
+    msgEl.style.color = '#c0392b';
+    msgEl.textContent = 'Digite seu telefone.';
+    return;
+  }
+  if (!confirm('Tem certeza que quer excluir seu perfil (nome, pontos de fidelidade e histórico) desse restaurante? Essa ação não pode ser desfeita.')) return;
+
+  msgEl.style.color = 'var(--texto-muted)';
+  msgEl.textContent = 'Processando...';
+  try {
+    const resp = await fetch('/api/excluir-dados-cliente', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ restauranteId: restPublico.id, telefone })
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      msgEl.style.color = '#c0392b';
+      msgEl.textContent = data.error || 'Erro ao excluir.';
+      return;
+    }
+    msgEl.style.color = '#0F6E56';
+    msgEl.textContent = data.encontrado ? 'Seus dados foram excluídos.' : 'Não encontramos nenhum perfil com esse telefone.';
+  } catch (e) {
+    msgEl.style.color = '#c0392b';
+    msgEl.textContent = 'Erro de conexão. Tente de novo.';
+  }
 }
 
 function abrirMeusPedidos() {
