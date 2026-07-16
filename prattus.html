@@ -1216,13 +1216,33 @@ async function gerenciarLojaSA(restauranteId, acao) {
   }
 }
 
-function exportarAssinantesCSV() {
-  const linhas = [['Nome','WhatsApp','Status','Plano','Cadastrado em','Faturamento gerado','Pedidos']];
+async function exportarAssinantesCSV() {
+  toast('Gerando arquivo (pode levar alguns segundos)...', 'ok');
+
+  const { data: sessao } = await db.auth.getSession();
+  const tokenAdmin = sessao?.session?.access_token;
+
+  let dadosProtegidos = {};
+  try {
+    const resp = await fetch('/api/super-admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acao: 'exportar_dados', tokenAdmin })
+    });
+    const data = await resp.json();
+    if (resp.ok) dadosProtegidos = data.dados || {};
+  } catch (e) {}
+
+  const valorPlano = { mensal: 36.90, anual: 369.00 };
+
+  const linhas = [['Nome','E-mail','CPF/CNPJ','WhatsApp','Status','Plano','Valor assinatura','Cadastrado em','Faturamento gerado','Pedidos']];
   restaurantesSA.forEach(r => {
     const pedRest = pedidosSA.filter(p => p.restaurante_id === r.id);
     const fatRest = pedRest.reduce((s,p) => s + parseFloat(p.total||0), 0);
+    const protegido = dadosProtegidos[r.id] || {};
     linhas.push([
-      r.nome, r.whatsapp||'', statusDeSA(r), r.plano_tipo||'',
+      r.nome, protegido.email || '', protegido.cpfCnpj || '', r.whatsapp||'', statusDeSA(r), r.plano_tipo||'',
+      r.plano_tipo ? 'R$ '+valorPlano[r.plano_tipo]?.toFixed(2).replace('.',',') : '',
       new Date(r.criado_em).toLocaleDateString('pt-BR'),
       fatRest.toFixed(2).replace('.',','), pedRest.length
     ]);
@@ -1236,6 +1256,7 @@ function exportarAssinantesCSV() {
   const a = document.createElement('a');
   a.href = url; a.download = 'assinantes-servidelivery.csv'; a.click();
   URL.revokeObjectURL(url);
+  toast('Arquivo baixado!', 'ok');
 }
 
 const VAPID_PUBLIC_KEY_ADMIN = 'BM-ZTeZYmD7DMS6OTSnyOpQwThxVM5N7i_I4z294uFhA5oleHfis8wQfVzEbAuXzQ-V_YG-miLvAeAaoYi91fCo';
