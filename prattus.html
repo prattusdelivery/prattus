@@ -2465,6 +2465,14 @@ function enviarPromocao(telefone) {
   window.open(`https://wa.me/${telefone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
+async function resetarSenhaCliente(clienteId, nome) {
+  if (!confirm(`Resetar a senha de fidelidade de ${nome}? Na próxima vez que ele consultar os pontos, vai poder criar uma senha nova.`)) return;
+  const { error } = await db.from('clientes').update({ senha_hash: null }).eq('id', clienteId);
+  if (error) { toast('Erro ao resetar. Tente de novo.', 'erro'); return; }
+  toast('Senha resetada!', 'ok');
+  renderClientes();
+}
+
 function estaAniversarioProximo(dataNasc, diasJanela) {
   if (!dataNasc) return false;
   const nasc = new Date(dataNasc + 'T00:00:00');
@@ -2583,6 +2591,7 @@ async function renderClientes() {
               <div style="font-size:11px;color:var(--texto-muted)">${c.total_pedidos} pedidos · ${c.pontos} pts</div>
             </div>
             <button class="btn-sm" onclick="enviarPromocao('${c.telefone}')" style="margin-left:10px;">📣 Enviar</button>
+            ${c.senha_hash ? `<button class="btn-sm" onclick="resetarSenhaCliente('${c.id}','${esc(c.nome).replace(/'/g,"\\'")}')" style="margin-left:6px;" title="Cliente esqueceu a senha de fidelidade">🔑 Resetar senha</button>` : ''}
           </div>
         `).join('')
       }
