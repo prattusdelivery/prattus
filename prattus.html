@@ -733,7 +733,11 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
         style="width:100%;padding:10px 14px;border:1px solid var(--creme-borda);border-radius:10px;font-size:14px;outline:none;background:var(--creme);">
     </div>
     <!-- MODO ESCURO -->
-    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;">
+      <button onclick="abrirModal('modal-privacidade')" title="Meus dados"
+        style="background:none;border:1px solid var(--creme-borda);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;color:var(--texto-muted);">
+        🔒
+      </button>
       <button onclick="alternarModoEscuro()" id="btn-modo-escuro"
         style="background:none;border:1px solid var(--creme-borda);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;color:var(--texto-muted);">
         🌙 Modo escuro
