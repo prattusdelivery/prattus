@@ -887,6 +887,10 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
       <label>Pontos de fidelidade (opcional)</label>
       <button type="button" class="btn-sm" style="width:100%;padding:10px;" onclick="consultarPontos()">⭐ Consultar meus pontos</button>
       <div id="pontos-info" style="font-size:12px;margin-top:6px;"></div>
+      <div id="pontos-senha-wrap" style="display:none;margin-top:8px;">
+        <input type="password" id="pontos-senha" inputmode="numeric" maxlength="8" placeholder="Sua senha de fidelidade" style="width:100%;padding:9px 10px;border:1px solid var(--creme-borda);border-radius:8px;font-size:13px;margin-bottom:6px;">
+        <button type="button" class="btn-sm" style="width:100%;" onclick="consultarPontos()">Confirmar</button>
+      </div>
       <div id="pontos-recompensas"></div>
     </div>
 
@@ -1976,7 +1980,7 @@ async function renderDashboard() {
         (pedidos||[]).map(p => `
           <div class="pedido-card">
             <div class="pedido-info">
-              <div class="pedido-num">#${p.id.slice(-4).toUpperCase()} — ${esc(p.clientes?.nome || p.observacao?.split('Nome:')[1]?.split('\n')[0]?.trim() || 'Cliente')}</div>
+              <div class="pedido-num">#${p.id.slice(-4).toUpperCase()} — ${esc(p.observacao?.split('Nome:')[1]?.split('\n')[0]?.trim() || p.clientes?.nome || 'Cliente')}</div>
               <div class="pedido-cliente">${esc(p.bairro)} · ${new Date(p.criado_em).toLocaleString('pt-BR')}</div>
             </div>
             <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
@@ -4239,6 +4243,8 @@ async function consultarPontos() {
   const telefone = document.getElementById('ped-telefone').value.replace(/\D/g, '');
   const info = document.getElementById('pontos-info');
   const lista = document.getElementById('pontos-recompensas');
+  const senhaWrap = document.getElementById('pontos-senha-wrap');
+  const senha = document.getElementById('pontos-senha').value.trim();
   if (!telefone) { info.style.color = 'var(--vermelho)'; info.textContent = 'Digite seu telefone acima primeiro.'; return; }
 
   info.style.color = 'var(--texto-muted)'; info.textContent = 'Consultando...';
@@ -4246,9 +4252,31 @@ async function consultarPontos() {
   try {
     const resp = await fetch('/api/consultar-pontos', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ restauranteId: restPublico.id, telefone })
+      body: JSON.stringify({ restauranteId: restPublico.id, telefone, senha: senha || undefined })
     });
     const data = await resp.json();
+
+    if (!resp.ok) {
+      info.style.color = 'var(--vermelho)';
+      info.textContent = data.error || 'Erro ao consultar.';
+      return;
+    }
+
+    if (data.precisaCriarSenha) {
+      senhaWrap.style.display = 'block';
+      info.style.color = 'var(--laranja)';
+      info.textContent = 'Primeira vez por aqui! Crie uma senha de 4 números pra proteger seus pontos, e clique em Confirmar.';
+      return;
+    }
+
+    if (data.precisaSenha) {
+      senhaWrap.style.display = 'block';
+      info.style.color = 'var(--laranja)';
+      info.textContent = 'Digite sua senha de fidelidade pra ver seus pontos.';
+      return;
+    }
+
+    senhaWrap.style.display = 'none';
     const pontos = data.pontos || 0;
     info.style.color = 'var(--texto-muted)';
     info.textContent = `Você tem ${pontos} pontos.`;
