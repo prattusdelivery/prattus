@@ -506,6 +506,9 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
 .dark-mode #pub-busca{background:#2a2a2a;border-color:#444;color:#f0f0f0;}
 .dark-mode #btn-modo-escuro{background:#2a2a2a;border-color:#444;color:#aaa;}
 .dark-mode .carrinho-bar{background:#1a1a1a;}
+/* O carrinho sempre fica no modo claro, mesmo com o cardápio no escuro */
+.dark-mode #modal-carrinho, .dark-mode #modal-carrinho .modal{background:var(--branco)!important;color:var(--texto)!important;}
+.dark-mode #modal-carrinho input, .dark-mode #modal-carrinho select, .dark-mode #modal-carrinho textarea{background:var(--branco)!important;color:var(--texto)!important;border-color:var(--creme-borda)!important;}
 .modo-btn{
   padding:8px 14px;border-radius:10px;font-size:13px;font-weight:500;cursor:pointer;
   border:1px solid var(--creme-borda);background:var(--branco);color:var(--texto-muted);
