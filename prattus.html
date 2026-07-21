@@ -506,9 +506,6 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
 .dark-mode #pub-busca{background:#2a2a2a;border-color:#444;color:#f0f0f0;}
 .dark-mode #btn-modo-escuro{background:#2a2a2a;border-color:#444;color:#aaa;}
 .dark-mode .carrinho-bar{background:#1a1a1a;}
-/* O carrinho sempre fica no modo claro, mesmo com o cardápio no escuro */
-.dark-mode #modal-carrinho, .dark-mode #modal-carrinho .modal{background:var(--branco)!important;color:var(--texto)!important;}
-.dark-mode #modal-carrinho input, .dark-mode #modal-carrinho select, .dark-mode #modal-carrinho textarea{background:var(--branco)!important;color:var(--texto)!important;border-color:var(--creme-borda)!important;}
 .modo-btn{
   padding:8px 14px;border-radius:10px;font-size:13px;font-weight:500;cursor:pointer;
   border:1px solid var(--creme-borda);background:var(--branco);color:var(--texto-muted);
@@ -611,6 +608,38 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
       <div id="campo-trial-info" style="background:var(--laranja-light);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--laranja-dark,#C4522E);">
         🎁 <strong>Teste grátis de 14 dias</strong> incluso automaticamente, sem cartão de crédito.
       </div>
+      <details style="margin-bottom:16px;">
+        <summary style="font-size:13px;color:var(--texto-muted);cursor:pointer;margin-bottom:10px;">Conte um pouco mais sobre seu negócio (opcional)</summary>
+        <div class="form-group">
+          <label>Quantos pedidos você faz por dia hoje, mais ou menos?</label>
+          <select id="cad-pedidos-dia">
+            <option value="">Prefiro não informar</option>
+            <option value="1 a 10">1 a 10</option>
+            <option value="11 a 30">11 a 30</option>
+            <option value="31 a 60">31 a 60</option>
+            <option value="mais de 60">Mais de 60</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Você usa computador ou notebook no dia a dia do negócio?</label>
+          <select id="cad-tem-computador">
+            <option value="">Prefiro não informar</option>
+            <option value="sim">Sim</option>
+            <option value="nao">Não, só celular</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Faturamento mensal aproximado</label>
+          <select id="cad-faturamento">
+            <option value="">Prefiro não informar</option>
+            <option value="ainda vou comecar">Ainda vou começar agora</option>
+            <option value="ate 5000">Até R$5.000/mês</option>
+            <option value="5000 a 15000">R$5.000 a R$15.000/mês</option>
+            <option value="15000 a 30000">R$15.000 a R$30.000/mês</option>
+            <option value="acima de 30000">Acima de R$30.000/mês</option>
+          </select>
+        </div>
+      </details>
       <button class="btn btn-laranja" onclick="fazerCadastro()">Criar conta</button>
       <div id="cad-msg"></div>
       <div style="text-align:center;margin-top:14px;">
@@ -1216,6 +1245,9 @@ async function toggleDetalhesSA(restauranteId) {
         <div>CPF/CNPJ: <strong style="color:rgba(255,255,255,0.8);">${data.cpfCnpj || '—'}</strong></div>
         <div>Plano: <strong style="color:rgba(255,255,255,0.8);">${r?.plano_tipo || '—'}</strong></div>
         <div>Dias extras de teste: <strong style="color:rgba(255,255,255,0.8);">${r?.trial_extra_dias || 0}</strong></div>
+        <div>Pedidos/dia (estimado): <strong style="color:rgba(255,255,255,0.8);">${r?.pedidos_dia_estimado || '—'}</strong></div>
+        <div>Usa computador: <strong style="color:rgba(255,255,255,0.8);">${r?.tem_computador === 'sim' ? 'Sim' : r?.tem_computador === 'nao' ? 'Não' : '—'}</strong></div>
+        <div style="grid-column:span 2;">Faturamento estimado: <strong style="color:rgba(255,255,255,0.8);">${r?.faturamento_estimado || '—'}</strong></div>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button onclick="gerenciarLojaSA('${restauranteId}','ativar')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:#2ea043;color:#fff;border:none;cursor:pointer;">Ativar assinatura</button>
@@ -1271,7 +1303,7 @@ async function exportarAssinantesCSV() {
   const linhas = [['Nome','E-mail','CPF/CNPJ','WhatsApp','Status','Plano','Valor assinatura','Cadastrado em','Faturamento gerado','Pedidos']];
   restaurantesSA.forEach(r => {
     const pedRest = pedidosSA.filter(p => p.restaurante_id === r.id);
-    const fatRest = pedRest.reduce((s,p) => s + parseFloat(p.total||0), 0);
+    const fatRest = pedRest.filter(p => p.status === 'entregue').reduce((s,p) => s + parseFloat(p.total||0), 0);
     const protegido = dadosProtegidos[r.id] || {};
     linhas.push([
       r.nome, protegido.email || '', protegido.cpfCnpj || '', r.whatsapp||'', statusDeSA(r), r.plano_tipo||'',
@@ -1345,12 +1377,12 @@ function atualizarBotaoNotifAdmin() {
 
 async function carregarSuperAdmin() {
   const { data: restaurantes } = await db.from('restaurantes').select('*').order('criado_em', {ascending: false});
-  const { data: pedidos } = await db.from('pedidos').select('total,criado_em,restaurante_id');
+  const { data: pedidos } = await db.from('pedidos').select('total,criado_em,restaurante_id,status');
   const { data: eventos } = await db.from('eventos_plano').select('*').order('criado_em', {ascending: true});
 
   const totalRest = (restaurantes||[]).length;
   const totalPedidos = (pedidos||[]).length;
-  const totalFat = (pedidos||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
+  const totalFat = (pedidos||[]).filter(p => p.status === 'entregue').reduce((s,p) => s + parseFloat(p.total||0), 0);
 
   // MRR: soma o valor mensal-equivalente de cada assinante ativo (anual vira /12)
   const ativos = (restaurantes||[]).filter(r => r.plano_ativo);
@@ -1459,23 +1491,29 @@ function statusDeSA(r) {
   const diasDesde = Math.floor((Date.now() - new Date(r.criado_em)) / 86400000);
   const limiteTeste = 14 + (r.trial_extra_dias || 0);
   if (r.plano_ativo) return 'ativo';
+  if (r.plano_tipo) return 'cancelado'; // já foi assinante de verdade, mas não está ativo agora
   if (diasDesde <= limiteTeste) return 'teste';
   return 'vencido';
 }
 
 function cardRestauranteSA(r) {
   const pedRest = (pedidosSA||[]).filter(p => p.restaurante_id === r.id);
-  const fatRest = pedRest.reduce((s,p) => s + parseFloat(p.total||0), 0);
+  const fatRest = pedRest.filter(p => p.status === 'entregue').reduce((s,p) => s + parseFloat(p.total||0), 0);
   const diasDesde = Math.floor((Date.now() - new Date(r.criado_em)) / 86400000);
   const limiteTeste = 14 + (r.trial_extra_dias || 0);
   const status = statusDeSA(r);
   const badges = {
     ativo: { txt: '💚 Assinante pago', cor: '#2ea043' },
     teste: { txt: `🎁 Teste (${limiteTeste-diasDesde}d restantes)`, cor: '#E86339' },
-    vencido: { txt: '⏳ Teste vencido', cor: 'rgba(255,255,255,0.35)' }
+    vencido: { txt: '⏳ Teste vencido', cor: 'rgba(255,255,255,0.35)' },
+    cancelado: { txt: '❌ Assinatura cancelada', cor: '#e57373' }
   }[status];
   const whatsLimpo = (r.whatsapp||'').replace(/\D/g,'');
-  const msgOferta = encodeURIComponent(`Olá! Aqui é da equipe ServiDelivery. Notamos que o teste grátis do ${r.nome} venceu. Quer continuar usando o painel de pedidos? Responde esse WhatsApp que a gente ativa pra você, com um desconto especial de quem já testou.`);
+  const msgOferta = encodeURIComponent(
+    status === 'cancelado'
+      ? `Olá! Aqui é da equipe ServiDelivery. Notamos que a assinatura do ${r.nome} foi cancelada. Deu algum problema? Quer voltar a usar o painel de pedidos? Responde esse WhatsApp que a gente vê o que rolou.`
+      : `Olá! Aqui é da equipe ServiDelivery. Notamos que o teste grátis do ${r.nome} venceu. Quer continuar usando o painel de pedidos? Responde esse WhatsApp que a gente ativa pra você, com um desconto especial de quem já testou.`
+  );
   return `
     <div style="padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.04);">
       <div style="display:flex;align-items:center;gap:16px;">
@@ -1490,7 +1528,7 @@ function cardRestauranteSA(r) {
           <div style="font-size:12px;color:rgba(255,255,255,0.4);">${pedRest.length} pedidos</div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;max-width:220px;justify-content:flex-end;">
-          ${status === 'vencido' && whatsLimpo ? `<a href="https://wa.me/${whatsLimpo}?text=${msgOferta}" target="_blank" style="font-size:11px;padding:4px 10px;border-radius:6px;background:var(--laranja);color:#fff;text-decoration:none;font-weight:600;">Enviar oferta</a>` : ''}
+          ${(status === 'vencido' || status === 'cancelado') && whatsLimpo ? `<a href="https://wa.me/${whatsLimpo}?text=${msgOferta}" target="_blank" style="font-size:11px;padding:4px 10px;border-radius:6px;background:var(--laranja);color:#fff;text-decoration:none;font-weight:600;">Enviar oferta</a>` : ''}
           <a href="?rest=${r.id}" target="_blank" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);text-decoration:none;">Ver cardápio</a>
           <button onclick="toggleDetalhesSA('${r.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);border:none;cursor:pointer;">Detalhes</button>
         </div>
@@ -1518,13 +1556,14 @@ function filtrarRestaurantesSA(valor) {
 function renderGruposSA(filtro) {
   const termo = (filtro || '').trim().toLowerCase();
   const lista = termo ? restaurantesSA.filter(r => r.nome.toLowerCase().includes(termo)) : restaurantesSA;
-  const grupos = { ativo: [], teste: [], vencido: [] };
+  const grupos = { ativo: [], teste: [], vencido: [], cancelado: [] };
   lista.forEach(r => grupos[statusDeSA(r)].push(r));
   const elGrupos = document.getElementById('sa-grupos');
   if (!elGrupos) return;
   elGrupos.innerHTML =
     secaoSA('💚 Assinantes ativos', '#2ea043', grupos.ativo) +
     secaoSA('🎁 Em teste grátis', 'var(--laranja)', grupos.teste) +
+    secaoSA('❌ Assinatura cancelada', '#e57373', grupos.cancelado) +
     secaoSA('⏳ Teste vencido', 'rgba(255,255,255,0.5)', grupos.vencido);
 }
 
@@ -1883,9 +1922,13 @@ async function fazerCadastro() {
     const restNome = document.getElementById('cad-rest-nome').value;
     const whatsapp = document.getElementById('cad-whatsapp').value;
     const cpfCnpjLimpo = document.getElementById('cad-cpf-cnpj').value.replace(/\D/g, '');
+    const pedidosDiaEstimado = document.getElementById('cad-pedidos-dia')?.value || null;
+    const temComputador = document.getElementById('cad-tem-computador')?.value || null;
+    const faturamentoEstimado = document.getElementById('cad-faturamento')?.value || null;
     const slug = await gerarSlugUnico(restNome);
     const { data: novoRest, error: restError } = await db.from('restaurantes').insert({
-      nome: restNome, whatsapp, user_id: usuarioAtual.id, slug
+      nome: restNome, whatsapp, user_id: usuarioAtual.id, slug,
+      pedidos_dia_estimado: pedidosDiaEstimado, tem_computador: temComputador, faturamento_estimado: faturamentoEstimado
     }).select().single();
     if (restError) {
       msg.className = 'auth-msg erro';
@@ -1960,8 +2003,8 @@ async function renderDashboard() {
   const rid = restauranteAtual.id;
 
   const hoje = new Date().toISOString().split('T')[0];
-  const { data: pedHoje } = await db.from('pedidos').select('total').eq('restaurante_id', rid).gte('criado_em', hoje);
-  const { data: pedMes } = await db.from('pedidos').select('total').eq('restaurante_id', rid).gte('criado_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
+  const { data: pedHoje } = await db.from('pedidos').select('total').eq('restaurante_id', rid).eq('status', 'entregue').gte('criado_em', hoje);
+  const { data: pedMes } = await db.from('pedidos').select('total').eq('restaurante_id', rid).eq('status', 'entregue').gte('criado_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
   const { data: clientes } = await db.from('clientes').select('id').eq('restaurante_id', rid);
   const { data: pedidos } = await db.from('pedidos').select('*,clientes(nome),pedido_itens(nome,quantidade,preco)').eq('restaurante_id', rid).order('criado_em', {ascending:false}).limit(5);
 
