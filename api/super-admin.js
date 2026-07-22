@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   };
 
   try {
-    const { acao, restauranteId, tokenAdmin, dias } = req.body || {};
+    const { acao, restauranteId, tokenAdmin, dias, planoTipo } = req.body || {};
     if (!acao || !tokenAdmin || (acao !== 'exportar_dados' && !restauranteId)) {
       return res.status(400).json({ error: 'Dados incompletos' });
     }
@@ -81,16 +81,18 @@ export default async function handler(req, res) {
     }
 
     if (acao === 'ativar' || acao === 'desativar') {
+      const patchBody = { plano_ativo: acao === 'ativar' };
+      if (acao === 'ativar' && planoTipo) patchBody.plano_tipo = planoTipo;
       await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}`, {
         method: 'PATCH',
         headers: { ...svcHeaders, 'Prefer': 'return=minimal' },
-        body: JSON.stringify({ plano_ativo: acao === 'ativar' })
+        body: JSON.stringify(patchBody)
       });
       return res.status(200).json({ ok: true });
     }
 
     if (acao === 'estender_teste') {
-      const diasNum = parseInt(dias) || 7;
+      const diasNum = Number.isFinite(parseInt(dias)) ? parseInt(dias) : 7;
       const buscaResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}&select=trial_extra_dias`, { headers: svcHeaders });
       const buscaData = await buscaResp.json();
       const atual = Array.isArray(buscaData) && buscaData[0] ? (buscaData[0].trial_extra_dias || 0) : 0;
