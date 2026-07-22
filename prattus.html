@@ -764,21 +764,17 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
       <input type="text" id="pub-busca" placeholder="🔍 Buscar no cardápio..." oninput="buscarItens(this.value)"
         style="width:100%;padding:10px 14px;border:1px solid var(--creme-borda);border-radius:10px;font-size:14px;outline:none;background:var(--creme);">
     </div>
-    <!-- MODO ESCURO -->
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;">
+    <!-- MEUS DADOS -->
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
       <button onclick="abrirModal('modal-privacidade')" title="Meus dados"
         style="background:none;border:1px solid var(--creme-borda);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;color:var(--texto-muted);">
         🔒
-      </button>
-      <button onclick="alternarModoEscuro()" id="btn-modo-escuro"
-        style="background:none;border:1px solid var(--creme-borda);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;color:var(--texto-muted);">
-        🌙 Modo escuro
       </button>
     </div>
     <div id="pub-ranking-wrap"></div>
     <div class="pub-cats" id="pub-cats"></div>
     <div id="pub-itens"></div>
-    <div style="text-align:center;padding:20px 0 4px;">
+    <div style="text-align:center;padding:20px 0 84px;">
       <a href="/privacidade.html" target="_blank" style="font-size:11px;color:var(--texto-muted);text-decoration:underline;margin-right:14px;">Política de Privacidade</a>
       <button onclick="abrirModal('modal-privacidade')" style="background:none;border:none;font-size:11px;color:var(--texto-muted);text-decoration:underline;cursor:pointer;padding:0;">🔒 Meus dados</button>
     </div>
@@ -1250,13 +1246,59 @@ async function toggleDetalhesSA(restauranteId) {
         <div style="grid-column:span 2;">Faturamento estimado: <strong style="color:rgba(255,255,255,0.8);">${r?.faturamento_estimado || '—'}</strong></div>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button onclick="gerenciarLojaSA('${restauranteId}','ativar')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:#2ea043;color:#fff;border:none;cursor:pointer;">Ativar assinatura</button>
+        <button onclick="ativarAssinaturaSA('${restauranteId}')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:#2ea043;color:#fff;border:none;cursor:pointer;">Ativar assinatura</button>
         <button onclick="gerenciarLojaSA('${restauranteId}','desativar')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:#c0392b;color:#fff;border:none;cursor:pointer;">Desativar assinatura</button>
-        <button onclick="gerenciarLojaSA('${restauranteId}','estender_teste')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:var(--laranja);color:#fff;border:none;cursor:pointer;">+7 dias de teste</button>
+        <button onclick="estenderTesteSA('${restauranteId}')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:var(--laranja);color:#fff;border:none;cursor:pointer;">📅 Ajustar dias de teste</button>
       </div>
     `;
   } catch (e) {
     el.innerHTML = '<span style="color:#e57373;">Erro de conexão.</span>';
+  }
+}
+
+async function estenderTesteSA(restauranteId) {
+  const dias = prompt('Quantos dias você quer adicionar ao teste grátis dessa loja? (use número negativo pra tirar dias)');
+  if (dias === null || dias.trim() === '') return;
+  const diasNum = parseInt(dias);
+  if (isNaN(diasNum)) { toast('Digite um número válido.', 'erro'); return; }
+  if (!confirm(`Confirma adicionar ${diasNum} dia(s) ao teste grátis dessa loja?`)) return;
+
+  const { data: sessao } = await db.auth.getSession();
+  const tokenAdmin = sessao?.session?.access_token;
+
+  const resp = await fetch('/api/super-admin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ restauranteId, tokenAdmin, acao: 'estender_teste', dias: diasNum })
+  });
+  const data = await resp.json();
+  if (resp.ok) {
+    toast('Feito!', 'ok');
+    carregarSuperAdmin();
+  } else {
+    toast(data.error || 'Erro ao atualizar.', 'erro');
+  }
+}
+
+async function ativarAssinaturaSA(restauranteId) {
+  const planoTipo = prompt('Qual o tipo de assinatura? (ex: mensal, anual, bonificada, cortesia, parceria)');
+  if (planoTipo === null) return;
+  if (!confirm(`Ativar a assinatura dessa loja como "${planoTipo || 'não informado'}"?`)) return;
+
+  const { data: sessao } = await db.auth.getSession();
+  const tokenAdmin = sessao?.session?.access_token;
+
+  const resp = await fetch('/api/super-admin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ restauranteId, tokenAdmin, acao: 'ativar', planoTipo: planoTipo.trim() || null })
+  });
+  const data = await resp.json();
+  if (resp.ok) {
+    toast('Feito!', 'ok');
+    carregarSuperAdmin();
+  } else {
+    toast(data.error || 'Erro ao atualizar.', 'erro');
   }
 }
 
@@ -4154,14 +4196,6 @@ function buscarItens(termo) {
     i.nome.toLowerCase().includes(t) || (i.descricao||'').toLowerCase().includes(t)
   );
   renderItensPublico(filtrados, true);
-}
-
-let modoEscuroAtivo = false;
-function alternarModoEscuro() {
-  modoEscuroAtivo = !modoEscuroAtivo;
-  document.getElementById('tela-cliente').classList.toggle('dark-mode', modoEscuroAtivo);
-  const btn = document.getElementById('btn-modo-escuro');
-  if (btn) btn.textContent = modoEscuroAtivo ? '☀️ Modo claro' : '🌙 Modo escuro';
 }
 
 // ===== ACOMPANHAMENTO DO PEDIDO =====
