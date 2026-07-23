@@ -494,6 +494,7 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
 .carr-obs-input:focus{border-color:var(--laranja);}
 
 /* ===== MODO ESCURO CARDAPIO PUBLICO ===== */
+body.dark-mode{background-color:#181818;color:#f0f0f0;}
 .dark-mode .pub-wrap{background-color:#181818;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Ccircle cx='20' cy='20' r='6'/%3E%3Crect x='60' y='10' width='4' height='24' rx='2'/%3E%3Crect x='68' y='10' width='4' height='24' rx='2'/%3E%3Crect x='76' y='10' width='4' height='24' rx='2'/%3E%3Crect x='68' y='34' width='4' height='16' rx='2'/%3E%3Ccircle cx='30' cy='70' r='8'/%3E%3Crect x='55' y='65' width='4' height='30' rx='2'/%3E%3C/g%3E%3C/svg%3E");}
 .dark-mode .pub-banner{background:linear-gradient(160deg,#1a1a1a,#2a1a0f);}
 .dark-mode .pub-card{background:#242424;}
@@ -506,6 +507,34 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
 .dark-mode #pub-busca{background:#2a2a2a;border-color:#444;color:#f0f0f0;}
 .dark-mode #btn-modo-escuro{background:#2a2a2a;border-color:#444;color:#aaa;}
 .dark-mode .carrinho-bar{background:#1a1a1a;}
+
+/* Cobertura ampla: textos, títulos, rótulos e preços em todo o cardápio */
+.dark-mode .pub-cat-titulo, .dark-mode h1, .dark-mode h2, .dark-mode h3,
+.dark-mode label, .dark-mode .config-titulo, .dark-mode .card-titulo,
+.dark-mode .form-group label{color:#f0f0f0;}
+.dark-mode .pub-item-preco, .dark-mode .pub-ranking-preco{color:var(--laranja);}
+.dark-mode a{color:#e0a080;}
+
+/* Modais (carrinho, detalhes do item, meus pedidos, avaliação, privacidade) */
+.dark-mode .modal-overlay{background:rgba(0,0,0,0.75);}
+.dark-mode .modal{background:#242424;color:#f0f0f0;}
+.dark-mode .modal-titulo, .dark-mode .modal-fechar{color:#f0f0f0;}
+.dark-mode .carr-item{border-color:#333;}
+.dark-mode .carr-item-foto{background:#333;}
+.dark-mode .carr-btn{background:#2a2a2a;border-color:#444;color:#f0f0f0;}
+
+/* Campos de formulário (checkout, telefone, endereço, etc.) */
+.dark-mode input, .dark-mode select, .dark-mode textarea{
+  background:#1c1c1c;color:#f0f0f0;border-color:#444;
+}
+.dark-mode input::placeholder, .dark-mode textarea::placeholder{color:#777;}
+.dark-mode .modo-btn{background:#2a2a2a;border-color:#444;color:#ccc;}
+.dark-mode .modo-btn.ativo{background:var(--laranja);color:#fff;border-color:var(--laranja);}
+
+/* Recompensas, ranking, sugestões, área de fidelidade */
+.dark-mode .pub-ranking-nome{color:#f0f0f0;}
+.dark-mode #pontos-info, .dark-mode #cupom-msg, .dark-mode #priv-msg{color:#ccc;}
+
 .modo-btn{
   padding:8px 14px;border-radius:10px;font-size:13px;font-weight:500;cursor:pointer;
   border:1px solid var(--creme-borda);background:var(--branco);color:var(--texto-muted);
@@ -1432,6 +1461,7 @@ function atualizarBotaoNotifAdmin() {
 }
 
 async function carregarSuperAdmin() {
+  document.body.classList.remove('dark-mode');
   const { data: restaurantes } = await db.from('restaurantes').select('*').order('criado_em', {ascending: false});
   const { data: pedidos } = await db.from('pedidos').select('total,criado_em,restaurante_id,status');
   const { data: eventos } = await db.from('eventos_plano').select('*').order('criado_em', {ascending: true});
@@ -1626,6 +1656,7 @@ function renderGruposSA(filtro) {
 let meuPapel = 'dono';
 
 async function carregarRestaurante() {
+  document.body.classList.remove('dark-mode');
   let { data, error } = await db.from('restaurantes')
     .select('*').eq('user_id', usuarioAtual.id).maybeSingle();
 
@@ -3453,9 +3484,9 @@ async function carregarPublico(restId) {
   restPublico = rest;
   categorias = cats || [];
 
-  // Tema — decidido pelo dono, não pelo cliente
+  // Tema — decidido pelo dono, não pelo cliente. Aplica na página toda.
   const telaEl = document.getElementById('tela-cliente');
-  telaEl.classList.toggle('dark-mode', rest.tema === 'escuro');
+  document.body.classList.toggle('dark-mode', rest.tema === 'escuro');
 
   // Cor principal customizada — aplica de verdade em todo o cardápio
   if (rest.cor_primaria) {
