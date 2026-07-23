@@ -354,7 +354,7 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
 }
 
 /* ===== TELA PUBLICA (CLIENTE) ===== */
-.pub-wrap{width:100%;min-height:100vh;background:var(--creme);flex-direction:column;}
+.pub-wrap{width:100%;min-height:100vh;background-color:var(--creme);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cg fill='%23231914' fill-opacity='0.035'%3E%3Ccircle cx='20' cy='20' r='6'/%3E%3Crect x='60' y='10' width='4' height='24' rx='2'/%3E%3Crect x='68' y='10' width='4' height='24' rx='2'/%3E%3Crect x='76' y='10' width='4' height='24' rx='2'/%3E%3Crect x='68' y='34' width='4' height='16' rx='2'/%3E%3Ccircle cx='30' cy='70' r='8'/%3E%3Crect x='55' y='65' width='4' height='30' rx='2'/%3E%3C/g%3E%3C/svg%3E");flex-direction:column;}
 .pub-banner{
   background:
     radial-gradient(circle at 20% 0%, rgba(232,99,57,0.25) 0%, transparent 50%),
@@ -494,7 +494,7 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
 .carr-obs-input:focus{border-color:var(--laranja);}
 
 /* ===== MODO ESCURO CARDAPIO PUBLICO ===== */
-.dark-mode .pub-wrap{background:#181818;}
+.dark-mode .pub-wrap{background-color:#181818;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Ccircle cx='20' cy='20' r='6'/%3E%3Crect x='60' y='10' width='4' height='24' rx='2'/%3E%3Crect x='68' y='10' width='4' height='24' rx='2'/%3E%3Crect x='76' y='10' width='4' height='24' rx='2'/%3E%3Crect x='68' y='34' width='4' height='16' rx='2'/%3E%3Ccircle cx='30' cy='70' r='8'/%3E%3Crect x='55' y='65' width='4' height='30' rx='2'/%3E%3C/g%3E%3C/svg%3E");}
 .dark-mode .pub-banner{background:linear-gradient(160deg,#1a1a1a,#2a1a0f);}
 .dark-mode .pub-card{background:#242424;}
 .dark-mode .pub-item{background:#242424;border-color:#333;box-shadow:none;}
@@ -1124,6 +1124,20 @@ const { createClient } = supabase;
 const db = createClient(SUPA_URL, SUPA_KEY);
 
 // ===== SEGURANÇA: neutraliza HTML/código em qualquer texto digitado por clientes ou lojistas =====
+function ajustarCorBrilho(hex, percentual) {
+  hex = (hex || '').replace('#', '');
+  if (hex.length === 3) hex = hex.split('').map(c => c+c).join('');
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return percentual > 0 ? '#FFF1E6' : '#C4522E';
+  const num = parseInt(hex, 16);
+  let r = (num >> 16) & 0xFF, g = (num >> 8) & 0xFF, b = num & 0xFF;
+  const ajustar = (canal) => {
+    const alvo = percentual > 0 ? 255 : 0;
+    return Math.round(canal + (alvo - canal) * (Math.abs(percentual) / 100));
+  };
+  r = ajustar(r); g = ajustar(g); b = ajustar(b);
+  return '#' + [r,g,b].map(c => Math.max(0,Math.min(255,c)).toString(16).padStart(2,'0')).join('');
+}
+
 function esc(str) {
   if (str == null) return '';
   return String(str)
@@ -3210,7 +3224,17 @@ async function renderConfig() {
           <input type="text" id="cfg-banner" value="${r.banner_url||''}" style="margin-top:6px;" oninput="atualizarPreviewGenerica(this.value,'cfg-banner-preview')">
         </details>
       </div>
-      <div class="form-group"><label>Cor principal (hex)</label><input type="color" id="cfg-cor" value="${r.cor_primaria||'#E86339'}"></div>
+      <div class="form-group"><label>Categoria do restaurante</label><input type="text" id="cfg-categoria" value="${esc(r.categoria||'')}" placeholder="Ex: Lanchonete, Pizzaria, Marmitaria..."></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group"><label>Cor principal (hex)</label><input type="color" id="cfg-cor" value="${r.cor_primaria||'#E86339'}"></div>
+        <div class="form-group">
+          <label>Tema do cardápio</label>
+          <select id="cfg-tema">
+            <option value="claro" ${r.tema!=='escuro'?'selected':''}>☀️ Claro</option>
+            <option value="escuro" ${r.tema==='escuro'?'selected':''}>🌙 Escuro</option>
+          </select>
+        </div>
+      </div>
 
       <div class="config-titulo" style="margin-top:20px;">Entrega</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
@@ -3355,6 +3379,8 @@ async function salvarConfig() {
     logo_url: document.getElementById('cfg-logo').value || null,
     banner_url: document.getElementById('cfg-banner').value || null,
     cor_primaria: document.getElementById('cfg-cor').value,
+    categoria: document.getElementById('cfg-categoria').value || null,
+    tema: document.getElementById('cfg-tema').value,
     fidelidade_ativa: document.getElementById('cfg-fidelidade').checked,
     avisos_whatsapp: {
       preparando: document.getElementById('cfg-aviso-preparando').checked,
@@ -3427,6 +3453,17 @@ async function carregarPublico(restId) {
   restPublico = rest;
   categorias = cats || [];
 
+  // Tema — decidido pelo dono, não pelo cliente
+  const telaEl = document.getElementById('tela-cliente');
+  telaEl.classList.toggle('dark-mode', rest.tema === 'escuro');
+
+  // Cor principal customizada — aplica de verdade em todo o cardápio
+  if (rest.cor_primaria) {
+    telaEl.style.setProperty('--laranja', rest.cor_primaria);
+    telaEl.style.setProperty('--laranja-dark', ajustarCorBrilho(rest.cor_primaria, -18));
+    telaEl.style.setProperty('--laranja-light', ajustarCorBrilho(rest.cor_primaria, 82));
+  }
+
   document.getElementById('pub-rest-nome').textContent = rest.nome;
   document.getElementById('pub-rest-sub').textContent = rest.descricao || 'Delivery';
   document.title = rest.nome + ' — ServiDelivery';
@@ -3454,12 +3491,24 @@ async function carregarPublico(restId) {
   socialEl.innerHTML = socialHtml;
   socialEl.style.display = socialHtml ? 'flex' : 'none';
 
-  // Info bar (tempo + pedido mínimo)
+  // Info bar (categoria + tempo + pedido mínimo + nota média)
   const infoBar = document.getElementById('pub-info-bar');
   let infos = [];
+  if (rest.categoria) infos.push(`🏷️ ${esc(rest.categoria)}`);
   if (rest.tempo_entrega) infos.push(`⏱️ ${rest.tempo_entrega}`);
   if (rest.pedido_minimo) infos.push(`🛒 Mín. R$ ${parseFloat(rest.pedido_minimo).toFixed(2).replace('.',',')}`);
   infoBar.innerHTML = infos.map(i => `<span style="background:rgba(255,255,255,0.15);padding:4px 10px;border-radius:20px;font-size:12px;color:#fff;">${i}</span>`).join('');
+
+  // Nota média (busca à parte, pra não travar o carregamento do resto)
+  db.from('pedidos').select('avaliacao').eq('restaurante_id', rest.id).not('avaliacao', 'is', null).then(({data: avals}) => {
+    if (avals && avals.length > 0) {
+      const media = avals.reduce((s,p) => s + p.avaliacao, 0) / avals.length;
+      const span = document.createElement('span');
+      span.style.cssText = 'background:rgba(255,255,255,0.15);padding:4px 10px;border-radius:20px;font-size:12px;color:#fff;';
+      span.textContent = `⭐ ${media.toFixed(1)}`;
+      infoBar.prepend(span);
+    }
+  });
 
   // Verifica pausa manual + horário de funcionamento
   const elFechado = document.getElementById('pub-fechado');
