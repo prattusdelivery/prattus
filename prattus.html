@@ -4028,7 +4028,7 @@ function abrirModalItem(item) {
     ? `<img src="${esc(item.foto_url)}" style="width:100%;height:160px;object-fit:cover;border-radius:12px;" onerror="this.parentElement.style.display='none'">`
     : '';
   document.getElementById('mic-desc').textContent = item.descricao || '';
-  document.getElementById('mic-preco-base').textContent = precoExibicaoItem(item);
+  document.getElementById('mic-preco-base').innerHTML = precoExibicaoItem(item);
 
   const grupos = item.opcoes || [];
   grupos.forEach((g, gi) => { micSelecoes[gi] = (g.tipo === 'unica' || g.tipo === 'unica_preco') ? 0 : []; });
