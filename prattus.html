@@ -803,7 +803,7 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
     <div id="pub-ranking-wrap"></div>
     <div class="pub-cats" id="pub-cats"></div>
     <div id="pub-itens"></div>
-    <div style="text-align:center;padding:40px 0 84px;margin-top:16px;border-top:1px solid var(--creme-borda);">
+    <div id="pub-rodape-privacidade" style="text-align:center;padding:40px 0 84px;margin-top:16px;border-top:1px solid var(--creme-borda);">
       <a href="/privacidade.html" target="_blank" style="font-size:11px;color:var(--texto-muted);text-decoration:underline;margin-right:14px;">Política de Privacidade</a>
       <button onclick="abrirModal('modal-privacidade')" style="background:none;border:none;font-size:11px;color:var(--texto-muted);text-decoration:underline;cursor:pointer;padding:0;">🔒 Meus dados</button>
     </div>
@@ -883,6 +883,8 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
       <span>Total</span><span id="carr-total-val" style="color:var(--laranja)">R$ 0,00</span>
     </div>
 
+    <!-- CHECKOUT DE DELIVERY (escondido no modo comanda) -->
+    <div id="bloco-checkout-delivery">
     <!-- MODO DE RECEBIMENTO -->
     <div class="form-group">
       <label>Como deseja receber seu pedido?</label>
@@ -975,6 +977,8 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
       </div>
       <div style="font-size:12px;color:var(--texto-muted);margin-top:6px;">Pague o Pix e envie o comprovante no WhatsApp após confirmar o pedido.</div>
     </div>
+    </div>
+    <!-- FIM CHECKOUT DE DELIVERY -->
 
     <!-- OBSERVACAO -->
     <div class="form-group">
@@ -988,7 +992,7 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
     <button class="btn btn-laranja" id="btn-finalizar-pedido" onclick="finalizarPedido()" style="margin-top:8px">
       Fechar pedido via WhatsApp
     </button>
-    <div style="text-align:center;font-size:12px;color:var(--texto-muted);margin-top:10px;">
+    <div id="aviso-rodape-carrinho" style="text-align:center;font-size:12px;color:var(--texto-muted);margin-top:10px;">
       Não esqueça de concluir o envio do seu pedido pelo WhatsApp. Basta enviar a mensagem.
     </div>
   </div>
@@ -1242,15 +1246,24 @@ const ADMIN_EMAIL = 'alessandro.reval@hotmail.com';
 
 async function init() {
   const { data: { session } } = await db.auth.getSession();
+  const comandaParam = new URLSearchParams(window.location.search).get('comanda');
   if (session) {
     usuarioAtual = session.user;
     if (usuarioAtual.email === ADMIN_EMAIL) {
       await carregarSuperAdmin();
+    } else if (comandaParam) {
+      await carregarRestaurante();
+      if (restauranteAtual && !statusTrial(restauranteAtual).bloqueado) {
+        await carregarModoComanda(comandaParam);
+      }
     } else {
       await carregarRestaurante();
     }
   } else {
     mostrarTela('auth');
+    if (comandaParam) {
+      localStorage.setItem('comanda_pendente', comandaParam);
+    }
     if (new URLSearchParams(window.location.search).get('cadastro') === 'true') {
       abaAuth('cadastro');
     }
@@ -1699,6 +1712,106 @@ async function carregarRestaurante() {
   }
 }
 
+// ===== MODO COMANDA (garçom) =====
+async function carregarModoComanda(comandaId) {
+  const { data: codigo, error } = await db.from('codigos_comanda').select('*').eq('id', comandaId).maybeSingle();
+  if (error || !codigo) {
+    alert('Código de comanda não encontrado ou inválido.');
+    return;
+  }
+  if (codigo.restaurante_id !== restauranteAtual.id) {
+    alert('Esse código de comanda não pertence a esse restaurante.');
+    return;
+  }
+
+  if (codigo.status !== 'em_uso') {
+    const mesa = prompt('Código livre! Qual o número da mesa?');
+    if (!mesa || !mesa.trim()) return;
+    const { error: erroAbrir } = await db.from('codigos_comanda').update({
+      status: 'em_uso', mesa: mesa.trim(), aberta_em: new Date().toISOString()
+    }).eq('id', comandaId);
+    if (erroAbrir) { alert('Erro ao abrir a comanda. Tente de novo.'); return; }
+    codigo.mesa = mesa.trim();
+  }
+
+  comandaAtual = { id: codigo.id, mesa: codigo.mesa };
+  modoComandaAtivo = true;
+  carrinho = [];
+
+  const [{ data: rest }, { data: itens }, { data: cats }] = await Promise.all([
+    db.from('restaurantes').select('*').eq('id', restauranteAtual.id).single(),
+    db.from('itens').select('*').eq('restaurante_id', restauranteAtual.id).order('nome'),
+    db.from('categorias').select('*').eq('restaurante_id', restauranteAtual.id).order('ordem')
+  ]);
+
+  restPublico = rest;
+  todosItensPublico = itens || [];
+  categorias = cats || [];
+
+  document.getElementById('pub-rest-nome').textContent = `Mesa ${codigo.mesa}`;
+  document.getElementById('pub-rest-sub').textContent = '📋 Comanda do garçom';
+  const infoBar = document.getElementById('pub-info-bar');
+  if (infoBar) infoBar.innerHTML = `<button onclick="sairModoComanda()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;padding:5px 12px;border-radius:20px;font-size:12px;cursor:pointer;">← Voltar pro painel</button>`;
+  const fechado = document.getElementById('pub-fechado');
+  if (fechado) fechado.style.display = 'none';
+  const rodapePriv = document.getElementById('pub-rodape-privacidade');
+  if (rodapePriv) rodapePriv.style.display = 'none';
+
+  const catsEl = document.getElementById('pub-cats');
+  catsEl.innerHTML = `<div class="pub-cat ativo" onclick="filtrarCat('todas',this)">Todos</div>` +
+    (cats||[]).map(c => `<div class="pub-cat" onclick="filtrarCat('${c.id}',this)">${esc(c.nome)}</div>`).join('');
+  renderItensPublico(itens||[]);
+
+  const rankingWrap = document.getElementById('pub-ranking-wrap');
+  if (rankingWrap) rankingWrap.innerHTML = '';
+
+  mostrarTela('cliente');
+  atualizarCarrinho();
+  toast(`Comanda aberta — Mesa ${codigo.mesa}`, 'ok');
+}
+
+async function finalizarComanda() {
+  if (carrinho.length === 0) { toast('Adicione itens antes de enviar.', 'erro'); return; }
+
+  const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
+  const obsGeral = document.getElementById('ped-obs')?.value || '';
+
+  const { data: pedido, error } = await db.from('pedidos').insert({
+    restaurante_id: restauranteAtual.id,
+    status: 'novo',
+    endereco: `Mesa ${comandaAtual.mesa}`,
+    bairro: 'Salão',
+    frete: 0, subtotal: sub, total: sub,
+    codigo_comanda_id: comandaAtual.id,
+    observacao: `Comanda — Mesa ${comandaAtual.mesa}${obsGeral ? '\nObs: '+obsGeral : ''}`
+  }).select().single();
+
+  if (error || !pedido) { toast('Erro ao enviar pedido. Tente de novo.', 'erro'); return; }
+
+  const { error: erroItens } = await db.from('pedido_itens').insert(carrinho.map(i => ({
+    pedido_id: pedido.id, item_id: i.resgate ? null : i.id, nome: i.nome,
+    preco: i.preco, quantidade: i.qtd, observacao: i.obs || null
+  })));
+  if (erroItens) console.error('Erro ao salvar itens da comanda:', erroItens);
+
+  carrinho = [];
+  atualizarCarrinho();
+  fecharModal('modal-carrinho');
+  if (document.getElementById('ped-obs')) document.getElementById('ped-obs').value = '';
+  toast(`Pedido enviado pra cozinha — Mesa ${comandaAtual.mesa}! 🍽️`, 'ok');
+}
+
+function sairModoComanda() {
+  modoComandaAtivo = false;
+  comandaAtual = null;
+  carrinho = [];
+  const url = new URL(window.location.href);
+  url.searchParams.delete('comanda');
+  window.history.replaceState({}, '', url.pathname);
+  mostrarTela('painel');
+  irPara(meuPapel === 'dono' ? 'dashboard' : 'pedidos');
+}
+
 // ===== NOTIFICAÇÕES PUSH (novo pedido) =====
 const VAPID_PUBLIC_KEY = 'BM-ZTeZYmD7DMS6OTSnyOpQwThxVM5N7i_I4z294uFhA5oleHfis8wQfVzEbAuXzQ-V_YG-miLvAeAaoYi91fCo';
 
@@ -1862,8 +1975,15 @@ async function fazerLogin() {
   usuarioAtual = data.user;
   if (usuarioAtual.email === ADMIN_EMAIL) {
     await carregarSuperAdmin();
-  } else {
-    await carregarRestaurante();
+    return;
+  }
+  await carregarRestaurante();
+  const comandaPendente = localStorage.getItem('comanda_pendente');
+  if (comandaPendente) {
+    localStorage.removeItem('comanda_pendente');
+    if (restauranteAtual && !statusTrial(restauranteAtual).bloqueado) {
+      await carregarModoComanda(comandaPendente);
+    }
   }
 }
 
@@ -4670,6 +4790,9 @@ function renderListaCarrinho() {
   }
 }
 
+let modoComandaAtivo = false;
+let comandaAtual = null;
+
 function abrirCarrinho() {
   atualizarTotalCarrinho();
   alternarFormaPagamento();
@@ -4677,6 +4800,22 @@ function abrirCarrinho() {
   abrirModal('modal-carrinho');
   renderRankingCarrinho();
   atualizarAvisoPausado();
+
+  const blocoCheckout = document.getElementById('bloco-checkout-delivery');
+  const btnFinalizar = document.getElementById('btn-finalizar-pedido');
+  const avisoRodape = document.getElementById('aviso-rodape-carrinho');
+  const tituloModal = document.querySelector('#modal-carrinho .modal-titulo');
+  if (modoComandaAtivo) {
+    if (blocoCheckout) blocoCheckout.style.display = 'none';
+    if (btnFinalizar) { btnFinalizar.textContent = '🍽️ Enviar pedido pra cozinha'; btnFinalizar.onclick = finalizarComanda; }
+    if (avisoRodape) avisoRodape.style.display = 'none';
+    if (tituloModal) tituloModal.textContent = `Comanda — Mesa ${comandaAtual?.mesa || ''}`;
+  } else {
+    if (blocoCheckout) blocoCheckout.style.display = 'block';
+    if (btnFinalizar) { btnFinalizar.textContent = 'Fechar pedido via WhatsApp'; btnFinalizar.onclick = finalizarPedido; }
+    if (avisoRodape) avisoRodape.style.display = 'block';
+    if (tituloModal) tituloModal.textContent = 'Meu carrinho';
+  }
 }
 
 function atualizarAvisoPausado() {
