@@ -3054,6 +3054,7 @@ async function gerarCodigosComanda() {
         <img src="${qrUrl}" width="140" height="140" style="border-radius:6px;">
         <div style="font-size:13px;font-weight:700;margin-top:6px;">Código ${i+1}</div>
         <a href="${qrUrl}" download="comanda-${i+1}.png" style="font-size:11px;color:var(--laranja);">Baixar</a>
+        <div style="margin-top:4px;"><a href="${url}" target="_blank" style="font-size:11px;color:var(--texto-muted);">🔗 Abrir/testar link</a></div>
       </div>
     `;
   });
