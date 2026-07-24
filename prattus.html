@@ -2901,7 +2901,7 @@ function gerarQRMesas() {
   const grid = document.getElementById('mesas-qr-grid');
   let html = '';
   for (let n = 1; n <= qtd; n++) {
-    const url = `https://servidelivery.com.br/${slug}?mesa=${n}`;
+    const url = `https://servidelivery.com.br/${slug}?mesa=${n}&consulta=1`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(url)}`;
     html += `
       <div style="text-align:center;border:1px solid var(--creme-borda);border-radius:10px;padding:12px;">
@@ -2913,6 +2913,32 @@ function gerarQRMesas() {
   }
   grid.innerHTML = html;
   toast(`${qtd} QR Codes gerados!`, 'ok');
+}
+
+async function gerarCodigosComanda() {
+  const qtd = parseInt(document.getElementById('qtd-comandas').value);
+  if (!qtd || qtd < 1) { toast('Digite a quantidade de códigos.', 'erro'); return; }
+  if (qtd > 60) { toast('Máximo de 60 por vez.', 'erro'); return; }
+
+  const linhas = Array.from({length: qtd}, () => ({ restaurante_id: restauranteAtual.id, status: 'livre' }));
+  const { data, error } = await db.from('codigos_comanda').insert(linhas).select();
+  if (error) { toast('Erro ao gerar códigos: ' + error.message, 'erro'); return; }
+
+  const grid = document.getElementById('comandas-qr-grid');
+  let html = '';
+  data.forEach((c, i) => {
+    const url = `https://servidelivery.com.br/prattus.html?comanda=${c.id}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(url)}`;
+    html += `
+      <div style="text-align:center;border:1px solid var(--creme-borda);border-radius:10px;padding:12px;">
+        <img src="${qrUrl}" width="140" height="140" style="border-radius:6px;">
+        <div style="font-size:13px;font-weight:700;margin-top:6px;">Código ${i+1}</div>
+        <a href="${qrUrl}" download="comanda-${i+1}.png" style="font-size:11px;color:var(--laranja);">Baixar</a>
+      </div>
+    `;
+  });
+  grid.innerHTML = html;
+  toast(`${qtd} códigos de comanda gerados!`, 'ok');
 }
 
 async function exportarClientesCSV() {
@@ -3322,8 +3348,21 @@ Não atendemos pedidos por aqui. Use o link acima 😊</div>
       </div>
 
       <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--creme-borda);">
-        <div style="font-size:15px;font-weight:600;margin-bottom:6px;">🍽️ QR Code das mesas</div>
-        <div style="font-size:13px;color:var(--texto-muted);margin-bottom:14px;">Gere um QR Code pra cada mesa. O cliente escaneia, o cardápio abre e o pedido já cai identificado ("Mesa 4") no seu painel.</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:6px;">📋 QR Codes de comanda (uso do garçom)</div>
+        <div style="font-size:13px;color:var(--texto-muted);margin-bottom:14px;">Gere códigos reutilizáveis pra plastificar e levar no bolso. O garçom escaneia um código livre, informa a mesa, e monta o pedido — logado no painel dele. O mesmo código serve pra adicionar mais itens depois, e pra fechar a conta no caixa.</div>
+        <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:14px;">
+          <div class="form-group" style="margin:0;">
+            <label style="font-size:12px;">Quantidade de códigos</label>
+            <input type="number" id="qtd-comandas" placeholder="Ex: 10" min="1" max="60" style="width:120px;">
+          </div>
+          <button class="btn-sm" onclick="gerarCodigosComanda()">Gerar códigos</button>
+        </div>
+        <div id="comandas-qr-grid" style="display:flex;flex-wrap:wrap;gap:16px;"></div>
+      </div>
+
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--creme-borda);">
+        <div style="font-size:15px;font-weight:600;margin-bottom:6px;">🍽️ QR Code de consulta (fica na mesa)</div>
+        <div style="font-size:13px;color:var(--texto-muted);margin-bottom:14px;">Cole um em cada mesa física. O cliente escaneia e vê o cardápio com fotos, descrição e preço — sem conseguir adicionar ao carrinho. É só pra ele escolher o que vai pedir com o garçom.</div>
         <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:14px;">
           <div class="form-group" style="margin:0;">
             <label style="font-size:12px;">Quantidade de mesas</label>
