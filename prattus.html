@@ -3091,27 +3091,6 @@ function baixarArquivoTexto(conteudo, nomeArquivo, tipo) {
   URL.revokeObjectURL(url);
 }
 
-function gerarQRMesas() {
-  const qtd = parseInt(document.getElementById('qtd-mesas').value);
-  if (!qtd || qtd < 1) { toast('Digite a quantidade de mesas.', 'erro'); return; }
-  const slug = restauranteAtual.slug;
-  const grid = document.getElementById('mesas-qr-grid');
-  let html = '';
-  for (let n = 1; n <= qtd; n++) {
-    const url = `https://servidelivery.com.br/${slug}?mesa=${n}&consulta=1`;
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(url)}`;
-    html += `
-      <div style="text-align:center;border:1px solid var(--creme-borda);border-radius:10px;padding:12px;">
-        <img src="${qrUrl}" width="140" height="140" style="border-radius:6px;">
-        <div style="font-size:13px;font-weight:700;margin-top:6px;">Mesa ${n}</div>
-        <a href="${qrUrl}" download="mesa-${n}.png" style="font-size:11px;color:var(--laranja);">Baixar</a>
-      </div>
-    `;
-  }
-  grid.innerHTML = html;
-  toast(`${qtd} QR Codes gerados!`, 'ok');
-}
-
 async function gerarCodigosComanda() {
   const qtd = parseInt(document.getElementById('qtd-comandas').value);
   if (!qtd || qtd < 1) { toast('Digite a quantidade de códigos.', 'erro'); return; }
@@ -3560,15 +3539,8 @@ Não atendemos pedidos por aqui. Use o link acima 😊</div>
 
       <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--creme-borda);">
         <div style="font-size:15px;font-weight:600;margin-bottom:6px;">🍽️ QR Code de consulta (fica na mesa)</div>
-        <div style="font-size:13px;color:var(--texto-muted);margin-bottom:14px;">Cole um em cada mesa física. O cliente escaneia e vê o cardápio com fotos, descrição e preço — sem conseguir adicionar ao carrinho. É só pra ele escolher o que vai pedir com o garçom.</div>
-        <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:14px;">
-          <div class="form-group" style="margin:0;">
-            <label style="font-size:12px;">Quantidade de mesas</label>
-            <input type="number" id="qtd-mesas" placeholder="Ex: 10" min="1" max="60" style="width:120px;">
-          </div>
-          <button class="btn-sm" onclick="gerarQRMesas()">Gerar QR Codes</button>
-        </div>
-        <div id="mesas-qr-grid" style="display:flex;flex-wrap:wrap;gap:16px;"></div>
+        <div style="font-size:13px;color:var(--texto-muted);margin-bottom:14px;">É só 1 código, genérico — imprima quantas cópias quiser e cole em todas as mesas. O cliente escaneia e vê o cardápio com fotos, descrição e preço — sem conseguir adicionar ao carrinho. É só pra ele escolher o que vai pedir com o garçom (quem define a mesa é o garçom, no código de comanda dele).</div>
+        <div id="mesa-qr-unico"></div>
       </div>
 
       <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--creme-borda);">
@@ -3593,6 +3565,16 @@ Não atendemos pedidos por aqui. Use o link acima 😊</div>
           <strong>🆘 Emergência:</strong> Abre o WhatsApp já com seu cardápio completo em texto, pronto para enviar manualmente aos clientes.
         </div>
       </div>
+    </div>
+  `;
+
+  const urlConsulta = `https://servidelivery.com.br/${r.slug}?consulta=1`;
+  const qrConsultaUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(urlConsulta)}`;
+  document.getElementById('mesa-qr-unico').innerHTML = `
+    <div style="text-align:center;border:1px solid var(--creme-borda);border-radius:10px;padding:16px;display:inline-block;">
+      <img src="${qrConsultaUrl}" width="180" height="180" style="border-radius:6px;">
+      <div style="font-size:13px;font-weight:700;margin-top:8px;">Cardápio pra consulta</div>
+      <a href="${qrConsultaUrl}" download="cardapio-consulta.png" style="font-size:11px;color:var(--laranja);">Baixar</a>
     </div>
   `;
 }
@@ -3854,9 +3836,9 @@ async function carregarPublico(restId) {
   const mesaParam = new URLSearchParams(window.location.search).get('mesa');
   const consultaParam = new URLSearchParams(window.location.search).get('consulta');
 
-  if (mesaParam && consultaParam === '1') {
+  if (consultaParam === '1') {
     modoConsultaAtivo = true;
-    document.getElementById('pub-rest-sub').textContent = `🍽️ Mesa ${mesaParam} — Cardápio pra consulta`;
+    document.getElementById('pub-rest-sub').textContent = `🍽️ Cardápio pra consulta`;
     const carrinhoBar = document.getElementById('carrinho-bar');
     if (carrinhoBar) carrinhoBar.style.display = 'none';
     const rodapePriv = document.getElementById('pub-rodape-privacidade');
