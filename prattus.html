@@ -818,6 +818,22 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
 </div>
 </div>
 
+<!-- MODAL: FECHAR CONTA (COMANDA) -->
+<div class="modal-overlay" id="modal-fechar-comanda">
+<div class="modal" style="max-width:480px;">
+  <div class="modal-header">
+    <div class="modal-titulo">💰 Fechar conta — <span id="fechar-comanda-mesa">Mesa —</span></div>
+    <button class="modal-fechar" onclick="fecharModal('modal-fechar-comanda')">×</button>
+  </div>
+  <div id="fechar-comanda-lista">Carregando...</div>
+  <div style="display:flex;justify-content:space-between;margin-top:14px;padding-top:14px;border-top:1px solid var(--creme-borda);">
+    <span style="font-weight:700;">Total da visita</span>
+    <span id="fechar-comanda-total" style="font-weight:700;color:var(--laranja);">R$ 0,00</span>
+  </div>
+  <button class="btn btn-laranja" style="margin-top:14px;" onclick="confirmarFechamentoComanda()">Confirmar pagamento e liberar mesa</button>
+</div>
+</div>
+
 <!-- MODAL: MEUS DADOS (LGPD) -->
 <div class="modal-overlay" id="modal-privacidade">
 <div class="modal" style="max-width:400px;">
@@ -1751,7 +1767,10 @@ async function carregarModoComanda(comandaId) {
   document.getElementById('pub-rest-nome').textContent = `Mesa ${codigo.mesa}`;
   document.getElementById('pub-rest-sub').textContent = '📋 Comanda do garçom';
   const infoBar = document.getElementById('pub-info-bar');
-  if (infoBar) infoBar.innerHTML = `<button onclick="sairModoComanda()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;padding:5px 12px;border-radius:20px;font-size:12px;cursor:pointer;">← Voltar pro painel</button>`;
+  if (infoBar) infoBar.innerHTML = `
+    <button onclick="sairModoComanda()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;padding:5px 12px;border-radius:20px;font-size:12px;cursor:pointer;">← Voltar pro painel</button>
+    <button onclick="abrirFechamentoComanda()" style="background:var(--laranja);border:none;color:#fff;padding:5px 12px;border-radius:20px;font-size:12px;cursor:pointer;font-weight:600;">💰 Fechar conta</button>
+  `;
   const fechado = document.getElementById('pub-fechado');
   if (fechado) fechado.style.display = 'none';
   const rodapePriv = document.getElementById('pub-rodape-privacidade');
@@ -1810,6 +1829,62 @@ function sairModoComanda() {
   window.history.replaceState({}, '', url.pathname);
   mostrarTela('painel');
   irPara(meuPapel === 'dono' ? 'dashboard' : 'pedidos');
+}
+
+async function abrirFechamentoComanda() {
+  if (!comandaAtual) return;
+  document.getElementById('fechar-comanda-mesa').textContent = `Mesa ${comandaAtual.mesa}`;
+  document.getElementById('fechar-comanda-lista').innerHTML = 'Carregando...';
+  document.getElementById('fechar-comanda-total').textContent = 'R$ 0,00';
+  abrirModal('modal-fechar-comanda');
+
+  const { data: codigo } = await db.from('codigos_comanda').select('aberta_em').eq('id', comandaAtual.id).single();
+  const abertaEm = codigo?.aberta_em;
+
+  const { data: pedidos } = await db.from('pedidos')
+    .select('id,total,criado_em,pedido_itens(nome,quantidade,preco)')
+    .eq('codigo_comanda_id', comandaAtual.id)
+    .gte('criado_em', abertaEm)
+    .order('criado_em');
+
+  const lista = document.getElementById('fechar-comanda-lista');
+  if (!pedidos || pedidos.length === 0) {
+    lista.innerHTML = '<div class="empty"><div class="empty-txt">Nenhum pedido registrado ainda nessa visita.</div></div>';
+    return;
+  }
+
+  const itensAgrupados = {};
+  let total = 0;
+  pedidos.forEach(p => {
+    total += parseFloat(p.total || 0);
+    (p.pedido_itens || []).forEach(i => {
+      if (!itensAgrupados[i.nome]) itensAgrupados[i.nome] = { qtd: 0, preco: parseFloat(i.preco) };
+      itensAgrupados[i.nome].qtd += i.quantidade;
+    });
+  });
+
+  lista.innerHTML = Object.entries(itensAgrupados).map(([nome, info]) => `
+    <div class="frete-row">
+      <span>${info.qtd}x ${esc(nome)}</span>
+      <span style="font-weight:600;">R$ ${(info.preco * info.qtd).toFixed(2).replace('.',',')}</span>
+    </div>
+  `).join('');
+  document.getElementById('fechar-comanda-total').textContent = 'R$ ' + total.toFixed(2).replace('.',',');
+}
+
+async function confirmarFechamentoComanda() {
+  if (!comandaAtual) return;
+  if (!confirm('Confirma o pagamento e libera essa mesa pra um novo cliente?')) return;
+
+  const { error } = await db.from('codigos_comanda').update({
+    status: 'livre', mesa: null, aberta_em: null
+  }).eq('id', comandaAtual.id);
+
+  if (error) { toast('Erro ao liberar a mesa. Tente de novo.', 'erro'); return; }
+
+  fecharModal('modal-fechar-comanda');
+  toast('Conta fechada e mesa liberada!', 'ok');
+  sairModoComanda();
 }
 
 // ===== NOTIFICAÇÕES PUSH (novo pedido) =====
