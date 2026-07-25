@@ -491,6 +491,7 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
 .carr-obs-input{
   width:100%;padding:7px 10px;border:1px solid var(--cinza-borda);border-radius:7px;
   font-size:12px;outline:none;transition:border-color 0.2s;
+  font-family:inherit;resize:none;overflow:hidden;display:block;min-height:30px;line-height:1.4;
 }
 .carr-obs-input:focus{border-color:var(--laranja);}
 
@@ -4850,7 +4851,7 @@ function renderListaCarrinho() {
             <button class="carr-remove" onclick="removerItem(${idx})" title="Remover">×</button>
           </div>
           <div style="font-size:12px;color:var(--texto-muted);margin:2px 0 8px;">R$ ${parseFloat(item.preco).toFixed(2).replace('.',',')} cada</div>
-          <input type="text" class="carr-obs-input" placeholder="Observação (ex: sem cebola)" value="${esc(item.obs||'')}" onchange="atualizarObsItem(${idx}, this.value)">
+          <textarea class="carr-obs-input" rows="1" placeholder="Observação (ex: sem cebola)" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px';atualizarObsItem(${idx}, this.value)">${esc(item.obs||'')}</textarea>
           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
             <div class="carr-qty-ctrl">
               <button class="carr-btn" onclick="mudarQtd(${idx},-1)">−</button>
@@ -4864,6 +4865,7 @@ function renderListaCarrinho() {
     `;
     }).join('');
   }
+  document.querySelectorAll('.carr-obs-input').forEach(t => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; });
 }
 
 let modoComandaAtivo = false;
