@@ -1092,6 +1092,7 @@ Retirar (múltipla): Sem feijão:0, Sem massa:0"></textarea>
   <div id="mic-desc" style="font-size:13px;color:var(--texto-muted);margin-bottom:6px;"></div>
   <div id="mic-preco-base" style="font-size:16px;font-weight:700;color:var(--laranja);margin-bottom:16px;"></div>
   <div id="mic-grupos"></div>
+  <div id="mic-bloco-pedido">
   <div class="form-group">
     <label>Observações (opcional)</label>
     <input type="text" id="mic-obs" placeholder="Ex: sem cebola">
@@ -1103,6 +1104,7 @@ Retirar (múltipla): Sem feijão:0, Sem massa:0"></textarea>
       <button class="carr-btn" onclick="micMudarQtd(1)">+</button>
     </div>
     <button class="btn btn-laranja" style="width:auto;padding:12px 22px;white-space:nowrap;" onclick="micAdicionar()">Adicionar · R$ <span id="mic-total">0,00</span></button>
+  </div>
   </div>
 </div>
 </div>
@@ -3850,7 +3852,20 @@ async function carregarPublico(restId) {
 
   // Se veio de um QR Code de mesa, já seleciona "consumir no local" com a mesa preenchida
   const mesaParam = new URLSearchParams(window.location.search).get('mesa');
-  if (mesaParam) {
+  const consultaParam = new URLSearchParams(window.location.search).get('consulta');
+
+  if (mesaParam && consultaParam === '1') {
+    modoConsultaAtivo = true;
+    document.getElementById('pub-rest-sub').textContent = `🍽️ Mesa ${mesaParam} — Cardápio pra consulta`;
+    const carrinhoBar = document.getElementById('carrinho-bar');
+    if (carrinhoBar) carrinhoBar.style.display = 'none';
+    const rodapePriv = document.getElementById('pub-rodape-privacidade');
+    if (rodapePriv) rodapePriv.style.display = 'none';
+    document.getElementById('btn-pedir-novo').style.display = 'none';
+    document.getElementById('btn-meus-pedidos').style.display = 'none';
+    renderItensPublico(todosItensPublico);
+    renderRankingHome();
+  } else if (mesaParam) {
     selecionarModo('local');
     const campoMesaInput = document.getElementById('ped-mesa');
     if (campoMesaInput) { campoMesaInput.value = mesaParam; campoMesaInput.readOnly = true; }
@@ -3987,7 +4002,7 @@ function renderRankingCard(item) {
       <div class="pub-ranking-foto">${item.foto_url ? `<img src="${esc(item.foto_url)}" onerror="this.parentElement.textContent='🍽️'">` : '🍽️'}</div>
       <div class="pub-ranking-nome">${esc(item.nome)}</div>
       <div class="pub-ranking-preco">${precoExibicaoItem(item)}</div>
-      <button class="pub-ranking-plus" onclick="event.stopPropagation();${acao}">+</button>
+      ${modoConsultaAtivo ? '' : `<button class="pub-ranking-plus" onclick="event.stopPropagation();${acao}">+</button>`}
     </div>
   `;
 }
@@ -4266,7 +4281,7 @@ function renderCardItem(item) {
         <div class="pub-item-desc">${esc(item.descricao)}</div>
         <div class="pub-item-preco">${precoExibicaoItem(item)}</div>
       </div>
-      ${esgotado ? '' : `<button class="pub-add" onclick="event.stopPropagation();${acaoBotao}">+</button>`}
+      ${esgotado || modoConsultaAtivo ? '' : `<button class="pub-add" onclick="event.stopPropagation();${acaoBotao}">+</button>`}
     </div>
   `;
 }
@@ -4377,6 +4392,8 @@ function abrirModalItem(item) {
   document.getElementById('mic-qtd').textContent = micQtd;
   document.getElementById('mic-obs').value = '';
   micAtualizarTotal();
+  const blocoPedido = document.getElementById('mic-bloco-pedido');
+  if (blocoPedido) blocoPedido.style.display = modoConsultaAtivo ? 'none' : 'block';
   abrirModal('modal-item-cliente');
 }
 
@@ -4867,6 +4884,7 @@ function renderListaCarrinho() {
 }
 
 let modoComandaAtivo = false;
+let modoConsultaAtivo = false;
 let comandaAtual = null;
 
 function abrirCarrinho() {
