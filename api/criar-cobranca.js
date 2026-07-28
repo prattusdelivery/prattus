@@ -12,7 +12,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Dados incompletos (restauranteId, nome, email, cpfCnpj e plano são obrigatórios)' });
     }
 
-    const valor = plano === 'anual' ? 369.00 : 36.90;
+    const valor = plano === 'anual' ? 399.90 : 39.90;
     const ciclo = plano === 'anual' ? 'YEARLY' : 'MONTHLY';
 
     const ASAAS_KEY = process.env.ASAAS_API_KEY;
