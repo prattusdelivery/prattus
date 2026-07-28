@@ -1057,17 +1057,6 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
       <input type="text" id="item-foto" placeholder="https://..." style="margin-top:6px;" oninput="atualizarPreviewFotoItem(this.value)">
     </details>
   </div>
-  <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
-    <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
-      <input type="checkbox" id="item-veg"> Vegetariano
-    </label>
-    <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
-      <input type="checkbox" id="item-gluten"> Sem glúten
-    </label>
-    <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
-      <input type="checkbox" id="item-lactose"> Sem lactose
-    </label>
-  </div>
   <div class="form-group">
     <label>Suas etiquetas (opcional)</label>
     <div id="item-etiquetas-wrap" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
@@ -2589,9 +2578,6 @@ async function renderCardapio() {
               <div class="item-nome">${esc(item.nome)} ${esgotado?'<span style="font-size:10px;background:#FBE1DE;color:#B3261E;padding:2px 8px;border-radius:10px;font-weight:700;">ESGOTADO HOJE</span>':''} ${destacado?'<span style="font-size:10px;background:#FFF1E6;color:#C4522E;padding:2px 8px;border-radius:10px;font-weight:700;">⭐ EM DESTAQUE</span>':''}</div>
               <div class="item-desc">${esc(item.descricao)}</div>
               <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
-                ${item.vegetariano?'<span style="font-size:10px;background:#E1F5EE;color:#0F6E56;padding:2px 6px;border-radius:10px;">Vegetariano</span>':''}
-                ${item.sem_gluten?'<span style="font-size:10px;background:#FAEEDA;color:#854F0B;padding:2px 6px;border-radius:10px;">Sem glúten</span>':''}
-                ${item.sem_lactose?'<span style="font-size:10px;background:#E6F1FB;color:#185FA5;padding:2px 6px;border-radius:10px;">Sem lactose</span>':''}
                 ${(item.etiquetas_ids||[]).map(eid => {
                   const et = etiquetasCache.find(e => e.id === eid);
                   return et ? `<span style="font-size:10px;background:${et.cor}22;color:${et.cor};padding:2px 6px;border-radius:10px;font-weight:600;">${esc(et.nome)}</span>` : '';
@@ -2722,9 +2708,6 @@ async function salvarItem() {
     preco: parseFloat(document.getElementById('item-preco').value),
     preco_promocional: precoPromoVal ? parseFloat(precoPromoVal) : null,
     foto_url: document.getElementById('item-foto').value || null,
-    vegetariano: document.getElementById('item-veg').checked,
-    sem_gluten: document.getElementById('item-gluten').checked,
-    sem_lactose: document.getElementById('item-lactose').checked,
     etiquetas_ids: etiquetasSelecionadas,
     opcoes: parseOpcoesTexto(document.getElementById('item-opcoes').value),
   };
@@ -2802,9 +2785,6 @@ function abrirNovoItem() {
   document.getElementById('item-preco-promo').value = '';
   document.getElementById('item-foto').value = '';
   atualizarPreviewFotoItem('');
-  document.getElementById('item-veg').checked = false;
-  document.getElementById('item-gluten').checked = false;
-  document.getElementById('item-lactose').checked = false;
   document.getElementById('item-opcoes').value = '';
   renderEtiquetasItemForm([]);
   document.getElementById('modal-item-titulo').textContent = 'Novo item';
@@ -2822,9 +2802,6 @@ async function editarItem(id) {
   document.getElementById('item-foto').value = data.foto_url || '';
   atualizarPreviewFotoItem(data.foto_url || '');
   document.getElementById('item-cat').value = data.categoria_id || '';
-  document.getElementById('item-veg').checked = data.vegetariano;
-  document.getElementById('item-gluten').checked = data.sem_gluten;
-  document.getElementById('item-lactose').checked = data.sem_lactose;
   document.getElementById('item-opcoes').value = opcoesParaTexto(data.opcoes);
   renderEtiquetasItemForm(data.etiquetas_ids || []);
   document.getElementById('modal-item-titulo').textContent = 'Editar item';
