@@ -2763,16 +2763,29 @@ async function excluirCategoria(id) {
 }
 
 // ===== CLIENTES =====
+function preencherDescontoSugerido() {
+  const select = document.getElementById('rec-item');
+  const opcao = select.options[select.selectedIndex];
+  const preco = opcao?.dataset?.preco;
+  const campoDesconto = document.getElementById('rec-desconto');
+  if (preco && campoDesconto && !campoDesconto.value) {
+    campoDesconto.value = parseFloat(preco).toFixed(2);
+  }
+}
+
 async function criarRecompensa() {
-  const descricao = document.getElementById('rec-descricao').value.trim();
+  const select = document.getElementById('rec-item');
+  const itemId = select.value;
+  const opcao = select.options[select.selectedIndex];
+  const descricao = opcao?.textContent?.trim();
   const pontos = parseInt(document.getElementById('rec-pontos').value);
   const desconto = parseFloat(document.getElementById('rec-desconto').value);
-  if (!descricao || !pontos || !desconto) {
-    toast('Preencha descrição, pontos necessários e valor do desconto.', 'erro');
+  if (!itemId || !pontos || !desconto) {
+    toast('Escolha um produto, os pontos necessários e o valor do desconto.', 'erro');
     return;
   }
   await db.from('recompensas').insert({
-    restaurante_id: restauranteAtual.id, descricao, pontos_necessarios: pontos, desconto_valor: desconto, ativo: true
+    restaurante_id: restauranteAtual.id, item_id: itemId, descricao, pontos_necessarios: pontos, desconto_valor: desconto, ativo: true
   });
   toast('Recompensa criada!', 'ok');
   renderClientes();
@@ -2829,6 +2842,8 @@ async function renderClientes() {
     .eq('restaurante_id', restauranteAtual.id).order('total_gasto', {ascending: false});
   const { data: recompensas } = await db.from('recompensas').select('*')
     .eq('restaurante_id', restauranteAtual.id).order('pontos_necessarios');
+  const { data: itensCardapio } = await db.from('itens').select('id,nome,preco')
+    .eq('restaurante_id', restauranteAtual.id).order('nome');
 
   const aniversariantes = (clientes||[]).filter(c => estaAniversarioProximo(c.data_nascimento, 7));
 
@@ -2852,7 +2867,10 @@ async function renderClientes() {
       <div class="card-titulo">🎁 Recompensas de fidelidade</div>
       <div style="font-size:12px;color:var(--texto-muted);margin-bottom:14px;">O cliente acumula 1 ponto por real gasto. Crie prêmios que ele pode trocar na hora de fechar o pedido.</div>
       <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;margin-bottom:14px;">
-        <input type="text" id="rec-descricao" placeholder="Ex: Refrigerante grátis">
+        <select id="rec-item" onchange="preencherDescontoSugerido()">
+          <option value="">Escolha um produto do cardápio...</option>
+          ${(itensCardapio||[]).map(i => `<option value="${i.id}" data-preco="${i.preco}">${esc(i.nome)}</option>`).join('')}
+        </select>
         <input type="number" id="rec-pontos" placeholder="Pontos necessários">
         <input type="number" id="rec-desconto" placeholder="Valor do desconto (R$)" step="0.01">
         <button class="btn-sm" onclick="criarRecompensa()">+ Criar</button>
