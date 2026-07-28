@@ -1428,7 +1428,7 @@ async function exportarAssinantesCSV() {
     if (resp.ok) dadosProtegidos = data.dados || {};
   } catch (e) {}
 
-  const valorPlano = { mensal: 36.90, anual: 369.00 };
+  const valorPlano = { mensal: 39.90, anual: 399.90 };
 
   const linhas = [['Nome','E-mail','CPF/CNPJ','WhatsApp','Status','Plano','Valor assinatura','Cadastrado em','Faturamento gerado','Pedidos']];
   restaurantesSA.forEach(r => {
@@ -1517,7 +1517,7 @@ async function carregarSuperAdmin() {
 
   // MRR: soma o valor mensal-equivalente de cada assinante ativo (anual vira /12)
   const ativos = (restaurantes||[]).filter(r => r.plano_ativo);
-  const mrr = ativos.reduce((s,r) => s + (r.plano_tipo === 'anual' ? 369/12 : 36.90), 0);
+  const mrr = ativos.reduce((s,r) => s + (r.plano_tipo === 'anual' ? 399.90/12 : 39.90), 0);
   const arr = mrr * 12;
 
   // Taxa de conversão: de quem já passou pelo menos uma vez pelo teste, quantos ativaram
@@ -4284,8 +4284,8 @@ function mostrarBloqueioTrial() {
       <div style="font-size:14px;color:var(--texto-muted);margin-bottom:28px;max-width:360px;">
         Assine agora pra voltar a acessar o painel e seu cardápio voltar a receber pedidos.
       </div>
-      <button onclick="iniciarAssinatura('mensal', this)" style="background:var(--laranja);color:#fff;border:none;text-decoration:none;padding:13px 28px;border-radius:10px;font-size:14px;font-weight:600;margin-bottom:10px;cursor:pointer;">Assinar mensal — R$36,90/mês</button>
-      <button onclick="iniciarAssinatura('anual', this)" style="background:none;border:1px solid var(--laranja);color:var(--laranja);padding:11px 24px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:14px;cursor:pointer;">Assinar anual — R$369,00/ano</button>
+      <button onclick="iniciarAssinatura('mensal', this)" style="background:var(--laranja);color:#fff;border:none;text-decoration:none;padding:13px 28px;border-radius:10px;font-size:14px;font-weight:600;margin-bottom:10px;cursor:pointer;">Assinar mensal — R$39,90/mês</button>
+      <button onclick="iniciarAssinatura('anual', this)" style="background:none;border:1px solid var(--laranja);color:var(--laranja);padding:11px 24px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:14px;cursor:pointer;">Assinar anual — R$399,90/ano</button>
       ${podeUsarGraca ? `
         <button onclick="ativarGracaProvisoria()" style="background:none;border:none;color:var(--texto-muted);font-size:12px;text-decoration:underline;margin-bottom:14px;cursor:pointer;">
           🕐 Já sou assinante — liberar acesso por 24h pra resolver o pagamento
