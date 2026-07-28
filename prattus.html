@@ -1738,6 +1738,10 @@ async function carregarRestaurante() {
     atualizarBotaoNotificacao();
 
     if (st.trial) mostrarBannerTrial(st.diasRestantes);
+    else if (data.proxima_cobranca) {
+      const diasParaCobranca = Math.ceil((new Date(data.proxima_cobranca) - new Date()) / 86400000);
+      if (diasParaCobranca >= 0 && diasParaCobranca <= 5) mostrarBannerCobranca(diasParaCobranca);
+    }
   } else {
     mostrarTela('painel');
     irPara('dashboard');
@@ -4260,6 +4264,16 @@ async function iniciarAssinatura(plano, btnEl) {
     toast('Erro ao gerar pagamento. Tente novamente.', 'erro');
     if (btnEl) { btnEl.textContent = textoOriginal; btnEl.disabled = false; }
   }
+}
+
+function mostrarBannerCobranca(dias) {
+  document.getElementById('trial-banner')?.remove();
+  const banner = document.createElement('div');
+  banner.id = 'trial-banner';
+  banner.style.cssText = 'background:#E6F1FB;color:#185FA5;font-size:13px;text-align:center;padding:10px 16px;font-weight:500;';
+  const texto = dias === 0 ? 'sua assinatura renova <strong>hoje</strong>' : `sua assinatura renova em <strong>${dias} dia${dias===1?'':'s'}</strong>`;
+  banner.innerHTML = `📅 ${texto} — fique de olho no e-mail/WhatsApp pra confirmar o pagamento e não perder o acesso.`;
+  document.querySelector('.topbar').after(banner);
 }
 
 function mostrarBannerTrial(dias) {
