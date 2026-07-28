@@ -26,6 +26,16 @@ export default async function handler(req, res) {
     if (eventosQueLiberam.includes(tipo) && pagamento?.externalReference) {
       const restauranteId = pagamento.externalReference;
 
+      const svcHeadersLeitura = {
+        'apikey': process.env.SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
+      };
+      const buscaResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}&select=plano_tipo`, { headers: svcHeadersLeitura });
+      const buscaData = await buscaResp.json();
+      const planoTipo = Array.isArray(buscaData) && buscaData[0] ? buscaData[0].plano_tipo : null;
+      const diasCiclo = planoTipo === 'anual' ? 365 : 30;
+      const proximaCobranca = new Date(Date.now() + diasCiclo * 24 * 60 * 60 * 1000).toISOString();
+
       const resp = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}`, {
         method: 'PATCH',
         headers: {
@@ -34,7 +44,7 @@ export default async function handler(req, res) {
           'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
           'Prefer': 'return=minimal'
         },
-        body: JSON.stringify({ plano_ativo: true })
+        body: JSON.stringify({ plano_ativo: true, proxima_cobranca: proximaCobranca })
       });
 
       if (!resp.ok) {
