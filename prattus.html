@@ -1057,7 +1057,7 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
       <input type="text" id="item-foto" placeholder="https://..." style="margin-top:6px;" oninput="atualizarPreviewFotoItem(this.value)">
     </details>
   </div>
-  <div style="display:flex;gap:16px;margin-bottom:16px;">
+  <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
     <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
       <input type="checkbox" id="item-veg"> Vegetariano
     </label>
@@ -1067,6 +1067,11 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
     <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
       <input type="checkbox" id="item-lactose"> Sem lactose
     </label>
+  </div>
+  <div class="form-group">
+    <label>Suas etiquetas (opcional)</label>
+    <div id="item-etiquetas-wrap" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+    <div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Não tem nenhuma ainda? Crie em "🏷️ Gerenciar etiquetas", no topo do Cardápio.</div>
   </div>
   <div class="form-group">
     <label>Opções e adicionais (opcional)</label>
@@ -1124,6 +1129,23 @@ Retirar (múltipla): Sem feijão:0, Sem massa:0"></textarea>
   </div>
   <button class="btn btn-laranja" onclick="salvarCategoria()">Salvar categoria</button>
   <input type="hidden" id="cat-id">
+</div>
+</div>
+
+<!-- MODAL: ETIQUETAS -->
+<div class="modal-overlay" id="modal-etiquetas">
+<div class="modal">
+  <div class="modal-header">
+    <div class="modal-titulo">🏷️ Suas etiquetas</div>
+    <button class="modal-fechar" onclick="fecharModal('modal-etiquetas')">×</button>
+  </div>
+  <div style="font-size:12px;color:var(--texto-muted);margin-bottom:14px;">Crie etiquetas do seu jeito (ex: 🌶️ Picante, 🆕 Novidade, 🔥 Mais vendido) pra usar em qualquer item do cardápio.</div>
+  <div style="display:flex;gap:8px;margin-bottom:16px;">
+    <input type="text" id="etq-nome" placeholder="Ex: 🌶️ Picante" style="flex:1;">
+    <input type="color" id="etq-cor" value="#8A7B6C" style="width:44px;padding:2px;">
+    <button class="btn-sm" onclick="criarEtiqueta()">+ Criar</button>
+  </div>
+  <div id="lista-etiquetas"></div>
 </div>
 </div>
 
@@ -1211,6 +1233,7 @@ let carrinho = [];
 let fretesSelecionado = 0;
 let restPublico = null;
 let categorias = [];
+let etiquetasCache = [];
 let catAtiva = 'todas';
 let autoRefreshTimer = null;
 let ultimosPedidosIds = new Set();
@@ -1758,15 +1781,17 @@ async function carregarModoComanda(comandaId) {
   modoComandaAtivo = true;
   carrinho = [];
 
-  const [{ data: rest }, { data: itens }, { data: cats }] = await Promise.all([
+  const [{ data: rest }, { data: itens }, { data: cats }, { data: etiquetasData }] = await Promise.all([
     db.from('restaurantes').select('*').eq('id', restauranteAtual.id).single(),
     db.from('itens').select('*').eq('restaurante_id', restauranteAtual.id).order('nome'),
-    db.from('categorias').select('*').eq('restaurante_id', restauranteAtual.id).order('ordem')
+    db.from('categorias').select('*').eq('restaurante_id', restauranteAtual.id).order('ordem'),
+    db.from('etiquetas').select('*').eq('restaurante_id', restauranteAtual.id)
   ]);
 
   restPublico = rest;
   todosItensPublico = itens || [];
   categorias = cats || [];
+  etiquetasCache = etiquetasData || [];
 
   document.getElementById('pub-rest-nome').textContent = `Mesa ${codigo.mesa}`;
   document.getElementById('pub-rest-sub').textContent = '📋 Comanda do garçom';
@@ -2536,11 +2561,14 @@ async function renderCardapio() {
   if (!restauranteAtual) return;
   const { data: cats } = await db.from('categorias').select('*').eq('restaurante_id', restauranteAtual.id).order('ordem');
   const { data: itens } = await db.from('itens').select('*,categorias(nome)').eq('restaurante_id', restauranteAtual.id).order('criado_em');
+  const { data: etiquetas } = await db.from('etiquetas').select('*').eq('restaurante_id', restauranteAtual.id).order('nome');
+  etiquetasCache = etiquetas || [];
 
   document.getElementById('conteudo').innerHTML = `
     <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
-      <button class="btn btn-laranja" style="width:auto;padding:10px 20px" onclick="abrirModal('modal-item')">+ Novo item</button>
+      <button class="btn btn-laranja" style="width:auto;padding:10px 20px" onclick="abrirNovoItem()">+ Novo item</button>
       <button class="btn btn-outline" style="width:auto;padding:10px 20px" onclick="abrirModal('modal-cat')">+ Nova categoria</button>
+      <button class="btn btn-outline" style="width:auto;padding:10px 20px" onclick="abrirModalEtiquetas()">🏷️ Gerenciar etiquetas</button>
     </div>
     ${(cats||[]).map(cat => `
       <div class="card" style="margin-bottom:16px;">
@@ -2560,10 +2588,14 @@ async function renderCardapio() {
             <div style="flex:1;">
               <div class="item-nome">${esc(item.nome)} ${esgotado?'<span style="font-size:10px;background:#FBE1DE;color:#B3261E;padding:2px 8px;border-radius:10px;font-weight:700;">ESGOTADO HOJE</span>':''} ${destacado?'<span style="font-size:10px;background:#FFF1E6;color:#C4522E;padding:2px 8px;border-radius:10px;font-weight:700;">⭐ EM DESTAQUE</span>':''}</div>
               <div class="item-desc">${esc(item.descricao)}</div>
-              <div style="display:flex;gap:6px;margin-top:4px;">
+              <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
                 ${item.vegetariano?'<span style="font-size:10px;background:#E1F5EE;color:#0F6E56;padding:2px 6px;border-radius:10px;">Vegetariano</span>':''}
                 ${item.sem_gluten?'<span style="font-size:10px;background:#FAEEDA;color:#854F0B;padding:2px 6px;border-radius:10px;">Sem glúten</span>':''}
                 ${item.sem_lactose?'<span style="font-size:10px;background:#E6F1FB;color:#185FA5;padding:2px 6px;border-radius:10px;">Sem lactose</span>':''}
+                ${(item.etiquetas_ids||[]).map(eid => {
+                  const et = etiquetasCache.find(e => e.id === eid);
+                  return et ? `<span style="font-size:10px;background:${et.cor}22;color:${et.cor};padding:2px 6px;border-radius:10px;font-weight:600;">${esc(et.nome)}</span>` : '';
+                }).join('')}
               </div>
             </div>
             <div style="text-align:right;">
@@ -2681,6 +2713,7 @@ async function uploadFotoItem(inputEl) {
 async function salvarItem() {
   const id = document.getElementById('item-id').value;
   const precoPromoVal = document.getElementById('item-preco-promo').value;
+  const etiquetasSelecionadas = Array.from(document.querySelectorAll('#item-etiquetas-wrap input:checked')).map(cb => cb.value);
   const dados = {
     restaurante_id: restauranteAtual.id,
     categoria_id: document.getElementById('item-cat').value || null,
@@ -2692,6 +2725,7 @@ async function salvarItem() {
     vegetariano: document.getElementById('item-veg').checked,
     sem_gluten: document.getElementById('item-gluten').checked,
     sem_lactose: document.getElementById('item-lactose').checked,
+    etiquetas_ids: etiquetasSelecionadas,
     opcoes: parseOpcoesTexto(document.getElementById('item-opcoes').value),
   };
   if (id) {
@@ -2702,6 +2736,79 @@ async function salvarItem() {
   fecharModal('modal-item');
   toast('Item salvo!', 'ok');
   renderCardapio();
+}
+
+function renderEtiquetasItemForm(selecionadas) {
+  const wrap = document.getElementById('item-etiquetas-wrap');
+  if (!wrap) return;
+  selecionadas = selecionadas || [];
+  if (etiquetasCache.length === 0) {
+    wrap.innerHTML = '<div style="font-size:12px;color:var(--texto-muted);">Nenhuma etiqueta criada ainda.</div>';
+    return;
+  }
+  wrap.innerHTML = etiquetasCache.map(e => `
+    <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;background:${e.cor}22;border:1px solid ${e.cor}55;padding:4px 10px;border-radius:20px;">
+      <input type="checkbox" value="${e.id}" ${selecionadas.includes(e.id)?'checked':''} style="width:auto;margin:0;">
+      ${esc(e.nome)}
+    </label>
+  `).join('');
+}
+
+function abrirModalEtiquetas() {
+  renderListaEtiquetas();
+  abrirModal('modal-etiquetas');
+}
+
+function renderListaEtiquetas() {
+  const lista = document.getElementById('lista-etiquetas');
+  if (etiquetasCache.length === 0) {
+    lista.innerHTML = '<div style="font-size:13px;color:var(--texto-muted);">Nenhuma etiqueta criada ainda.</div>';
+    return;
+  }
+  lista.innerHTML = etiquetasCache.map(e => `
+    <div class="frete-row">
+      <span style="background:${e.cor}22;color:${e.cor};border:1px solid ${e.cor}55;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">${esc(e.nome)}</span>
+      <button class="btn-sm perigo" onclick="excluirEtiqueta('${e.id}')">Excluir</button>
+    </div>
+  `).join('');
+}
+
+async function criarEtiqueta() {
+  const nome = document.getElementById('etq-nome').value.trim();
+  const cor = document.getElementById('etq-cor').value;
+  if (!nome) { toast('Digite o nome da etiqueta.', 'erro'); return; }
+  const { error } = await db.from('etiquetas').insert({ restaurante_id: restauranteAtual.id, nome, cor });
+  if (error) { toast('Erro ao criar etiqueta.', 'erro'); return; }
+  document.getElementById('etq-nome').value = '';
+  toast('Etiqueta criada!', 'ok');
+  const { data } = await db.from('etiquetas').select('*').eq('restaurante_id', restauranteAtual.id).order('nome');
+  etiquetasCache = data || [];
+  renderListaEtiquetas();
+}
+
+async function excluirEtiqueta(id) {
+  if (!confirm('Excluir essa etiqueta? Ela vai sumir de qualquer item que a estiver usando.')) return;
+  await db.from('etiquetas').delete().eq('id', id);
+  etiquetasCache = etiquetasCache.filter(e => e.id !== id);
+  toast('Etiqueta excluída.', 'ok');
+  renderListaEtiquetas();
+}
+
+function abrirNovoItem() {
+  document.getElementById('item-id').value = '';
+  document.getElementById('item-nome').value = '';
+  document.getElementById('item-desc').value = '';
+  document.getElementById('item-preco').value = '';
+  document.getElementById('item-preco-promo').value = '';
+  document.getElementById('item-foto').value = '';
+  atualizarPreviewFotoItem('');
+  document.getElementById('item-veg').checked = false;
+  document.getElementById('item-gluten').checked = false;
+  document.getElementById('item-lactose').checked = false;
+  document.getElementById('item-opcoes').value = '';
+  renderEtiquetasItemForm([]);
+  document.getElementById('modal-item-titulo').textContent = 'Novo item';
+  abrirModal('modal-item');
 }
 
 async function editarItem(id) {
@@ -2719,6 +2826,7 @@ async function editarItem(id) {
   document.getElementById('item-gluten').checked = data.sem_gluten;
   document.getElementById('item-lactose').checked = data.sem_lactose;
   document.getElementById('item-opcoes').value = opcoesParaTexto(data.opcoes);
+  renderEtiquetasItemForm(data.etiquetas_ids || []);
   document.getElementById('modal-item-titulo').textContent = 'Editar item';
   abrirModal('modal-item');
 }
@@ -3690,14 +3798,16 @@ async function carregarPublico(restId) {
       return;
     }
 
-    const [{ data: catsData }, { data: itensData }, { data: fretesData }] = await Promise.all([
+    const [{ data: catsData }, { data: itensData }, { data: fretesData }, { data: etiquetasData }] = await Promise.all([
       db.from('categorias').select('*').eq('restaurante_id', restId).order('ordem'),
       db.from('itens').select('*').eq('restaurante_id', restId).eq('disponivel', true),
-      db.from('fretes').select('*').eq('restaurante_id', restId)
+      db.from('fretes').select('*').eq('restaurante_id', restId),
+      db.from('etiquetas').select('*').eq('restaurante_id', restId)
     ]);
     cats = catsData || [];
     itens = itensData || [];
     fretes = fretesData || [];
+    etiquetasCache = etiquetasData || [];
 
     // Salva cache local para uso em caso de instabilidade futura
     try {
@@ -4275,11 +4385,15 @@ function renderCardItem(item) {
   const esgotado = item.esgotado_ate && new Date(item.esgotado_ate) > new Date();
   const temOpcoes = item.opcoes && item.opcoes.length > 0;
   const acaoBotao = temOpcoes ? `abrirModalItemPorId('${item.id}')` : `adicionarItemRapidoPorId('${item.id}')`;
+  const etiquetasHtml = (item.etiquetas_ids||[]).map(eid => {
+    const et = etiquetasCache.find(e => e.id === eid);
+    return et ? `<span style="font-size:10px;background:${et.cor}22;color:${et.cor};padding:1px 7px;border-radius:10px;font-weight:600;margin-left:6px;">${esc(et.nome)}</span>` : '';
+  }).join('');
   return `
     <div class="pub-item" ${esgotado ? 'style="opacity:0.55;"' : `onclick="abrirModalItemPorId('${item.id}')" style="cursor:pointer;"`}>
       <div class="pub-item-foto">${item.foto_url ? `<img src="${esc(item.foto_url)}" onerror="this.parentElement.textContent='🍽️'">` : '🍽️'}</div>
       <div style="flex:1;">
-        <div class="pub-item-nome">${esc(item.nome)} ${esgotado ? '<span style="font-size:10px;background:#FBE1DE;color:#B3261E;padding:2px 8px;border-radius:10px;font-weight:700;">ESGOTADO</span>' : ''}</div>
+        <div class="pub-item-nome">${esc(item.nome)} ${esgotado ? '<span style="font-size:10px;background:#FBE1DE;color:#B3261E;padding:2px 8px;border-radius:10px;font-weight:700;">ESGOTADO</span>' : ''}${etiquetasHtml}</div>
         <div class="pub-item-desc">${esc(item.descricao)}</div>
         <div class="pub-item-preco">${precoExibicaoItem(item)}</div>
       </div>
