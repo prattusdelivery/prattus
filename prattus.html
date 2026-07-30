@@ -1663,7 +1663,7 @@ function cardRestauranteSA(r) {
           <div style="font-size:12px;color:rgba(255,255,255,0.4);">${pedRest.length} pedidos</div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;max-width:220px;justify-content:flex-end;">
-          ${(status === 'vencido' || status === 'cancelado') && whatsLimpo ? `<a href="https://wa.me/${whatsLimpo}?text=${msgOferta}" target="_blank" style="font-size:11px;padding:4px 10px;border-radius:6px;background:var(--laranja);color:#fff;text-decoration:none;font-weight:600;">Enviar oferta</a>` : ''}
+          ${(status === 'vencido' || status === 'cancelado') && whatsLimpo ? `<a href="https://wa.me/${whatsLimpo}?text=${msgOferta}" target="wa_servidelivery" style="font-size:11px;padding:4px 10px;border-radius:6px;background:var(--laranja);color:#fff;text-decoration:none;font-weight:600;">Enviar oferta</a>` : ''}
           <a href="?rest=${r.id}" target="_blank" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);text-decoration:none;">Ver cardápio</a>
           <button onclick="toggleDetalhesSA('${r.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);border:none;cursor:pointer;">Detalhes</button>
         </div>
@@ -2434,7 +2434,7 @@ async function renderAvaliacoes() {
               <div style="font-size:12px;color:var(--texto-muted);margin-top:2px;">#${p.id.slice(-4).toUpperCase()} · ${new Date(p.criado_em).toLocaleDateString('pt-BR')} · R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
               ${itensTxt ? `<div style="font-size:12px;color:var(--texto-muted);margin-top:2px;">${itensTxt}</div>` : ''}
             </div>
-            ${ruim && telefone ? `<button class="btn-sm" onclick="window.open('https://wa.me/${telefone.replace(/\D/g,'')}?text=${encodeURIComponent('Olá! Vimos que sua última experiência não foi das melhores. Podemos conversar sobre o que houve?')}','_blank')">💬 Entrar em contato</button>` : ''}
+            ${ruim && telefone ? `<button class="btn-sm" onclick="window.open('https://wa.me/${telefone.replace(/\D/g,'')}?text=${encodeURIComponent('Olá! Vimos que sua última experiência não foi das melhores. Podemos conversar sobre o que houve?')}','wa_servidelivery')">💬 Entrar em contato</button>` : ''}
           </div>
         `;
         }).join('')
@@ -2518,7 +2518,7 @@ async function avancarStatus(id, novoStatus, nomeCliente, telefone, numPedido) {
     const msg = mensagens[novoStatus];
     if (msg) {
       const fone = telefone.replace(/\D/g, '');
-      window.open(`https://wa.me/${fone}?text=${encodeURIComponent(msg)}`, '_blank');
+      window.open(`https://wa.me/${fone}?text=${encodeURIComponent(msg)}`, 'wa_servidelivery');
     }
   }
 
@@ -2900,7 +2900,7 @@ function enviarPromocao(telefone) {
   const msg = document.getElementById('promo-mensagem').value.trim();
   if (!msg) { toast('Escreva a mensagem da promoção primeiro.', 'erro'); return; }
   if (!telefone) { toast('Esse cliente não tem telefone cadastrado.', 'erro'); return; }
-  window.open(`https://wa.me/${telefone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank');
+  window.open(`https://wa.me/${telefone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, 'wa_servidelivery');
 }
 
 async function resetarSenhaCliente(clienteId, nome) {
@@ -2926,7 +2926,7 @@ function estaAniversarioProximo(dataNasc, diasJanela) {
 function enviarParabens(telefone, nome) {
   if (!telefone) { toast('Esse cliente não tem telefone cadastrado.', 'erro'); return; }
   const msg = `Feliz aniversário, ${nome}! 🎉🎂 Pra comemorar, preparamos uma condição especial pra você hoje. Bora pedir?`;
-  window.open(`https://wa.me/${telefone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank');
+  window.open(`https://wa.me/${telefone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, 'wa_servidelivery');
 }
 
 async function renderClientes() {
@@ -3322,7 +3322,7 @@ async function cardapioEmergencia() {
 
   msg += `📲 Para pedir, responda com os itens, seu nome e endereço.`;
 
-  window.open(`https://wa.me/${restauranteAtual.whatsapp}?text=${encodeURIComponent(msg)}`, '_blank');
+  window.open(`https://wa.me/${restauranteAtual.whatsapp}?text=${encodeURIComponent(msg)}`, 'wa_servidelivery');
   toast('Cardápio de emergência aberto!', 'ok');
 }
 async function renderFretes() {
@@ -5212,7 +5212,7 @@ async function finalizarPedido() {
     (linkRecibo ? `\nRecibo: ${linkRecibo}` : '')
   );
 
-  window.open(`https://wa.me/${restPublico.whatsapp}?text=${encodeURIComponent(msg)}`, '_blank');
+  window.open(`https://wa.me/${restPublico.whatsapp}?text=${encodeURIComponent(msg)}`, 'wa_servidelivery');
   try {
     const chaveHist = 'servidelivery_historico_' + restPublico.id;
     let historico = [];
