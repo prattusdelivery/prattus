@@ -2405,6 +2405,22 @@ async function renderDashboard() {
 }
 
 // ===== PEDIDOS =====
+async function buscarComandaPorCodigo() {
+  const campo = document.getElementById('busca-codigo-barras');
+  const codigo = campo.value.trim();
+  if (!codigo) return;
+
+  const { data, error } = await db.from('codigos_comanda').select('id,status')
+    .eq('restaurante_id', restauranteAtual.id).eq('codigo_curto', codigo).maybeSingle();
+
+  if (error || !data) {
+    toast('Nenhuma comanda encontrada com esse código.', 'erro');
+    campo.value = '';
+    return;
+  }
+  window.location.href = `?comanda=${data.id}`;
+}
+
 async function renderPedidos() {
   if (!restauranteAtual) return;
   const { data: pedidos } = await db.from('pedidos')
@@ -2450,6 +2466,11 @@ async function renderPedidos() {
   });
 
   document.getElementById('conteudo').innerHTML = `
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-titulo">🔍 Fechar conta pelo código de barras</div>
+      <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Passe o leitor no código de barras da comanda (ou digite o número e aperte Enter).</div>
+      <input type="text" id="busca-codigo-barras" placeholder="Escaneie ou digite o código de 6 dígitos" style="font-size:16px;letter-spacing:2px;" onkeypress="if(event.key==='Enter')buscarComandaPorCodigo()" autocomplete="off">
+    </div>
     ${mesasComTotal.length > 0 ? `
     <div class="card" style="margin-bottom:20px;background:var(--laranja-light);border:1.5px dashed var(--laranja);">
       <div class="card-titulo">🍽️ Mesas abertas agora</div>
@@ -2482,6 +2503,7 @@ async function renderPedidos() {
       </div>
     </div>
   `;
+  document.getElementById('busca-codigo-barras')?.focus();
 }
 
 async function renderAvaliacoes() {
@@ -3405,7 +3427,10 @@ async function gerarCodigosComanda() {
   if (!qtd || qtd < 1) { toast('Digite a quantidade de códigos.', 'erro'); return; }
   if (qtd > 60) { toast('Máximo de 60 por vez.', 'erro'); return; }
 
-  const linhas = Array.from({length: qtd}, () => ({ restaurante_id: restauranteAtual.id, status: 'livre' }));
+  const linhas = Array.from({length: qtd}, () => ({
+    restaurante_id: restauranteAtual.id, status: 'livre',
+    codigo_curto: String(Math.floor(100000 + Math.random() * 900000))
+  }));
   const { data, error } = await db.from('codigos_comanda').insert(linhas).select();
   if (error) { toast('Erro ao gerar códigos: ' + error.message, 'erro'); return; }
 
@@ -3414,12 +3439,18 @@ async function gerarCodigosComanda() {
   data.forEach((c, i) => {
     const url = `https://servidelivery.com.br/prattus.html?comanda=${c.id}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(url)}`;
+    const barrasUrl = `https://barcodeapi.org/api/128/${c.codigo_curto}`;
     html += `
       <div style="text-align:center;border:1px solid var(--creme-borda);border-radius:10px;padding:12px;">
         <img src="${qrUrl}" width="140" height="140" style="border-radius:6px;">
         <div style="font-size:13px;font-weight:700;margin-top:6px;">Código ${i+1}</div>
-        <a href="${qrUrl}" download="comanda-${i+1}.png" style="font-size:11px;color:var(--laranja);">Baixar</a>
+        <a href="${qrUrl}" download="comanda-${i+1}.png" style="font-size:11px;color:var(--laranja);">Baixar QR</a>
         <div style="margin-top:4px;"><a href="${url}" target="_blank" style="font-size:11px;color:var(--texto-muted);">🔗 Abrir/testar link</a></div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--creme-borda);">
+          <img src="${barrasUrl}" style="max-width:140px;height:50px;" onerror="this.style.display='none'">
+          <div style="font-size:13px;font-weight:700;letter-spacing:2px;margin-top:4px;">${c.codigo_curto}</div>
+          <div style="font-size:10px;color:var(--texto-muted);">pra leitor de código de barras do caixa</div>
+        </div>
       </div>
     `;
   });
