@@ -1136,6 +1136,26 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
 </div>
 </div>
 
+<!-- MODAL: PAUSAR LOJA -->
+<div class="modal-overlay" id="modal-pausar-loja">
+<div class="modal">
+  <div class="modal-header">
+    <div class="modal-titulo">🔴 Pausar pedidos</div>
+    <button class="modal-fechar" onclick="fecharModal('modal-pausar-loja')">×</button>
+  </div>
+  <div style="font-size:13px;color:var(--texto-muted);margin-bottom:14px;">Seu cardápio vai mostrar "fechado" pros clientes até você reabrir manualmente. Esses dois campos são só informativos — não reabrem a loja sozinhos.</div>
+  <div class="form-group">
+    <label>Prevê reabrir em (opcional)</label>
+    <input type="date" id="pausa-reabre-em">
+  </div>
+  <div class="form-group">
+    <label>Motivo (opcional)</label>
+    <input type="text" id="pausa-motivo" placeholder="Ex: Férias, reforma, feriado...">
+  </div>
+  <button class="btn btn-laranja" onclick="confirmarPausaLoja()">Pausar pedidos</button>
+</div>
+</div>
+
 <!-- MODAL: ETIQUETAS -->
 <div class="modal-overlay" id="modal-etiquetas">
 <div class="modal">
@@ -2025,19 +2045,48 @@ function atualizarBotaoPausa() {
 
 async function alternarPausaLoja() {
   if (!restauranteAtual) return;
-  const novoValor = !restauranteAtual.pausado_manual;
-  const confirmMsg = novoValor
-    ? 'Pausar os pedidos agora? Seu cardápio vai mostrar "fechado" pros clientes até você reabrir.'
-    : 'Reabrir a loja e voltar a aceitar pedidos agora?';
-  if (!confirm(confirmMsg)) return;
 
-  const { error } = await db.from('restaurantes').update({ pausado_manual: novoValor }).eq('id', restauranteAtual.id);
+  if (!restauranteAtual.pausado_manual) {
+    // Vai pausar — abre o modal pra perguntar data/motivo (opcionais)
+    document.getElementById('pausa-reabre-em').value = '';
+    document.getElementById('pausa-motivo').value = '';
+    abrirModal('modal-pausar-loja');
+    return;
+  }
+
+  // Vai reabrir — direto, sem precisar de modal
+  if (!confirm('Reabrir a loja e voltar a aceitar pedidos agora?')) return;
+  const { error } = await db.from('restaurantes').update({
+    pausado_manual: false, reabre_em: null, motivo_pausa: null
+  }).eq('id', restauranteAtual.id);
   if (!error) {
-    restauranteAtual.pausado_manual = novoValor;
+    restauranteAtual.pausado_manual = false;
+    restauranteAtual.reabre_em = null;
+    restauranteAtual.motivo_pausa = null;
     atualizarBotaoPausa();
-    toast(novoValor ? 'Pedidos pausados.' : 'Loja reaberta!', 'ok');
+    toast('Loja reaberta!', 'ok');
   } else {
     toast('Erro ao atualizar. Tente de novo.', 'erro');
+  }
+}
+
+async function confirmarPausaLoja() {
+  const reabreEm = document.getElementById('pausa-reabre-em').value || null;
+  const motivo = document.getElementById('pausa-motivo').value.trim() || null;
+
+  const { error } = await db.from('restaurantes').update({
+    pausado_manual: true, reabre_em: reabreEm, motivo_pausa: motivo
+  }).eq('id', restauranteAtual.id);
+
+  if (!error) {
+    restauranteAtual.pausado_manual = true;
+    restauranteAtual.reabre_em = reabreEm;
+    restauranteAtual.motivo_pausa = motivo;
+    atualizarBotaoPausa();
+    fecharModal('modal-pausar-loja');
+    toast('Pedidos pausados.', 'ok');
+  } else {
+    toast('Erro ao pausar. Tente de novo.', 'erro');
   }
 }
 
@@ -4045,7 +4094,12 @@ async function carregarPublico(restId) {
   if (rest.pausado_manual) {
     elFechado.style.display = 'block';
     elFechado.style.background = 'rgba(0,0,0,0.6)';
-    elFechado.textContent = '🔴 Fechado no momento · O restaurante pausou os pedidos';
+    const partes = [];
+    if (rest.reabre_em) partes.push(`Reabrimos em ${new Date(rest.reabre_em+'T00:00:00').toLocaleDateString('pt-BR')}`);
+    if (rest.motivo_pausa) partes.push(esc(rest.motivo_pausa));
+    elFechado.innerHTML = partes.length
+      ? `🔴 Fechado no momento<br><span style="font-size:12px;font-weight:400;">${partes.join(' · ')}</span>`
+      : '🔴 Fechado no momento · O restaurante pausou os pedidos';
   } else {
     const agora = new Date();
     const diaAtual = agora.getDay();
