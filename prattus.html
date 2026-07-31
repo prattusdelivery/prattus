@@ -1068,13 +1068,9 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
   </div>
   <div class="form-group">
     <label>Opções e adicionais (opcional)</label>
-    <textarea id="item-opcoes" rows="4" placeholder="Tamanho (única-preço): Simples:35, Duplo:45
-Adicionais (múltipla): Bacon extra:4, Queijo extra:3
-Retirar (múltipla): Sem feijão:0, Sem massa:0"></textarea>
-    <div style="font-size:11px;color:var(--texto-muted);margin-top:4px;line-height:1.5;">
-      Um grupo por linha: <strong>Nome do grupo (tipo): opção:preço, opção:preço</strong>.<br>
-      <strong>única-preço</strong> = cliente escolhe 1 e o preço digitado é o preço FINAL do item (ex: tamanho com preços diferentes). <strong>única</strong> = cliente escolhe 1 e o preço é um ADICIONAL somado ao preço base. <strong>múltipla</strong> = cliente marca quantas quiser, cada uma soma seu preço (use 0 pra opções que não mudam o valor, ex: retirar ingrediente).
-    </div>
+    <div style="font-size:11px;color:var(--texto-muted);margin-bottom:8px;">Ex: tamanho do prato, quantidade de bife, adicionais como bacon ou queijo extra.</div>
+    <div id="item-opcoes-grupos"></div>
+    <button type="button" class="btn-sm" style="margin-top:6px;" onclick="adicionarGrupoOpcao()">+ Adicionar grupo de opções</button>
   </div>
   <button class="btn btn-laranja" onclick="salvarItem()">Salvar item</button>
   <input type="hidden" id="item-id">
@@ -2611,33 +2607,75 @@ async function renderCardapio() {
   sel.innerHTML = (cats||[]).map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
 }
 
-function parseOpcoesTexto(texto) {
-  if (!texto || !texto.trim()) return null;
-  const linhas = texto.split('\n').map(l => l.trim()).filter(Boolean);
-  const grupos = linhas.map(linha => {
-    const m = linha.match(/^(.+?)\s*\((única-preço|unica-preco|única|unica|múltipla|multipla)\)\s*:\s*(.+)$/i);
-    if (!m) return null;
-    const nome = m[1].trim();
-    const tipoRaw = m[2].toLowerCase();
-    let tipo;
-    if (tipoRaw.startsWith('ún') && tipoRaw.includes('pre') || tipoRaw.startsWith('unica-pre')) tipo = 'unica_preco';
-    else if (tipoRaw.startsWith('ún') || tipoRaw.startsWith('un')) tipo = 'unica';
-    else tipo = 'multipla';
-    const opcoes = m[3].split(',').map(par => {
-      const [n, p] = par.split(':');
-      return (n && p !== undefined) ? { nome: n.trim(), preco: parseFloat(p.trim().replace(',','.')) || 0 } : null;
-    }).filter(Boolean);
-    return opcoes.length ? { nome, tipo, opcoes } : null;
-  }).filter(Boolean);
-  return grupos.length ? grupos : null;
+let gruposOpcoesEditando = [];
+
+function renderGruposOpcoes() {
+  const wrap = document.getElementById('item-opcoes-grupos');
+  if (!wrap) return;
+  if (gruposOpcoesEditando.length === 0) {
+    wrap.innerHTML = '<div style="font-size:12px;color:var(--texto-muted);">Nenhum grupo adicionado ainda.</div>';
+    return;
+  }
+  wrap.innerHTML = gruposOpcoesEditando.map((g, gi) => `
+    <div style="border:1px solid var(--creme-borda);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--creme);">
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <input type="text" placeholder="Nome do grupo (ex: Tamanho, Bacon, Ponto da carne)" value="${esc(g.nome)}" oninput="atualizarNomeGrupo(${gi}, this.value)" style="flex:2;">
+        <select onchange="atualizarTipoGrupo(${gi}, this.value)" style="flex:1;">
+          <option value="unica" ${g.tipo==='unica'?'selected':''}>Escolhe 1 (soma no preço)</option>
+          <option value="unica_preco" ${g.tipo==='unica_preco'?'selected':''}>Escolhe 1 (preço final)</option>
+          <option value="multipla" ${g.tipo==='multipla'?'selected':''}>Marca quantas quiser</option>
+        </select>
+        <button type="button" class="btn-sm perigo" onclick="removerGrupoOpcao(${gi})" title="Remover grupo">🗑️</button>
+      </div>
+      ${g.opcoes.map((o, oi) => `
+        <div style="display:flex;gap:8px;margin-bottom:6px;align-items:center;">
+          <input type="text" placeholder="Ex: 2 bifes" value="${esc(o.nome)}" oninput="atualizarOpcaoCampo(${gi},${oi},'nome',this.value)" style="flex:2;">
+          <input type="number" placeholder="0.00" step="0.01" value="${o.preco}" oninput="atualizarOpcaoCampo(${gi},${oi},'preco',this.value)" style="flex:1;">
+          <button type="button" class="btn-sm perigo" onclick="removerOpcaoDoGrupo(${gi},${oi})" title="Remover opção" style="padding:6px 10px;">×</button>
+        </div>
+      `).join('')}
+      <button type="button" class="btn-sm" onclick="adicionarOpcaoNoGrupo(${gi})">+ Adicionar opção</button>
+    </div>
+  `).join('');
 }
 
-function opcoesParaTexto(grupos) {
-  if (!grupos || !grupos.length) return '';
-  return grupos.map(g => {
-    const rotulo = g.tipo === 'unica_preco' ? 'única-preço' : (g.tipo === 'unica' ? 'única' : 'múltipla');
-    return `${g.nome} (${rotulo}): ` + g.opcoes.map(o => `${o.nome}:${o.preco}`).join(', ');
-  }).join('\n');
+function adicionarGrupoOpcao() {
+  gruposOpcoesEditando.push({ nome: '', tipo: 'unica', opcoes: [{ nome: '', preco: 0 }] });
+  renderGruposOpcoes();
+}
+
+function removerGrupoOpcao(gi) {
+  gruposOpcoesEditando.splice(gi, 1);
+  renderGruposOpcoes();
+}
+
+function atualizarNomeGrupo(gi, valor) {
+  gruposOpcoesEditando[gi].nome = valor;
+}
+
+function atualizarTipoGrupo(gi, valor) {
+  gruposOpcoesEditando[gi].tipo = valor;
+}
+
+function adicionarOpcaoNoGrupo(gi) {
+  gruposOpcoesEditando[gi].opcoes.push({ nome: '', preco: 0 });
+  renderGruposOpcoes();
+}
+
+function removerOpcaoDoGrupo(gi, oi) {
+  gruposOpcoesEditando[gi].opcoes.splice(oi, 1);
+  renderGruposOpcoes();
+}
+
+function atualizarOpcaoCampo(gi, oi, campo, valor) {
+  gruposOpcoesEditando[gi].opcoes[oi][campo] = campo === 'preco' ? (parseFloat(valor) || 0) : valor;
+}
+
+function gruposOpcoesValidos() {
+  const limpos = gruposOpcoesEditando
+    .map(g => ({ nome: (g.nome||'').trim(), tipo: g.tipo, opcoes: g.opcoes.filter(o => (o.nome||'').trim()) }))
+    .filter(g => g.nome && g.opcoes.length > 0);
+  return limpos.length ? limpos : null;
 }
 
 function atualizarPreviewGenerica(url, previewId) {
@@ -2717,7 +2755,7 @@ async function salvarItem() {
     preco_promocional: precoPromoVal ? parseFloat(precoPromoVal) : null,
     foto_url: document.getElementById('item-foto').value || null,
     etiquetas_ids: etiquetasSelecionadas,
-    opcoes: parseOpcoesTexto(document.getElementById('item-opcoes').value),
+    opcoes: gruposOpcoesValidos(),
   };
   if (id) {
     await db.from('itens').update(dados).eq('id', id);
@@ -2793,7 +2831,8 @@ function abrirNovoItem() {
   document.getElementById('item-preco-promo').value = '';
   document.getElementById('item-foto').value = '';
   atualizarPreviewFotoItem('');
-  document.getElementById('item-opcoes').value = '';
+  gruposOpcoesEditando = [];
+  renderGruposOpcoes();
   renderEtiquetasItemForm([]);
   document.getElementById('modal-item-titulo').textContent = 'Novo item';
   abrirModal('modal-item');
@@ -2810,7 +2849,8 @@ async function editarItem(id) {
   document.getElementById('item-foto').value = data.foto_url || '';
   atualizarPreviewFotoItem(data.foto_url || '');
   document.getElementById('item-cat').value = data.categoria_id || '';
-  document.getElementById('item-opcoes').value = opcoesParaTexto(data.opcoes);
+  gruposOpcoesEditando = data.opcoes ? JSON.parse(JSON.stringify(data.opcoes)) : [];
+  renderGruposOpcoes();
   renderEtiquetasItemForm(data.etiquetas_ids || []);
   document.getElementById('modal-item-titulo').textContent = 'Editar item';
   abrirModal('modal-item');
@@ -5295,7 +5335,7 @@ function fecharModal(id) {
     document.getElementById('item-foto-arquivo').value = '';
     document.getElementById('item-foto-status').textContent = '';
     atualizarPreviewFotoItem('');
-    document.getElementById('item-opcoes').value = '';
+    gruposOpcoesEditando = [];
     document.getElementById('modal-item-titulo').textContent = 'Novo item';
   }
   if (id === 'modal-cat') {
