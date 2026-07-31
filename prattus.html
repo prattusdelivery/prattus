@@ -14,6 +14,20 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
+#print-cardapio{display:none;}
+@media print{
+  body > *:not(#print-cardapio){display:none!important;}
+  #print-cardapio{display:block!important;}
+  .pc-cat{page-break-inside:avoid;margin-bottom:18px;}
+}
+.pc-header{text-align:center;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #231914;}
+.pc-header h1{font-family:Georgia,serif;font-size:28px;margin-bottom:4px;}
+.pc-cat h2{font-family:Georgia,serif;font-size:18px;border-bottom:1px solid #ccc;padding-bottom:4px;margin-bottom:10px;margin-top:20px;}
+.pc-item{display:flex;justify-content:space-between;gap:12px;padding:6px 0;font-size:13px;}
+.pc-item-nome{font-weight:600;}
+.pc-item-desc{font-size:11px;color:#666;margin-top:2px;}
+.pc-item-preco{font-weight:700;white-space:nowrap;}
+
 :root{
   --laranja:#E86339;
   --laranja-dark:#C4522E;
@@ -566,6 +580,7 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
+<div id="print-cardapio"></div>
 
 <!-- COMANDA (só aparece na impressão) -->
 <div id="comanda-print"></div>
@@ -2563,6 +2578,7 @@ async function renderCardapio() {
       <button class="btn btn-laranja" style="width:auto;padding:10px 20px" onclick="abrirNovoItem()">+ Novo item</button>
       <button class="btn btn-outline" style="width:auto;padding:10px 20px" onclick="abrirModal('modal-cat')">+ Nova categoria</button>
       <button class="btn btn-outline" style="width:auto;padding:10px 20px" onclick="abrirModalEtiquetas()">🏷️ Gerenciar etiquetas</button>
+      <button class="btn btn-outline" style="width:auto;padding:10px 20px" onclick="baixarCardapioPDF()">🖨️ Baixar cardápio em PDF</button>
     </div>
     ${(cats||[]).map(cat => `
       <div class="card" style="margin-bottom:16px;">
@@ -2611,6 +2627,43 @@ async function renderCardapio() {
 }
 
 let itensCache = [];
+
+async function baixarCardapioPDF() {
+  if (!restauranteAtual) return;
+  toast('Preparando o cardápio...', 'ok');
+
+  const { data: cats } = await db.from('categorias').select('*').eq('restaurante_id', restauranteAtual.id).order('ordem');
+  const { data: itens } = await db.from('itens').select('*').eq('restaurante_id', restauranteAtual.id).order('ordem_item', {nullsFirst:false}).order('criado_em');
+
+  const html = `
+    <div class="pc-header">
+      <h1>${esc(restauranteAtual.nome)}</h1>
+      ${restauranteAtual.descricao ? `<div>${esc(restauranteAtual.descricao)}</div>` : ''}
+      ${restauranteAtual.whatsapp ? `<div style="font-size:12px;margin-top:4px;">WhatsApp: ${esc(restauranteAtual.whatsapp)}</div>` : ''}
+    </div>
+    ${(cats||[]).map(cat => {
+      const itensCat = (itens||[]).filter(i => i.categoria_id === cat.id);
+      if (itensCat.length === 0) return '';
+      return `
+        <div class="pc-cat">
+          <h2>${esc(cat.nome)}</h2>
+          ${itensCat.map(item => `
+            <div class="pc-item">
+              <div>
+                <div class="pc-item-nome">${esc(item.nome)}</div>
+                ${item.descricao ? `<div class="pc-item-desc">${esc(item.descricao)}</div>` : ''}
+              </div>
+              <div class="pc-item-preco">R$ ${parseFloat(item.preco_promocional && parseFloat(item.preco_promocional) < parseFloat(item.preco) ? item.preco_promocional : item.preco).toFixed(2).replace('.',',')}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }).join('')}
+  `;
+
+  document.getElementById('print-cardapio').innerHTML = html;
+  setTimeout(() => window.print(), 200);
+}
 let itemArrastando = null;
 
 function dragStartItem(ev, itemId) {
