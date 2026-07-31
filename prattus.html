@@ -2553,9 +2553,10 @@ async function toggleEsgotado(itemId, esgotarAgora) {
 async function renderCardapio() {
   if (!restauranteAtual) return;
   const { data: cats } = await db.from('categorias').select('*').eq('restaurante_id', restauranteAtual.id).order('ordem');
-  const { data: itens } = await db.from('itens').select('*,categorias(nome)').eq('restaurante_id', restauranteAtual.id).order('criado_em');
+  const { data: itens } = await db.from('itens').select('*,categorias(nome)').eq('restaurante_id', restauranteAtual.id).order('ordem_item', {nullsFirst:false}).order('criado_em');
   const { data: etiquetas } = await db.from('etiquetas').select('*').eq('restaurante_id', restauranteAtual.id).order('nome');
   etiquetasCache = etiquetas || [];
+  itensCache = itens || [];
 
   document.getElementById('conteudo').innerHTML = `
     <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
@@ -2572,11 +2573,13 @@ async function renderCardapio() {
             <button class="btn-sm perigo" onclick="excluirCategoria('${cat.id}')">Excluir</button>
           </div>
         </div>
-        ${(itens||[]).filter(i => i.categoria_id === cat.id).map(item => {
+        ${(itensCache||[]).filter(i => i.categoria_id === cat.id).length > 1 ? `<div style="font-size:11px;color:var(--texto-muted);margin-bottom:8px;">☰ Arraste os itens pra reordenar como aparecem no cardápio.</div>` : ''}
+        ${(itensCache||[]).filter(i => i.categoria_id === cat.id).map(item => {
           const esgotado = item.esgotado_ate && new Date(item.esgotado_ate) > new Date();
           const destacado = !!item.destaque_manual;
           return `
-          <div class="item-card" style="${esgotado?'opacity:0.6;':''}">
+          <div class="item-card" draggable="true" ondragstart="dragStartItem(event,'${item.id}')" ondragover="dragOverItem(event)" ondrop="dropItem(event,'${item.id}','${cat.id}')" style="${esgotado?'opacity:0.6;':''}cursor:grab;">
+            <div style="color:var(--texto-muted);font-size:16px;align-self:center;padding-right:2px;user-select:none;">☰</div>
             <div class="item-foto">${item.foto_url ? `<img src="${item.foto_url}" onerror="this.parentElement.textContent='🍽️'">` : '🍽️'}</div>
             <div style="flex:1;">
               <div class="item-nome">${esc(item.nome)} ${esgotado?'<span style="font-size:10px;background:#FBE1DE;color:#B3261E;padding:2px 8px;border-radius:10px;font-weight:700;">ESGOTADO HOJE</span>':''} ${destacado?'<span style="font-size:10px;background:#FFF1E6;color:#C4522E;padding:2px 8px;border-radius:10px;font-weight:700;">⭐ EM DESTAQUE</span>':''}</div>
@@ -2605,6 +2608,35 @@ async function renderCardapio() {
   // Carrega categorias no select do modal
   const sel = document.getElementById('item-cat');
   sel.innerHTML = (cats||[]).map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+}
+
+let itensCache = [];
+let itemArrastando = null;
+
+function dragStartItem(ev, itemId) {
+  itemArrastando = itemId;
+  ev.dataTransfer.effectAllowed = 'move';
+}
+
+function dragOverItem(ev) {
+  ev.preventDefault();
+}
+
+async function dropItem(ev, itemIdAlvo, catId) {
+  ev.preventDefault();
+  if (!itemArrastando || itemArrastando === itemIdAlvo) return;
+
+  const itensCat = itensCache.filter(i => i.categoria_id === catId);
+  const idxOrigem = itensCat.findIndex(i => i.id === itemArrastando);
+  const idxDestino = itensCat.findIndex(i => i.id === itemIdAlvo);
+  if (idxOrigem === -1 || idxDestino === -1) { itemArrastando = null; return; }
+
+  const [movido] = itensCat.splice(idxOrigem, 1);
+  itensCat.splice(idxDestino, 0, movido);
+
+  await Promise.all(itensCat.map((it, i) => db.from('itens').update({ ordem_item: i }).eq('id', it.id)));
+  itemArrastando = null;
+  renderCardapio();
 }
 
 let gruposOpcoesEditando = [];
@@ -3865,7 +3897,7 @@ async function carregarPublico(restId) {
 
     const [{ data: catsData }, { data: itensData }, { data: fretesData }, { data: etiquetasData }] = await Promise.all([
       db.from('categorias').select('*').eq('restaurante_id', restId).order('ordem'),
-      db.from('itens').select('*').eq('restaurante_id', restId).eq('disponivel', true),
+      db.from('itens').select('*').eq('restaurante_id', restId).eq('disponivel', true).order('ordem_item', {nullsFirst:false}).order('criado_em'),
       db.from('fretes').select('*').eq('restaurante_id', restId),
       db.from('etiquetas').select('*').eq('restaurante_id', restId)
     ]);
