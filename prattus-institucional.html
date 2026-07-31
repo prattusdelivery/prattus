@@ -264,6 +264,20 @@ footer{padding:40px 0 32px;border-top:1px solid var(--creme-borda);margin-top:20
         </div>
       </div>
     </div>
+
+    <!--
+      VÍDEO DEMONSTRATIVO — como ativar quando o vídeo estiver pronto no YouTube:
+      1. Suba o vídeo no YouTube (pode ser "não listado", se não quiser que apareça em busca).
+      2. Pegue o ID do vídeo — é a parte depois de "v=" no link.
+         Exemplo: youtube.com/watch?v=ABC123XYZ  →  o ID é ABC123XYZ
+      3. Troque SEU_VIDEO_AQUI (duas linhas abaixo) por esse ID.
+      4. Apague o "style=display:none" da div logo abaixo (a que tem esse comentário dentro).
+    -->
+    <div style="display:none;max-width:800px;margin:48px auto 0;">
+      <div style="position:relative;padding-bottom:56.25%;height:0;border-radius:16px;overflow:hidden;box-shadow:0 20px 50px -20px rgba(35,25,20,0.25);">
+        <iframe src="https://www.youtube.com/embed/SEU_VIDEO_AQUI" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;" allowfullscreen title="Como funciona o ServiDelivery"></iframe>
+      </div>
+    </div>
   </section>
 
   <div class="perf" aria-hidden="true"></div>
