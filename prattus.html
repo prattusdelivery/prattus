@@ -734,6 +734,10 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
       Relatórios
     </div>
+    <div class="nav-item nav-somente-dono" onclick="irPara('historico')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+      Histórico de pedidos
+    </div>
     <div class="nav-section">Config</div>
     <div class="nav-item nav-somente-dono" onclick="irPara('mensalidade')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -1153,6 +1157,18 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
     <input type="text" id="pausa-motivo" placeholder="Ex: Férias, reforma, feriado...">
   </div>
   <button class="btn btn-laranja" onclick="confirmarPausaLoja()">Pausar pedidos</button>
+</div>
+</div>
+
+<!-- MODAL: LIXEIRA -->
+<div class="modal-overlay" id="modal-lixeira">
+<div class="modal">
+  <div class="modal-header">
+    <div class="modal-titulo">🗑️ Lixeira</div>
+    <button class="modal-fechar" onclick="fecharModal('modal-lixeira')">×</button>
+  </div>
+  <div style="font-size:12px;color:var(--texto-muted);margin-bottom:14px;">Categorias e itens excluídos ficam aqui. Você pode restaurar a qualquer momento, ou excluir definitivamente (aí sim não tem mais volta).</div>
+  <div id="lixeira-conteudo">Carregando...</div>
 </div>
 </div>
 
@@ -1811,8 +1827,8 @@ async function carregarModoComanda(comandaId) {
 
   const [{ data: rest }, { data: itens }, { data: cats }, { data: etiquetasData }] = await Promise.all([
     db.from('restaurantes').select('*').eq('id', restauranteAtual.id).single(),
-    db.from('itens').select('*').eq('restaurante_id', restauranteAtual.id).order('nome'),
-    db.from('categorias').select('*').eq('restaurante_id', restauranteAtual.id).order('ordem'),
+    db.from('itens').select('*').eq('restaurante_id', restauranteAtual.id).is('excluido_em', null).order('nome'),
+    db.from('categorias').select('*').eq('restaurante_id', restauranteAtual.id).is('excluido_em', null).order('ordem'),
     db.from('etiquetas').select('*').eq('restaurante_id', restauranteAtual.id)
   ]);
 
@@ -2347,7 +2363,7 @@ function irPara(pagina) {
   const titulos = {
     dashboard:'Dashboard', pedidos:'Pedidos', cardapio:'Cardápio',
     clientes:'Clientes', avaliacoes:'Avaliações', relatorios:'Relatórios', fretes:'Fretes por bairro',
-    cupons:'Cupons', config:'Configurações', equipe:'Equipe', mensalidade:'Mensalidade'
+    cupons:'Cupons', config:'Configurações', equipe:'Equipe', mensalidade:'Mensalidade', historico:'Histórico de pedidos'
   };
   document.getElementById('topbar-titulo').textContent = titulos[pagina] || pagina;
 
@@ -2358,7 +2374,7 @@ function irPara(pagina) {
     dashboard: renderDashboard, pedidos: renderPedidos,
     cardapio: renderCardapio, clientes: renderClientes, avaliacoes: renderAvaliacoes,
     relatorios: renderRelatorios, fretes: renderFretes,
-    cupons: renderCupons, config: renderConfig, equipe: renderEquipe, mensalidade: renderMensalidade
+    cupons: renderCupons, config: renderConfig, equipe: renderEquipe, mensalidade: renderMensalidade, historico: renderHistorico
   };
   if (fns[pagina]) fns[pagina]();
 }
@@ -2660,8 +2676,8 @@ async function toggleEsgotado(itemId, esgotarAgora) {
 
 async function renderCardapio() {
   if (!restauranteAtual) return;
-  const { data: cats } = await db.from('categorias').select('*').eq('restaurante_id', restauranteAtual.id).order('ordem');
-  const { data: itens } = await db.from('itens').select('*,categorias(nome)').eq('restaurante_id', restauranteAtual.id).order('ordem_item', {nullsFirst:false}).order('criado_em');
+  const { data: cats } = await db.from('categorias').select('*').eq('restaurante_id', restauranteAtual.id).is('excluido_em', null).order('ordem');
+  const { data: itens } = await db.from('itens').select('*,categorias(nome)').eq('restaurante_id', restauranteAtual.id).is('excluido_em', null).order('ordem_item', {nullsFirst:false}).order('criado_em');
   const { data: etiquetas } = await db.from('etiquetas').select('*').eq('restaurante_id', restauranteAtual.id).order('nome');
   etiquetasCache = etiquetas || [];
   itensCache = itens || [];
@@ -2672,6 +2688,7 @@ async function renderCardapio() {
       <button class="btn btn-outline" style="width:auto;padding:10px 20px" onclick="abrirModal('modal-cat')">+ Nova categoria</button>
       <button class="btn btn-outline" style="width:auto;padding:10px 20px" onclick="abrirModalEtiquetas()">🏷️ Gerenciar etiquetas</button>
       <button class="btn btn-outline" style="width:auto;padding:10px 20px" onclick="baixarCardapioPDF()">🖨️ Baixar cardápio em PDF</button>
+      <button class="btn btn-outline" style="width:auto;padding:10px 20px" onclick="abrirModalLixeira()">🗑️ Lixeira</button>
     </div>
     ${(cats||[]).map(cat => `
       <div class="card" style="margin-bottom:16px;">
@@ -2725,8 +2742,8 @@ async function baixarCardapioPDF() {
   if (!restauranteAtual) return;
   toast('Preparando o cardápio...', 'ok');
 
-  const { data: cats } = await db.from('categorias').select('*').eq('restaurante_id', restauranteAtual.id).order('ordem');
-  const { data: itens } = await db.from('itens').select('*').eq('restaurante_id', restauranteAtual.id).order('ordem_item', {nullsFirst:false}).order('criado_em');
+  const { data: cats } = await db.from('categorias').select('*').eq('restaurante_id', restauranteAtual.id).is('excluido_em', null).order('ordem');
+  const { data: itens } = await db.from('itens').select('*').eq('restaurante_id', restauranteAtual.id).is('excluido_em', null).order('ordem_item', {nullsFirst:false}).order('criado_em');
 
   const html = `
     <div class="pc-header">
@@ -3035,9 +3052,9 @@ async function editarItem(id) {
 }
 
 async function excluirItem(id) {
-  if (!confirm('Excluir este item?')) return;
-  await db.from('itens').delete().eq('id', id);
-  toast('Item excluído!', 'ok');
+  if (!confirm('Mover este item pra lixeira? Você pode restaurar depois em "🗑️ Lixeira".')) return;
+  await db.from('itens').update({ excluido_em: new Date().toISOString() }).eq('id', id);
+  toast('Item movido pra lixeira.', 'ok');
   renderCardapio();
 }
 
@@ -3066,11 +3083,89 @@ function editarCategoria(id, nome) {
 }
 
 async function excluirCategoria(id) {
-  if (!confirm('Excluir esta categoria? Os itens dentro dela também serão excluídos.')) return;
-  await db.from('itens').delete().eq('categoria_id', id);
-  await db.from('categorias').delete().eq('id', id);
-  toast('Categoria excluída!', 'ok');
+  const { data: itensDaCategoria } = await db.from('itens').select('id').eq('categoria_id', id).is('excluido_em', null);
+  const qtd = (itensDaCategoria || []).length;
+  const aviso = qtd > 0
+    ? `Mover esta categoria pra lixeira? Ela tem ${qtd} ${qtd === 1 ? 'item' : 'itens'} — ${qtd === 1 ? 'ele vai' : 'eles vão'} junto, mas dá pra restaurar tudo depois em "🗑️ Lixeira".`
+    : 'Mover esta categoria pra lixeira? Dá pra restaurar depois em "🗑️ Lixeira".';
+  if (!confirm(aviso)) return;
+
+  const agora = new Date().toISOString();
+  await db.from('itens').update({ excluido_em: agora }).eq('categoria_id', id).is('excluido_em', null);
+  await db.from('categorias').update({ excluido_em: agora }).eq('id', id);
+  toast('Categoria movida pra lixeira.', 'ok');
   renderCardapio();
+}
+
+async function abrirModalLixeira() {
+  abrirModal('modal-lixeira');
+  await renderLixeira();
+}
+
+async function renderLixeira() {
+  const container = document.getElementById('lixeira-conteudo');
+  container.innerHTML = 'Carregando...';
+
+  const [{ data: catsExcluidas }, { data: itensExcluidos }] = await Promise.all([
+    db.from('categorias').select('*').eq('restaurante_id', restauranteAtual.id).not('excluido_em', 'is', null).order('excluido_em', {ascending: false}),
+    db.from('itens').select('*').eq('restaurante_id', restauranteAtual.id).not('excluido_em', 'is', null).order('excluido_em', {ascending: false})
+  ]);
+
+  const cats = catsExcluidas || [];
+  const itens = itensExcluidos || [];
+
+  if (cats.length === 0 && itens.length === 0) {
+    container.innerHTML = '<div class="empty"><div class="empty-ico">🗑️</div><div class="empty-txt">A lixeira está vazia.</div></div>';
+    return;
+  }
+
+  let html = '';
+  if (cats.length > 0) {
+    html += '<div style="font-size:12px;font-weight:700;color:var(--texto-muted);margin:10px 0 6px;">CATEGORIAS</div>';
+    html += cats.map(c => `
+      <div class="frete-row">
+        <div style="flex:1;font-size:14px;font-weight:600;">${esc(c.nome)}</div>
+        <button class="btn-sm" onclick="restaurarCategoria('${c.id}')">♻️ Restaurar</button>
+        <button class="btn-sm perigo" onclick="excluirPermanente('categorias','${c.id}')">Excluir de vez</button>
+      </div>
+    `).join('');
+  }
+  if (itens.length > 0) {
+    html += '<div style="font-size:12px;font-weight:700;color:var(--texto-muted);margin:14px 0 6px;">ITENS</div>';
+    html += itens.map(i => `
+      <div class="frete-row">
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:600;">${esc(i.nome)}</div>
+          <div style="font-size:11px;color:var(--texto-muted);">R$ ${parseFloat(i.preco).toFixed(2).replace('.',',')}</div>
+        </div>
+        <button class="btn-sm" onclick="restaurarItem('${i.id}')">♻️ Restaurar</button>
+        <button class="btn-sm perigo" onclick="excluirPermanente('itens','${i.id}')">Excluir de vez</button>
+      </div>
+    `).join('');
+  }
+  container.innerHTML = html;
+}
+
+async function restaurarCategoria(id) {
+  await db.from('categorias').update({ excluido_em: null }).eq('id', id);
+  await db.from('itens').update({ excluido_em: null }).eq('categoria_id', id).not('excluido_em', 'is', null);
+  toast('Categoria restaurada!', 'ok');
+  renderLixeira();
+  renderCardapio();
+}
+
+async function restaurarItem(id) {
+  await db.from('itens').update({ excluido_em: null }).eq('id', id);
+  toast('Item restaurado!', 'ok');
+  renderLixeira();
+  renderCardapio();
+}
+
+async function excluirPermanente(tabela, id) {
+  if (!confirm('Excluir de vez? Isso NÃO tem volta.')) return;
+  await db.from(tabela).delete().eq('id', id);
+  toast('Excluído definitivamente.', 'ok');
+  renderLixeira();
 }
 
 // ===== CLIENTES =====
@@ -3153,7 +3248,7 @@ async function renderClientes() {
     .eq('restaurante_id', restauranteAtual.id).order('total_gasto', {ascending: false});
   const { data: recompensas } = await db.from('recompensas').select('*')
     .eq('restaurante_id', restauranteAtual.id).order('pontos_necessarios');
-  const { data: itensCardapio } = await db.from('itens').select('id,nome,preco')
+  const { data: itensCardapio } = await db.from('itens').select('id,nome,preco').is('excluido_em', null)
     .eq('restaurante_id', restauranteAtual.id).order('nome');
 
   const aniversariantes = (clientes||[]).filter(c => estaAniversarioProximo(c.data_nascimento, 7));
@@ -3550,8 +3645,8 @@ async function baixarBackup() {
 
 async function cardapioEmergencia() {
   if (!restauranteAtual) return;
-  const { data: cats } = await db.from('categorias').select('*').eq('restaurante_id', restauranteAtual.id).order('ordem');
-  const { data: itens } = await db.from('itens').select('*').eq('restaurante_id', restauranteAtual.id).eq('disponivel', true).order('criado_em');
+  const { data: cats } = await db.from('categorias').select('*').eq('restaurante_id', restauranteAtual.id).is('excluido_em', null).order('ordem');
+  const { data: itens } = await db.from('itens').select('*').eq('restaurante_id', restauranteAtual.id).eq('disponivel', true).is('excluido_em', null).order('criado_em');
 
   let msg = `🍽️ *Cardápio — ${restauranteAtual.nome}*\n\n`;
 
@@ -3638,6 +3733,72 @@ async function renderCupons() {
         `).join('')
       }
     </div>
+  `;
+}
+
+async function renderHistorico() {
+  if (!restauranteAtual) return;
+  const hoje = new Date().toISOString().slice(0,10);
+  document.getElementById('conteudo').innerHTML = `
+    <div class="card" style="margin-bottom:20px;">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <label style="font-size:13px;font-weight:600;">Ver pedidos do dia:</label>
+        <input type="date" id="historico-data" value="${hoje}" max="${hoje}" onchange="carregarHistoricoDoDia()" style="width:auto;">
+      </div>
+    </div>
+    <div id="historico-resultado">Carregando...</div>
+  `;
+  carregarHistoricoDoDia();
+}
+
+async function carregarHistoricoDoDia() {
+  const dataEscolhida = document.getElementById('historico-data').value;
+  const resultado = document.getElementById('historico-resultado');
+  resultado.innerHTML = 'Carregando...';
+
+  const inicio = new Date(dataEscolhida + 'T00:00:00');
+  const fim = new Date(inicio.getTime() + 24*60*60*1000);
+
+  const { data: pedidos } = await db.from('pedidos')
+    .select('*,pedido_itens(nome,quantidade,preco,observacao)')
+    .eq('restaurante_id', restauranteAtual.id)
+    .in('status', ['entrega','entregue'])
+    .gte('criado_em', inicio.toISOString())
+    .lt('criado_em', fim.toISOString())
+    .order('criado_em', {ascending: false});
+
+  const lista = pedidos || [];
+  const total = lista.reduce((s,p) => s + parseFloat(p.total||0), 0);
+  const dataFormatada = inicio.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'});
+
+  if (lista.length === 0) {
+    resultado.innerHTML = `<div class="empty"><div class="empty-ico">📋</div><div class="empty-txt">Nenhum pedido finalizado em ${dataFormatada}.</div></div>`;
+    return;
+  }
+
+  resultado.innerHTML = `
+    <div class="card" style="margin-bottom:16px;background:var(--laranja-light);border:1.5px dashed var(--laranja);">
+      <div style="font-size:13px;color:var(--texto-muted);text-transform:capitalize;">${dataFormatada}</div>
+      <div style="display:flex;gap:24px;margin-top:6px;">
+        <div><div style="font-size:22px;font-weight:700;">${lista.length}</div><div style="font-size:12px;color:var(--texto-muted);">pedido(s)</div></div>
+        <div><div style="font-size:22px;font-weight:700;color:var(--laranja);">R$ ${total.toFixed(2).replace('.',',')}</div><div style="font-size:12px;color:var(--texto-muted);">faturado</div></div>
+      </div>
+    </div>
+    ${lista.map(p => {
+      const itensTxt = (p.pedido_itens||[]).map(i => `${i.quantidade}x ${esc(i.nome)}`).join(' · ');
+      const nomeMatch = (p.observacao||'').match(/Nome:\s*([^\n]+)/);
+      const nome = nomeMatch ? nomeMatch[1].trim() : 'Cliente';
+      return `
+        <div class="kanban-card" style="margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">
+            <div class="pedido-num">#${p.id.slice(-4).toUpperCase()} — ${esc(nome)}</div>
+            <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
+          </div>
+          <div style="font-size:12px;color:var(--texto-muted);margin-bottom:4px;">${new Date(p.criado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})} · ${esc(p.endereco||p.bairro||'')}</div>
+          <div style="font-size:13px;">${itensTxt}</div>
+        </div>
+      `;
+    }).join('')}
   `;
 }
 
@@ -4071,8 +4232,8 @@ async function carregarPublico(restId) {
     }
 
     const [{ data: catsData }, { data: itensData }, { data: fretesData }, { data: etiquetasData }] = await Promise.all([
-      db.from('categorias').select('*').eq('restaurante_id', restId).order('ordem'),
-      db.from('itens').select('*').eq('restaurante_id', restId).eq('disponivel', true).order('ordem_item', {nullsFirst:false}).order('criado_em'),
+      db.from('categorias').select('*').eq('restaurante_id', restId).is('excluido_em', null).order('ordem'),
+      db.from('itens').select('*').eq('restaurante_id', restId).eq('disponivel', true).is('excluido_em', null).order('ordem_item', {nullsFirst:false}).order('criado_em'),
       db.from('fretes').select('*').eq('restaurante_id', restId),
       db.from('etiquetas').select('*').eq('restaurante_id', restId)
     ]);
@@ -4920,7 +5081,7 @@ function filtrarCat(catId, el) {
   document.querySelectorAll('.pub-cat').forEach(e => e.classList.remove('ativo'));
   el.classList.add('ativo');
   document.getElementById('pub-busca').value = '';
-  db.from('itens').select('*').eq('restaurante_id', restPublico.id).eq('disponivel', true).then(({data}) => renderItensPublico(data||[]));
+  db.from('itens').select('*').eq('restaurante_id', restPublico.id).eq('disponivel', true).is('excluido_em', null).then(({data}) => renderItensPublico(data||[]));
 }
 
 let todosItensPublico = [];
