@@ -3434,6 +3434,7 @@ async function gerarCodigosComanda() {
   const { data, error } = await db.from('codigos_comanda').insert(linhas).select();
   if (error) { toast('Erro ao gerar códigos: ' + error.message, 'erro'); return; }
 
+  comandasGeradasCache = data;
   const grid = document.getElementById('comandas-qr-grid');
   let html = '';
   data.forEach((c, i) => {
@@ -3444,7 +3445,6 @@ async function gerarCodigosComanda() {
       <div style="text-align:center;border:1px solid var(--creme-borda);border-radius:10px;padding:12px;">
         <img src="${qrUrl}" width="140" height="140" style="border-radius:6px;">
         <div style="font-size:13px;font-weight:700;margin-top:6px;">Código ${i+1}</div>
-        <a href="${qrUrl}" download="comanda-${i+1}.png" style="font-size:11px;color:var(--laranja);">Baixar QR</a>
         <div style="margin-top:4px;"><a href="${url}" target="_blank" style="font-size:11px;color:var(--texto-muted);">🔗 Abrir/testar link</a></div>
         <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--creme-borda);">
           <img src="${barrasUrl}" style="max-width:140px;height:50px;" onerror="this.style.display='none'">
@@ -3453,8 +3453,30 @@ async function gerarCodigosComanda() {
       </div>
     `;
   });
-  grid.innerHTML = html;
+  grid.innerHTML = html + `<button class="btn btn-outline" style="width:auto;padding:10px 20px;margin-top:10px;" onclick="imprimirComandasGeradas()">🖨️ Imprimir todos (QR + código de barras)</button>`;
   toast(`${qtd} códigos de comanda gerados!`, 'ok');
+}
+
+let comandasGeradasCache = [];
+
+function imprimirComandasGeradas() {
+  if (!comandasGeradasCache.length) return;
+  const html = comandasGeradasCache.map((c, i) => {
+    const url = `https://servidelivery.com.br/prattus.html?comanda=${c.id}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
+    const barrasUrl = `https://barcodeapi.org/api/128/${c.codigo_curto}`;
+    return `
+      <div style="display:inline-block;text-align:center;border:1px dashed #999;border-radius:8px;padding:14px;margin:8px;width:220px;page-break-inside:avoid;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:8px;">Comanda ${i+1}</div>
+        <img src="${qrUrl}" width="180" height="180">
+        <div style="margin-top:12px;padding-top:12px;border-top:1px dashed #ccc;">
+          <img src="${barrasUrl}" style="max-width:180px;height:60px;">
+        </div>
+      </div>
+    `;
+  }).join('');
+  document.getElementById('print-cardapio').innerHTML = `<div style="text-align:center;">${html}</div>`;
+  setTimeout(() => window.print(), 300);
 }
 
 async function exportarClientesCSV() {
