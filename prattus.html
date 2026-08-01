@@ -2617,7 +2617,7 @@ function montaBotoesStatus(p, telefone) {
     `;
   }
   if (p.status === 'preparando') {
-    return `<button class="btn-sm" style="background:var(--laranja);color:#fff;border:none;" onclick="avancarStatus('${p.id}','entrega','${nomeCliente.replace(/'/g,"")}','${telefone||''}','${p.id.slice(-4).toUpperCase()}')">Pedido pronto, saiu p/ entrega</button>`;
+    return `<button class="btn-sm" style="background:var(--laranja);color:#fff;border:none;" onclick="avancarStatus('${p.id}','entregue','${nomeCliente.replace(/'/g,"")}','${telefone||''}','${p.id.slice(-4).toUpperCase()}')">Pedido pronto, saiu p/ entrega</button>`;
   }
   if (p.status === 'entrega') {
     return `<button class="btn-sm" style="background:var(--texto);color:#fff;border:none;" onclick="mudarStatus('${p.id}','entregue')">Marcar como entregue</button>`;
@@ -2630,10 +2630,12 @@ async function avancarStatus(id, novoStatus, nomeCliente, telefone, numPedido) {
   toast('Status atualizado!', 'ok');
 
   const avisosConfig = restauranteAtual?.avisos_whatsapp || {};
-  if (telefone && avisosConfig[novoStatus] !== false) {
+  const chaveConfigAviso = novoStatus === 'entregue' ? 'entrega' : novoStatus;
+  if (telefone && avisosConfig[chaveConfigAviso] !== false) {
     const mensagens = {
       preparando: `Olá ${nomeCliente}! Seu pedido #${numPedido} foi confirmado e já está sendo preparado.`,
-      entrega: `Seu pedido #${numPedido} está pronto e saiu para entrega! Chegará em breve.`
+      entrega: `Seu pedido #${numPedido} está pronto e saiu para entrega! Chegará em breve.`,
+      entregue: `Seu pedido #${numPedido} está pronto e saiu para entrega! Chegará em breve.`
     };
     const msg = mensagens[novoStatus];
     if (msg) {
