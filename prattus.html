@@ -5344,7 +5344,12 @@ function selecionarModo(modo) {
   if (blocoEndereco) blocoEndereco.style.display = modo === 'delivery' ? 'block' : 'none';
   if (blocoAgendamento) blocoAgendamento.style.display = modo === 'retirada' ? 'block' : 'none';
   if (campoMesa) campoMesa.style.display = modo === 'local' ? 'block' : 'none';
-  if (modo !== 'delivery') { fretesSelecionado = 0; atualizarTotalCarrinho(); }
+  if (modo !== 'delivery') {
+    fretesSelecionado = 0;
+    atualizarTotalCarrinho();
+  } else {
+    calcFrete(); // volta pro delivery: recalcula o frete a partir do bairro já selecionado
+  }
 }
 
 let resgateAplicado = null;
