@@ -1305,7 +1305,34 @@ function tocarSom(tipoForcado) {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
 
-    if (tipo === 'sirene') {
+    if (tipo === 'telefone') {
+      // Telefone antigo: trinado mecânico (duas frequências vibrando bem rápido)
+      // repetindo em "chamadas" — bem mais forte e insistente que os outros sons.
+      const tocarTrinado = (inicioEm, duracao) => {
+        const fim = inicioEm + duracao;
+        const passo = 0.045; // rapidez do trinado (quanto menor, mais "mecânico")
+        let t = inicioEm;
+        let alterna = true;
+        while (t < fim) {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = 'square';
+          osc.frequency.value = alterna ? 1000 : 1200;
+          gain.gain.setValueAtTime(0.28, ctx.currentTime + t);
+          gain.gain.setValueAtTime(0.28, ctx.currentTime + t + passo * 0.85);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + passo);
+          osc.start(ctx.currentTime + t);
+          osc.stop(ctx.currentTime + t + passo);
+          t += passo;
+          alterna = !alterna;
+        }
+      };
+      // 4 "chamadas" de ~1s cada, com pausa de ~0.8s entre elas — toca por uns 7s no total
+      [0, 1.8, 3.6, 5.4].forEach(inicio => tocarTrinado(inicio, 1.0));
+
+    } else if (tipo === 'sirene') {
       // Sirene: sobe e desce a frequência continuamente, tipo alarme
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -4118,7 +4145,8 @@ async function renderConfig() {
         <label>Som de aviso de pedido novo</label>
         <div style="display:flex;gap:8px;">
           <select id="cfg-som" style="flex:1;">
-            <option value="campainha" ${(r.som_notificacao||'campainha')==='campainha'?'selected':''}>🔔 Campainha (padrão)</option>
+            <option value="telefone" ${(r.som_notificacao||'telefone')==='telefone'?'selected':''}>📞 Telefone antigo (recomendado)</option>
+            <option value="campainha" ${r.som_notificacao==='campainha'?'selected':''}>🔔 Campainha</option>
             <option value="sirene" ${r.som_notificacao==='sirene'?'selected':''}>🚨 Sirene</option>
             <option value="sino" ${r.som_notificacao==='sino'?'selected':''}>🛎️ Sino</option>
             <option value="buzina" ${r.som_notificacao==='buzina'?'selected':''}>📯 Buzina</option>
