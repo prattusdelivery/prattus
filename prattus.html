@@ -1422,7 +1422,15 @@ function iniciarAutoRefresh() {
       const novosIds = new Set((data||[]).map(p => p.id));
       let temNovo = false;
       novosIds.forEach(id => { if (!ultimosPedidosIds.has(id)) temNovo = true; });
-      if (temNovo) { tocarSom(); toast('🛵 Novo pedido chegou!', 'ok'); }
+      if (temNovo) {
+        // Busca o som certinho direto do banco (evita tocar um som desatualizado
+        // se a configuração foi trocada em outra aba/dispositivo/celular)
+        const { data: cfg } = await db.from('restaurantes').select('som_notificacao').eq('id', restauranteAtual.id).maybeSingle();
+        const somAtual = cfg?.som_notificacao || restauranteAtual.som_notificacao || 'campainha';
+        restauranteAtual.som_notificacao = somAtual;
+        tocarSom(somAtual);
+        toast('🛵 Novo pedido chegou!', 'ok');
+      }
       ultimosPedidosIds = novosIds;
       renderPedidos();
     }
