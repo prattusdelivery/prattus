@@ -1293,6 +1293,20 @@ let catAtiva = 'todas';
 let autoRefreshTimer = null;
 let ultimosPedidosIds = new Set();
 let somAtivo = true;
+let audioCtxAlerta = null;
+
+// "Destrava" o áudio assim que o usuário clicar em qualquer lugar da tela.
+// Sem isso, o navegador pode bloquear silenciosamente o som customizado
+// (política de autoplay), e aí só toca a notificação padrão fraquinha do sistema.
+document.addEventListener('click', () => {
+  try {
+    if (!audioCtxAlerta) {
+      audioCtxAlerta = new (window.AudioContext || window.webkitAudioContext)();
+    } else if (audioCtxAlerta.state === 'suspended') {
+      audioCtxAlerta.resume().catch(() => {});
+    }
+  } catch(e) {}
+}, { capture: true });
 let pedidosCache = [];
 
 // ===== SOM DE NOTIFICACAO =====
@@ -1303,7 +1317,17 @@ function tocarSom(tipoForcado) {
   if (!somAtivo && !tipoForcado) return;
   const tipo = tipoForcado || (restauranteAtual && restauranteAtual.som_notificacao) || 'campainha';
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (!audioCtxAlerta) {
+      audioCtxAlerta = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    const ctx = audioCtxAlerta;
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(() => {
+        if (ctx.state === 'suspended') {
+          toast('🔇 O navegador bloqueou o som de aviso — clique em qualquer lugar da tela pra ativar', 'erro');
+        }
+      }).catch(() => {});
+    }
 
     if (tipo === 'telefone') {
       // Telefone antigo: trinado mecânico (duas frequências vibrando bem rápido),
