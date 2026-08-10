@@ -1296,22 +1296,89 @@ let somAtivo = true;
 let pedidosCache = [];
 
 // ===== SOM DE NOTIFICACAO =====
-function tocarSom() {
-  if (!somAtivo) return;
+// tocarSom(tipoForcado) — se tipoForcado vier preenchido (usado pelo botão "Testar som"
+// nas Configurações), toca esse som direto. Se não vier, usa o som salvo do restaurante
+// (restauranteAtual.som_notificacao) ou "campainha" como padrão.
+function tocarSom(tipoForcado) {
+  if (!somAtivo && !tipoForcado) return;
+  const tipo = tipoForcado || (restauranteAtual && restauranteAtual.som_notificacao) || 'campainha';
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    [523, 659, 784].forEach((freq, i) => {
+
+    if (tipo === 'sirene') {
+      // Sirene: sobe e desce a frequência continuamente, tipo alarme
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
       gain.connect(ctx.destination);
-      osc.frequency.value = freq;
-      osc.type = 'sine';
-      gain.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.15);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.15 + 0.3);
-      osc.start(ctx.currentTime + i * 0.15);
-      osc.stop(ctx.currentTime + i * 0.15 + 0.3);
-    });
+      osc.type = 'sawtooth';
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      const dur = 2.2;
+      const passos = 6;
+      for (let i = 0; i <= passos; i++) {
+        const t = ctx.currentTime + (dur / passos) * i;
+        osc.frequency.linearRampToValueAtTime(i % 2 === 0 ? 950 : 550, t);
+      }
+      gain.gain.setValueAtTime(0.25, ctx.currentTime + dur - 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + dur);
+
+    } else if (tipo === 'sino') {
+      // Sino: tom fundamental + harmônicos, com decaimento longo (efeito de "badalada")
+      const tocarBadalada = (inicioEm) => {
+        [1, 2, 2.4, 3.8].forEach((mult, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.value = 880 * mult;
+          const vol = idx === 0 ? 0.35 : 0.12;
+          gain.gain.setValueAtTime(vol, ctx.currentTime + inicioEm);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + inicioEm + 1.4);
+          osc.start(ctx.currentTime + inicioEm);
+          osc.stop(ctx.currentTime + inicioEm + 1.4);
+        });
+      };
+      tocarBadalada(0);
+      tocarBadalada(0.5);
+
+    } else if (tipo === 'buzina') {
+      // Buzina: dois tons graves simultâneos (tipo buzina de carro), em 2 toques curtos
+      const tocarBuzinada = (inicioEm) => {
+        [220, 330].forEach((freq) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = 'square';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.2, ctx.currentTime + inicioEm);
+          gain.gain.setValueAtTime(0.2, ctx.currentTime + inicioEm + 0.35);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + inicioEm + 0.4);
+          osc.start(ctx.currentTime + inicioEm);
+          osc.stop(ctx.currentTime + inicioEm + 0.4);
+        });
+      };
+      tocarBuzinada(0);
+      tocarBuzinada(0.55);
+
+    } else {
+      // Campainha (padrão original): 3 notas tipo "ding-ding-ding"
+      [523, 659, 784].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = freq;
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.15 + 0.3);
+        osc.start(ctx.currentTime + i * 0.15);
+        osc.stop(ctx.currentTime + i * 0.15 + 0.3);
+      });
+    }
   } catch(e) {}
 }
 
@@ -4047,6 +4114,20 @@ async function renderConfig() {
         </div>
       </div>
 
+      <div class="form-group">
+        <label>Som de aviso de pedido novo</label>
+        <div style="display:flex;gap:8px;">
+          <select id="cfg-som" style="flex:1;">
+            <option value="campainha" ${(r.som_notificacao||'campainha')==='campainha'?'selected':''}>🔔 Campainha (padrão)</option>
+            <option value="sirene" ${r.som_notificacao==='sirene'?'selected':''}>🚨 Sirene</option>
+            <option value="sino" ${r.som_notificacao==='sino'?'selected':''}>🛎️ Sino</option>
+            <option value="buzina" ${r.som_notificacao==='buzina'?'selected':''}>📯 Buzina</option>
+          </select>
+          <button type="button" onclick="tocarSom(document.getElementById('cfg-som').value)" style="padding:0 16px;border-radius:8px;border:1px solid var(--creme-borda);background:none;cursor:pointer;white-space:nowrap;">▶️ Testar som</button>
+        </div>
+        <div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Toca sempre que um pedido novo chegar na aba Pedidos. Escolha um som que dá pra ouvir mesmo com a loja cheia/barulhenta.</div>
+      </div>
+
       <div class="config-titulo" style="margin-top:20px;">Entrega</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <div class="form-group"><label>Tempo estimado de entrega</label><input type="text" id="cfg-tempo" value="${r.tempo_entrega||''}" placeholder="Ex: 30-45 min"></div>
@@ -4208,6 +4289,7 @@ async function salvarConfig() {
     cor_primaria: document.getElementById('cfg-cor').value,
     categoria: document.getElementById('cfg-categoria').value || null,
     tema: document.getElementById('cfg-tema').value,
+    som_notificacao: document.getElementById('cfg-som').value,
     fidelidade_ativa: document.getElementById('cfg-fidelidade').checked,
     avisos_whatsapp: {
       preparando: document.getElementById('cfg-aviso-preparando').checked,
