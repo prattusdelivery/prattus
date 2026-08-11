@@ -1894,6 +1894,9 @@ let meuPapel = 'dono';
 
 async function carregarRestaurante() {
   document.body.classList.remove('dark-mode');
+  document.body.style.removeProperty('--laranja');
+  document.body.style.removeProperty('--laranja-dark');
+  document.body.style.removeProperty('--laranja-light');
   let { data, error } = await db.from('restaurantes')
     .select('*').eq('user_id', usuarioAtual.id).maybeSingle();
 
@@ -4430,9 +4433,9 @@ async function carregarPublico(restId) {
 
   // Cor principal customizada — aplica de verdade em todo o cardápio
   if (rest.cor_primaria) {
-    telaEl.style.setProperty('--laranja', rest.cor_primaria);
-    telaEl.style.setProperty('--laranja-dark', ajustarCorBrilho(rest.cor_primaria, -18));
-    telaEl.style.setProperty('--laranja-light', ajustarCorBrilho(rest.cor_primaria, 82));
+    document.body.style.setProperty('--laranja', rest.cor_primaria);
+    document.body.style.setProperty('--laranja-dark', ajustarCorBrilho(rest.cor_primaria, -18));
+    document.body.style.setProperty('--laranja-light', ajustarCorBrilho(rest.cor_primaria, 82));
   }
 
   document.getElementById('pub-rest-nome').textContent = rest.nome;
@@ -5746,7 +5749,7 @@ async function finalizarPedido() {
         tipo: 'pedido',
         restauranteId: restPublico.id,
         titulo: '🛵 Novo pedido!',
-        corpo: `Pedido #${pedido.id.slice(-6).toUpperCase()} — R$ ${total.toFixed(2)}`
+        corpo: `Pedido #${pedido.id.slice(-6).toUpperCase()} — R$ ${total.toFixed(2).replace('.',',')}`
       })
     }).catch(() => {});
   }
@@ -5765,7 +5768,7 @@ async function finalizarPedido() {
   }
 
   // Monta mensagem WhatsApp
-  const itensMsg = carrinho.map(i => `${i.qtd}x ${i.nome}${i.variacao ? ' ('+i.variacao+')' : ''}${i.obs ? ' - '+i.obs : ''} — ${i.resgate ? '🎁 GRÁTIS (resgate fidelidade)' : 'R$ ' + (parseFloat(i.preco)*i.qtd).toFixed(2)}`).join('\n');
+  const itensMsg = carrinho.map(i => `${i.qtd}x ${i.nome}${i.variacao ? ' ('+i.variacao+')' : ''}${i.obs ? ' - '+i.obs : ''} — ${i.resgate ? '🎁 GRÁTIS (resgate fidelidade)' : 'R$ ' + (parseFloat(i.preco)*i.qtd).toFixed(2).replace('.',',')}`).join('\n');
   const linkRecibo = (pedido && pagamento === 'Pix') ? `${window.location.href.split('?')[0]}?recibo=${pedido.id}` : '';
   const linkAcomp = pedido ? `${window.location.href.split('?')[0]}?acompanhar=${pedido.id}` : '';
   const msg = (
@@ -5777,11 +5780,11 @@ async function finalizarPedido() {
     (modoAtual === 'delivery' ? `*Endereço:* ${endereco}, ${bairro}${referencia ? '\n*Referência:* '+referencia : ''}\n` : '') +
     (agendamento ? `*Agendado para:* ${agendamento}\n` : '') +
     `\n*Itens:*\n${itensMsg}\n\n` +
-    `*Subtotal:* R$ ${sub.toFixed(2)}\n` +
-    (frete > 0 ? `*Frete:* R$ ${frete.toFixed(2)}\n` : '') +
-    (descontoAtual > 0 ? `*Desconto (cupom):* - R$ ${descontoAtual.toFixed(2)}\n` : '') +
-    (resgateAplicado ? `*Prêmio resgatado:* ${resgateAplicado.descricao} — grátis (valor de R$ ${resgateAplicado.valor.toFixed(2)} aplicado como desconto de fidelidade)\n` : '') +
-    `*Total:* R$ ${total.toFixed(2)}\n` +
+    `*Subtotal:* R$ ${sub.toFixed(2).replace('.',',')}\n` +
+    (frete > 0 ? `*Frete:* R$ ${frete.toFixed(2).replace('.',',')}\n` : '') +
+    (descontoAtual > 0 ? `*Desconto (cupom):* - R$ ${descontoAtual.toFixed(2).replace('.',',')}\n` : '') +
+    (resgateAplicado ? `*Prêmio resgatado:* ${resgateAplicado.descricao} — grátis (valor de R$ ${resgateAplicado.valor.toFixed(2).replace('.',',')} aplicado como desconto de fidelidade)\n` : '') +
+    `*Total:* R$ ${total.toFixed(2).replace('.',',')}\n` +
     `*Pagamento:* ${pagamento}${troco ? ' (troco para R$ '+parseFloat(troco).toFixed(2)+')' : ''}\n` +
     (obs ? `*Obs:* ${obs}\n` : '') +
     (linkAcomp ? `\nAcompanhar pedido: ${linkAcomp}` : '') +
