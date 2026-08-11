@@ -5553,7 +5553,18 @@ function atualizarTotalCarrinho() {
   const descRow = document.getElementById('carr-desconto-row');
   const descVal = document.getElementById('carr-desconto-val');
   if (subEl) subEl.textContent = 'R$ ' + sub.toFixed(2).replace('.',',');
-  if (freteEl) freteEl.textContent = modoAtual !== 'delivery' ? (modoAtual === 'retirada' ? 'Retirada no local' : 'Consumir no local') : (fretesSelecionado === 0 ? 'Grátis' : 'R$ ' + fretesSelecionado.toFixed(2).replace('.',','));
+  if (freteEl) {
+    if (modoAtual !== 'delivery') {
+      freteEl.textContent = modoAtual === 'retirada' ? 'Retirada no local' : 'Consumir no local';
+    } else {
+      const bairroSel = document.getElementById('ped-bairro');
+      if (!bairroSel || !bairroSel.value) {
+        freteEl.textContent = 'Selecione o bairro';
+      } else {
+        freteEl.textContent = fretesSelecionado === 0 ? 'Grátis' : 'R$ ' + fretesSelecionado.toFixed(2).replace('.',',');
+      }
+    }
+  }
   if (totalEl) totalEl.textContent = 'R$ ' + total.toFixed(2).replace('.',',');
   if (descRow) descRow.style.display = descontoAtual > 0 ? 'flex' : 'none';
   if (descVal) descVal.textContent = '- R$ ' + descontoAtual.toFixed(2).replace('.',',');
