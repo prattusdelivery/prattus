@@ -476,8 +476,8 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
 /* ===== CARDAPIO PUBLICO - GRID DESKTOP ===== */
 @media(min-width:901px){
   .pub-wrap{max-width:1200px;margin:0 auto;box-shadow:0 0 40px -12px rgba(35,25,20,0.12);}
-  .pub-cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;align-items:stretch;}
-  .pub-cat-grid .pub-item{margin-bottom:0;height:100%;}
+  .pub-cat-grid{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch;}
+  .pub-cat-grid .pub-item{margin-bottom:0;height:auto;flex:0 1 280px;}
 }
 .carrinho-bar{
   position:fixed;bottom:0;left:0;right:0;
