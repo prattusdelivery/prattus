@@ -3548,7 +3548,7 @@ async function renderClientes() {
             <div class="cliente-avatar">${esc(c.nome).charAt(0).toUpperCase()}</div>
             <div style="flex:1;">
               <div class="cliente-nome">${esc(c.nome)}</div>
-              <div class="cliente-sub">${esc(c.email)||''} ${c.telefone?'· '+esc(c.telefone):''}</div>
+              <div class="cliente-sub">${esc(c.email)||''} ${c.telefone?'· '+esc(c.telefone):''}${c.data_nascimento ? ' · 🎂 '+new Date(c.data_nascimento+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'}) : ''}</div>
             </div>
             <div style="text-align:right;">
               <div style="font-size:13px;font-weight:700;color:var(--laranja)">R$ ${parseFloat(c.total_gasto||0).toFixed(2).replace('.',',')}</div>
