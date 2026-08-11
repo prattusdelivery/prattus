@@ -1230,6 +1230,32 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
 </div>
 </div>
 
+<!-- MODAL: CADASTRAR CLIENTE MANUALMENTE -->
+<div class="modal-overlay" id="modal-cadastro-cliente">
+<div class="modal">
+  <div class="modal-header">
+    <div class="modal-titulo">Cadastrar cliente</div>
+    <button class="modal-fechar" onclick="fecharModal('modal-cadastro-cliente')">×</button>
+  </div>
+  <div class="form-group">
+    <label>Nome completo</label>
+    <input type="text" id="cad-cliente-nome" placeholder="Nome do cliente">
+  </div>
+  <div class="form-group">
+    <label>Telefone (com DDD)</label>
+    <input type="text" id="cad-cliente-telefone" placeholder="55999999999">
+  </div>
+  <div class="form-group">
+    <label>Data de nascimento (opcional)</label>
+    <input type="date" id="cad-cliente-nascimento">
+  </div>
+  <div style="display:flex;gap:10px;">
+    <button class="btn" style="flex:1;background:none;border:1px solid var(--creme-borda);" onclick="fecharModal('modal-cadastro-cliente')">Cancelar</button>
+    <button class="btn btn-laranja" style="flex:1;" onclick="salvarClienteManual()">Cadastrar</button>
+  </div>
+</div>
+</div>
+
 <script>
 // ===== SUPABASE =====
 const SUPA_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
@@ -2542,7 +2568,11 @@ async function renderDashboard() {
       <div class="metrica"><div class="metrica-label">Faturamento hoje</div><div class="metrica-val laranja">R$ ${fatHoje.toFixed(2).replace('.',',')}</div></div>
       <div class="metrica"><div class="metrica-label">Ticket médio</div><div class="metrica-val">R$ ${ticketMedio.toFixed(2).replace('.',',')}</div></div>
       <div class="metrica"><div class="metrica-label">Faturamento do mês</div><div class="metrica-val">R$ ${fatMes.toFixed(2).replace('.',',')}</div></div>
-      <div class="metrica"><div class="metrica-label">Clientes</div><div class="metrica-val">${(clientes||[]).length}</div></div>
+      <div class="metrica">
+        <div class="metrica-label">Clientes</div>
+        <div class="metrica-val">${(clientes||[]).length}</div>
+        <button class="btn-sm" style="margin-top:6px;" onclick="abrirModal('modal-cadastro-cliente')">+ Cadastrar cliente</button>
+      </div>
     </div>
     <div class="card">
       <div class="card-titulo">Últimos pedidos</div>
@@ -3351,6 +3381,40 @@ async function excluirRecompensa(id) {
   await db.from('recompensas').delete().eq('id', id);
   toast('Recompensa excluída.', 'ok');
   renderClientes();
+}
+
+async function salvarClienteManual() {
+  const nome = document.getElementById('cad-cliente-nome').value.trim();
+  const telefone = document.getElementById('cad-cliente-telefone').value.trim();
+  const nascimento = document.getElementById('cad-cliente-nascimento').value || null;
+
+  if (!nome || !telefone) {
+    toast('Preencha nome e telefone!', 'erro');
+    return;
+  }
+
+  const { data: existente } = await db.from('clientes').select('id')
+    .eq('restaurante_id', restauranteAtual.id).eq('telefone', telefone).maybeSingle();
+  if (existente) {
+    toast('Já existe um cliente cadastrado com esse telefone.', 'erro');
+    return;
+  }
+
+  const { error } = await db.from('clientes').insert({
+    restaurante_id: restauranteAtual.id, nome, telefone, data_nascimento: nascimento
+  });
+  if (error) {
+    toast('Erro ao cadastrar cliente.', 'erro');
+    return;
+  }
+
+  document.getElementById('cad-cliente-nome').value = '';
+  document.getElementById('cad-cliente-telefone').value = '';
+  document.getElementById('cad-cliente-nascimento').value = '';
+  fecharModal('modal-cadastro-cliente');
+  toast('Cliente cadastrado!', 'ok');
+  if (paginaAtual === 'dashboard') renderDashboard();
+  if (paginaAtual === 'clientes') renderClientes();
 }
 
 function enviarPromocao(telefone) {
