@@ -149,7 +149,22 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
   width:36px;height:36px;border-radius:50%;background:var(--laranja);
   display:flex;align-items:center;justify-content:center;
   color:var(--branco);font-size:14px;font-weight:600;
+  cursor:pointer;user-select:none;
 }
+.topbar-avatar-wrap{position:relative;}
+.topbar-avatar-menu{
+  position:absolute;top:calc(100% + 8px);right:0;
+  background:var(--branco);border:1px solid var(--creme-borda);border-radius:12px;
+  box-shadow:0 8px 24px -8px rgba(35,25,20,0.25);min-width:180px;
+  padding:6px;z-index:1000;display:none;
+}
+.topbar-avatar-menu.aberto{display:block;}
+.topbar-avatar-menu button{
+  width:100%;text-align:left;background:none;border:none;padding:10px 12px;
+  border-radius:8px;font-size:13px;color:var(--texto);cursor:pointer;font-family:inherit;
+}
+.topbar-avatar-menu button:hover{background:var(--creme);}
+.topbar-avatar-menu button.perigo{color:#C4522E;}
 .conteudo{padding:28px;flex:1;}
 
 /* ===== DASHBOARD ===== */
@@ -779,7 +794,13 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
       <div style="display:flex;align-items:center;gap:12px;">
         <button id="btn-notificacoes" onclick="ativarNotificacoes()" style="display:none;font-size:12px;font-weight:600;padding:8px 14px;border-radius:8px;border:1px solid var(--creme-borda);background:var(--creme);color:var(--texto-muted);cursor:pointer;white-space:nowrap;"></button>
         <button id="btn-pausar-loja" onclick="alternarPausaLoja()" style="display:none;font-size:12px;font-weight:600;padding:8px 14px;border-radius:8px;border:none;cursor:pointer;white-space:nowrap;"></button>
-        <div class="topbar-avatar" id="topbar-avatar">A</div>
+        <div class="topbar-avatar-wrap">
+          <div class="topbar-avatar" id="topbar-avatar" onclick="document.getElementById('topbar-avatar-menu').classList.toggle('aberto')">A</div>
+          <div class="topbar-avatar-menu" id="topbar-avatar-menu">
+            <button onclick="irPara('config');document.getElementById('topbar-avatar-menu').classList.remove('aberto')">⚙️ Configurações</button>
+            <button class="perigo" onclick="sair()">🚪 Sair da conta</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -2506,6 +2527,15 @@ async function sair() {
   restauranteAtual = null;
   mostrarTela('auth');
 }
+
+// Fecha o menu do avatar ao clicar fora dele
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('topbar-avatar-menu');
+  const avatar = document.getElementById('topbar-avatar');
+  if (menu && menu.classList.contains('aberto') && !menu.contains(e.target) && e.target !== avatar) {
+    menu.classList.remove('aberto');
+  }
+});
 
 function alternarSidebar() {
   document.getElementById('sidebar').classList.toggle('aberto');
