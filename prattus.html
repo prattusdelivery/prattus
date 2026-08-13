@@ -2585,11 +2585,15 @@ async function renderDashboard() {
 
   const { data: pedHoje } = await db.from('pedidos').select('total').eq('restaurante_id', rid).eq('status', 'entregue').gte('criado_em', inicioDoDiaLocal());
   const { data: pedMes } = await db.from('pedidos').select('total').eq('restaurante_id', rid).eq('status', 'entregue').gte('criado_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
+  const { data: comandaHoje } = await db.from('pedidos').select('total').eq('restaurante_id', rid).eq('status', 'entregue').ilike('observacao', '%Modo: Consumir no local%').gte('criado_em', inicioDoDiaLocal());
+  const { data: comandaMes } = await db.from('pedidos').select('total').eq('restaurante_id', rid).eq('status', 'entregue').ilike('observacao', '%Modo: Consumir no local%').gte('criado_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
   const { data: clientes } = await db.from('clientes').select('id').eq('restaurante_id', rid);
   const { data: pedidos } = await db.from('pedidos').select('*,clientes(nome),pedido_itens(nome,quantidade,preco)').eq('restaurante_id', rid).order('criado_em', {ascending:false}).limit(5);
 
   const fatHoje = (pedHoje||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
   const fatMes = (pedMes||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
+  const fatComandaHoje = (comandaHoje||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
+  const fatComandaMes = (comandaMes||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
   const ticketMedio = pedHoje && pedHoje.length ? (fatHoje / pedHoje.length) : 0;
 
   document.getElementById('conteudo').innerHTML = `
@@ -2603,6 +2607,12 @@ async function renderDashboard() {
         <div class="metrica-val">${(clientes||[]).length}</div>
         <button class="btn-sm" style="margin-top:6px;" onclick="abrirModal('modal-cadastro-cliente')">+ Cadastrar cliente</button>
       </div>
+    </div>
+    <div class="metricas">
+      <div class="metrica"><div class="metrica-label">🍽️ Comandas hoje</div><div class="metrica-val">${(comandaHoje||[]).length}</div></div>
+      <div class="metrica"><div class="metrica-label">🍽️ Faturamento comandas hoje</div><div class="metrica-val laranja">R$ ${fatComandaHoje.toFixed(2).replace('.',',')}</div></div>
+      <div class="metrica"><div class="metrica-label">🍽️ Comandas no mês</div><div class="metrica-val">${(comandaMes||[]).length}</div></div>
+      <div class="metrica"><div class="metrica-label">🍽️ Faturamento comandas no mês</div><div class="metrica-val">R$ ${fatComandaMes.toFixed(2).replace('.',',')}</div></div>
     </div>
     <div class="card">
       <div class="card-titulo">Últimos pedidos</div>
