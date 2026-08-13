@@ -732,6 +732,10 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
       Pedidos
     </div>
+    <div class="nav-item" onclick="irPara('comandas')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v7c0 1.1.9 2 2 2h1v11h2V4H3z"/><path d="M17 2v7a2 2 0 002 2v11"/><path d="M19 2v20"/></svg>
+      Comandas
+    </div>
     <div class="nav-item" onclick="irPara('cardapio')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/><path d="M12 6v6l4 2"/></svg>
       Cardápio
@@ -1483,7 +1487,7 @@ function tocarSom(tipoForcado) {
 function iniciarAutoRefresh() {
   pararAutoRefresh();
   autoRefreshTimer = setInterval(async () => {
-    if (paginaAtual === 'pedidos' && restauranteAtual) {
+    if ((paginaAtual === 'pedidos' || paginaAtual === 'comandas') && restauranteAtual) {
       const { data } = await db.from('pedidos')
         .select('id,status')
         .eq('restaurante_id', restauranteAtual.id)
@@ -1502,7 +1506,7 @@ function iniciarAutoRefresh() {
         toast('🛵 Novo pedido chegou!', 'ok');
       }
       ultimosPedidosIds = novosIds;
-      renderPedidos();
+      if (paginaAtual === 'pedidos') renderPedidos(); else renderComandas();
     }
   }, 30000);
 }
@@ -2560,7 +2564,7 @@ function irPara(pagina) {
   fecharSidebar();
   
   const titulos = {
-    dashboard:'Dashboard', pedidos:'Pedidos', cardapio:'Cardápio',
+    dashboard:'Dashboard', pedidos:'Pedidos', comandas:'Comandas', cardapio:'Cardápio',
     clientes:'Clientes', avaliacoes:'Avaliações', relatorios:'Relatórios', fretes:'Fretes por bairro',
     cupons:'Cupons', config:'Configurações', equipe:'Equipe', mensalidade:'Mensalidade', historico:'Histórico de pedidos'
   };
@@ -2570,7 +2574,7 @@ function irPara(pagina) {
   c.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando...</div>';
 
   const fns = {
-    dashboard: renderDashboard, pedidos: renderPedidos,
+    dashboard: renderDashboard, pedidos: renderPedidos, comandas: renderComandas,
     cardapio: renderCardapio, clientes: renderClientes, avaliacoes: renderAvaliacoes,
     relatorios: renderRelatorios, fretes: renderFretes,
     cupons: renderCupons, config: renderConfig, equipe: renderEquipe, mensalidade: renderMensalidade, historico: renderHistorico
@@ -2656,8 +2660,62 @@ async function renderPedidos() {
     .eq('restaurante_id', restauranteAtual.id)
     .order('criado_em', {ascending: false});
 
-  const lista = pedidos || [];
+  const lista = (pedidos || []).filter(p => !(p.observacao||'').includes('Modo: Consumir no local'));
   pedidosCache = lista;
+  const novos = lista.filter(p => p.status === 'novo');
+  const preparando = lista.filter(p => p.status === 'preparando');
+  const finalizados = lista.filter(p => p.status === 'entrega' || p.status === 'entregue');
+
+  function montaCard(p) {
+    const telefone = extrairTelefone(p);
+    const itensTxt = (p.pedido_itens||[]).map(i => `${i.quantidade}x ${esc(i.nome)}${i.observacao?' ('+esc(i.observacao)+')':''}`).join(' · ');
+    const mesaMatch = (p.observacao||'').match(/Mesa\s+(\S+)/);
+    return `
+      <div class="kanban-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">
+          <div class="pedido-num">#${p.id.slice(-4).toUpperCase()}</div>
+          <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
+        </div>
+        ${mesaMatch ? `<div style="display:inline-block;background:var(--laranja);color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;">🍽️ Mesa ${esc(mesaMatch[1])}</div>` : ''}
+        <div class="pedido-cliente" style="margin-bottom:8px;">${esc(p.endereco)} — ${esc(p.bairro)}</div>
+        <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">${itensTxt}</div>
+        ${p.observacao ? `<div style="font-size:11px;color:var(--laranja);margin-bottom:10px;">${esc(p.observacao).replace(/\n/g,' · ')}</div>` : ''}
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${montaBotoesStatus(p, telefone)}
+          <button class="btn-sm" onclick="imprimirComandaPorId('${p.id}')" title="Imprimir comanda">🖨️</button>
+        </div>
+      </div>
+    `;
+  }
+
+  document.getElementById('conteudo').innerHTML = `
+    <div style="font-size:14px;color:var(--texto-muted);margin-bottom:16px;">${lista.length} pedido(s) no total</div>
+    <div class="kanban">
+      <div class="kanban-col col-novo">
+        <div class="kanban-col-titulo"><span class="kanban-dot novo"></span>Novos pedidos <span class="kanban-count">${novos.length}</span></div>
+        ${novos.length === 0 ? '<div class="kanban-empty">Nenhum pedido novo</div>' : novos.map(montaCard).join('')}
+      </div>
+      <div class="kanban-col col-prep">
+        <div class="kanban-col-titulo"><span class="kanban-dot prep"></span>Em preparo <span class="kanban-count">${preparando.length}</span></div>
+        ${preparando.length === 0 ? '<div class="kanban-empty">Nenhum pedido em preparo</div>' : preparando.map(montaCard).join('')}
+      </div>
+      <div class="kanban-col col-entrega">
+        <div class="kanban-col-titulo"><span class="kanban-dot entrega"></span>A caminho / Finalizado <span class="kanban-count">${finalizados.length}</span></div>
+        ${finalizados.length === 0 ? '<div class="kanban-empty">Nenhum pedido finalizado</div>' : finalizados.slice(0,3).map(montaCard).join('')}
+        ${finalizados.length > 3 ? `<div style="text-align:center;font-size:11px;color:var(--texto-muted);padding:8px 0;">Mostrando os 3 mais recentes de ${finalizados.length}</div>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+async function renderComandas() {
+  if (!restauranteAtual) return;
+  const { data: pedidos } = await db.from('pedidos')
+    .select('*,pedido_itens(nome,quantidade,preco,observacao)')
+    .eq('restaurante_id', restauranteAtual.id)
+    .order('criado_em', {ascending: false});
+
+  const lista = (pedidos || []).filter(p => (p.observacao||'').includes('Modo: Consumir no local'));
   const novos = lista.filter(p => p.status === 'novo');
   const preparando = lista.filter(p => p.status === 'preparando');
   const finalizados = lista.filter(p => p.status === 'entrega' || p.status === 'entregue');
@@ -2714,7 +2772,7 @@ async function renderPedidos() {
       `).join('')}
     </div>
     ` : ''}
-    <div style="font-size:14px;color:var(--texto-muted);margin-bottom:16px;">${lista.length} pedido(s) no total</div>
+    <div style="font-size:14px;color:var(--texto-muted);margin-bottom:16px;">${lista.length} comanda(s) no total</div>
     <div class="kanban">
       <div class="kanban-col col-novo">
         <div class="kanban-col-titulo"><span class="kanban-dot novo"></span>Novos pedidos <span class="kanban-count">${novos.length}</span></div>
@@ -2860,13 +2918,13 @@ async function avancarStatus(id, novoStatus, nomeCliente, telefone, numPedido) {
     imprimirComandaPorId(id);
   }
 
-  renderPedidos();
+  if (paginaAtual === 'pedidos') renderPedidos(); else if (paginaAtual === 'comandas') renderComandas();
 }
 
 async function mudarStatus(id, status) {
   await db.from('pedidos').update({ status }).eq('id', id);
   toast('Status atualizado!', 'ok');
-  renderPedidos();
+  if (paginaAtual === 'pedidos') renderPedidos(); else if (paginaAtual === 'comandas') renderComandas();
 }
 
 // ===== CARDAPIO =====
