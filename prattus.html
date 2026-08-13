@@ -416,30 +416,32 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
 }
 .pub-social a:hover{background:rgba(255,255,255,0.3);}
 .pub-item{
-  display:flex;align-items:flex-start;gap:14px;padding:16px;
   border:1px solid var(--creme-borda);border-radius:16px;
   margin-bottom:12px;background:var(--branco);
   box-shadow:0 2px 8px -4px rgba(35,25,20,0.06);
+  overflow:hidden;position:relative;
 }
 .pub-item:last-child{margin-bottom:0;}
 .pub-item-foto{
-  width:80px;height:80px;border-radius:14px;background:var(--laranja-light);
-  display:flex;align-items:center;justify-content:center;font-size:30px;flex-shrink:0;
+  width:100%;height:170px;background:var(--laranja-light);
+  display:flex;align-items:center;justify-content:center;font-size:46px;
   overflow:hidden;
 }
 .pub-item-foto img{width:100%;height:100%;object-fit:cover;}
-.pub-item-nome{font-family:var(--font-display);font-size:15px;font-weight:600;}
-.pub-item-desc{font-size:12px;color:var(--texto-muted);margin-top:3px;line-height:1.4;}
-.pub-item-preco{font-size:14px;font-weight:700;color:var(--laranja);margin-top:4px;}
+.pub-item-info{padding:14px 16px;}
+.pub-item-nome{font-family:var(--font-display);font-size:18px;font-weight:600;line-height:1.3;}
+.pub-item-desc{font-size:13px;color:var(--texto-muted);margin-top:5px;line-height:1.45;}
+.pub-item-preco{font-size:16px;font-weight:700;color:var(--laranja);margin-top:8px;}
 .pub-cat-titulo{font-family:var(--font-display);font-size:18px;font-weight:600;color:var(--texto);margin:38px 0 12px;padding-top:14px;}
 .pub-cat-titulo:not(:first-child){border-top:1px dashed var(--creme-borda);}
 .pub-cat-titulo:first-child{margin-top:4px;}
 .dark-mode .pub-cat-titulo{color:#f0f0f0;}
 .pub-add{
-  width:30px;height:30px;background:var(--laranja);border-radius:50%;
-  border:none;color:var(--branco);font-size:18px;cursor:pointer;
+  position:absolute;top:14px;right:14px;
+  width:36px;height:36px;background:var(--laranja);border-radius:50%;
+  border:none;color:var(--branco);font-size:20px;cursor:pointer;
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
-  transition:all 0.15s;box-shadow:0 4px 10px -2px rgba(232,99,57,0.5);
+  transition:all 0.15s;box-shadow:0 4px 12px -2px rgba(232,99,57,0.55);
 }
 .pub-add:hover{background:var(--laranja-dark);transform:scale(1.06);}
 
@@ -5197,12 +5199,12 @@ function renderCardItem(item) {
   return `
     <div class="pub-item" ${esgotado ? 'style="opacity:0.55;"' : `onclick="abrirModalItemPorId('${item.id}')" style="cursor:pointer;"`}>
       <div class="pub-item-foto">${item.foto_url ? `<img src="${esc(item.foto_url)}" onerror="this.parentElement.textContent='🍽️'">` : '🍽️'}</div>
-      <div style="flex:1;min-width:0;">
+      ${esgotado || modoConsultaAtivo ? '' : `<button class="pub-add" onclick="event.stopPropagation();${acaoBotao}">+</button>`}
+      <div class="pub-item-info">
         <div class="pub-item-nome">${esc(item.nome)} ${esgotado ? '<span style="font-size:10px;background:#FBE1DE;color:#B3261E;padding:2px 8px;border-radius:10px;font-weight:700;">ESGOTADO</span>' : ''}${etiquetasHtml}</div>
         <div class="pub-item-desc">${esc(item.descricao)}</div>
         <div class="pub-item-preco">${precoExibicaoItem(item)}</div>
       </div>
-      ${esgotado || modoConsultaAtivo ? '' : `<button class="pub-add" onclick="event.stopPropagation();${acaoBotao}">+</button>`}
     </div>
   `;
 }
@@ -5276,8 +5278,8 @@ function abrirModalItem(item) {
 
   document.getElementById('mic-titulo').textContent = item.nome;
   document.getElementById('mic-foto-wrap').innerHTML = item.foto_url
-    ? `<img src="${esc(item.foto_url)}" style="width:100%;height:160px;object-fit:cover;border-radius:12px;" onerror="this.parentElement.style.display='none'">`
-    : '';
+    ? `<img src="${esc(item.foto_url)}" style="width:100%;height:240px;object-fit:cover;border-radius:12px;" onerror="this.parentElement.innerHTML='<div style=\\'width:100%;height:240px;border-radius:12px;background:var(--laranja-light);display:flex;align-items:center;justify-content:center;font-size:60px;\\'>🍽️</div>'">`
+    : `<div style="width:100%;height:240px;border-radius:12px;background:var(--laranja-light);display:flex;align-items:center;justify-content:center;font-size:60px;">🍽️</div>`;
   document.getElementById('mic-desc').textContent = item.descricao || '';
   document.getElementById('mic-preco-base').innerHTML = precoExibicaoItem(item);
 
