@@ -35,25 +35,38 @@ export default async function handler(req, res) {
     }
 
     if (acao === 'criar') {
-      const { nome, email, senha } = req.body || {};
-      if (!nome || !email || !senha) return res.status(400).json({ error: 'Preencha nome, e-mail e senha do funcionário.' });
+      const { nome, usuario, senha, funcao } = req.body || {};
+      if (!nome || !usuario || !senha) return res.status(400).json({ error: 'Preencha nome, usuário e senha do funcionário.' });
       if (senha.length < 6) return res.status(400).json({ error: 'A senha precisa ter pelo menos 6 caracteres.' });
+
+      const usuarioLimpo = String(usuario).trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
+      if (!usuarioLimpo) return res.status(400).json({ error: 'Usuário inválido. Use letras, números, ponto, traço ou underline.' });
+
+      // Usuário precisa ser único em toda a plataforma (é usado pra resolver o login depois)
+      const checaResp = await fetch(`${SUPABASE_URL}/rest/v1/usuarios_restaurante?usuario=eq.${encodeURIComponent(usuarioLimpo)}&select=id`, { headers: svcHeaders });
+      const checaData = await checaResp.json();
+      if (Array.isArray(checaData) && checaData.length > 0) {
+        return res.status(400).json({ error: 'Esse nome de usuário já está em uso. Escolha outro.' });
+      }
+
+      // E-mail interno sintético — o funcionário nunca vê nem usa isso diretamente, só o "usuário"
+      const emailInterno = `${usuarioLimpo}@${restauranteId}.equipe.servidelivery.internal`;
 
       const criaResp = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
         method: 'POST',
         headers: svcHeaders,
-        body: JSON.stringify({ email, password: senha, email_confirm: true, user_metadata: { nome, tipo: 'restaurante' } })
+        body: JSON.stringify({ email: emailInterno, password: senha, email_confirm: true, user_metadata: { nome, tipo: 'restaurante' } })
       });
       const criaData = await criaResp.json();
       if (!criaResp.ok) {
-        const msg = criaData?.msg || criaData?.error_description || criaData?.message || 'Erro ao criar a conta (talvez esse e-mail já esteja em uso).';
+        const msg = criaData?.msg || criaData?.error_description || criaData?.message || 'Erro ao criar a conta.';
         return res.status(400).json({ error: msg });
       }
 
       const vinculoResp = await fetch(`${SUPABASE_URL}/rest/v1/usuarios_restaurante`, {
         method: 'POST',
         headers: { ...svcHeaders, 'Prefer': 'return=minimal' },
-        body: JSON.stringify({ restaurante_id: restauranteId, user_id: criaData.id, nome, papel: 'funcionario' })
+        body: JSON.stringify({ restaurante_id: restauranteId, user_id: criaData.id, nome, papel: 'funcionario', usuario: usuarioLimpo, funcao: funcao || null })
       });
       if (!vinculoResp.ok) {
         const errText = await vinculoResp.text();
