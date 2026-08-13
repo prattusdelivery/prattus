@@ -5196,6 +5196,7 @@ function renderCardItem(item) {
   }).join(' ');
   return `
     <div class="pub-item" ${esgotado ? 'style="opacity:0.55;"' : `onclick="abrirModalItemPorId('${item.id}')" style="cursor:pointer;"`}>
+      <div class="pub-item-foto">${item.foto_url ? `<img src="${esc(item.foto_url)}" onerror="this.parentElement.textContent='🍽️'">` : '🍽️'}</div>
       <div style="flex:1;min-width:0;">
         <div class="pub-item-nome">${esc(item.nome)} ${esgotado ? '<span style="font-size:10px;background:#FBE1DE;color:#B3261E;padding:2px 8px;border-radius:10px;font-weight:700;">ESGOTADO</span>' : ''}${etiquetasHtml}</div>
         <div class="pub-item-desc">${esc(item.descricao)}</div>
