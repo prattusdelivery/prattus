@@ -112,9 +112,10 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
 /* ===== SIDEBAR ===== */
 .sidebar{
   width:220px;background:var(--preto);display:flex;flex-direction:column;
-  height:100vh;overflow-y:auto;position:fixed;left:0;top:0;z-index:100;
+  height:100vh;position:fixed;left:0;top:0;z-index:100;
   transition:transform 0.3s;
 }
+.sidebar-scroll{flex:1;display:flex;flex-direction:column;overflow-y:auto;min-height:0;}
 .sidebar-logo{padding:20px 20px 16px;border-bottom:1px solid rgba(255,255,255,0.08);}
 .sidebar-logo .s-nome{font-family:var(--font-display);font-size:22px;font-weight:600;color:var(--branco);letter-spacing:-0.5px;}
 .sidebar-logo .s-nome span{color:var(--laranja);}
@@ -616,8 +617,8 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
     <!-- LOGIN -->
     <div id="form-login">
       <div class="form-group">
-        <label>E-mail</label>
-        <input type="email" id="login-email" placeholder="seu@email.com">
+        <label>E-mail ou usuário</label>
+        <input type="text" id="login-email" placeholder="seu@email.com ou usuário">
       </div>
       <div class="form-group">
         <label>Senha</label>
@@ -723,6 +724,7 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
       <div class="s-nome">Servi<span>Delivery</span></div>
       <div class="s-rest" id="sb-rest-nome">Meu Restaurante</div>
     </div>
+    <div class="sidebar-scroll">
     <div class="nav-section">Menu</div>
     <div class="nav-item ativo nav-somente-dono" onclick="irPara('dashboard')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
@@ -780,6 +782,7 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
     </div>
     <div class="sidebar-footer">
       <button class="btn-sair" onclick="sair()">Sair da conta</button>
+    </div>
     </div>
   </nav>
 
@@ -2329,16 +2332,39 @@ function atualizarPreviewSlug(nome) {
 }
 
 async function fazerLogin() {
-  const email = document.getElementById('login-email').value;
+  const entrada = document.getElementById('login-email').value.trim();
   const senha = document.getElementById('login-senha').value;
   const msg = document.getElementById('login-msg');
   msg.className = 'auth-msg';
   msg.textContent = 'Entrando...';
 
+  let email = entrada;
+  if (!entrada.includes('@')) {
+    // Não parece e-mail — trata como usuário de funcionário e busca o e-mail interno correspondente
+    try {
+      const resp = await fetch('/api/login-funcionario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usuario: entrada })
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.email) {
+        msg.className = 'auth-msg erro';
+        msg.textContent = 'Usuário não encontrado.';
+        return;
+      }
+      email = data.email;
+    } catch (e) {
+      msg.className = 'auth-msg erro';
+      msg.textContent = 'Erro de conexão. Tente de novo.';
+      return;
+    }
+  }
+
   const { data, error } = await db.auth.signInWithPassword({ email, password: senha });
   if (error) {
     msg.className = 'auth-msg erro';
-    msg.textContent = 'E-mail ou senha incorretos.';
+    msg.textContent = 'E-mail/usuário ou senha incorretos.';
     return;
   }
   usuarioAtual = data.user;
@@ -4164,8 +4190,9 @@ async function renderEquipe() {
       <div class="card-titulo">Adicionar funcionário</div>
       <div style="font-size:12px;color:var(--texto-muted);margin-bottom:14px;">Crie um acesso separado pra quem te ajuda no balcão, sem precisar compartilhar sua própria senha. O funcionário vê e mexe no mesmo painel que você.</div>
       <div class="form-group"><label>Nome</label><input type="text" id="eq-nome" placeholder="Ex: Maria"></div>
-      <div class="form-group"><label>E-mail (login dele)</label><input type="email" id="eq-email" placeholder="funcionario@email.com"></div>
+      <div class="form-group"><label>Usuário (login dele)</label><input type="text" id="eq-usuario" placeholder="Ex: maria" autocomplete="off"></div>
       <div class="form-group"><label>Senha</label><input type="text" id="eq-senha" placeholder="Mínimo 6 caracteres"></div>
+      <div class="form-group"><label>Função</label><input type="text" id="eq-funcao" placeholder="Ex: Garçom, Caixa, Cozinha"></div>
       <button class="btn btn-laranja" onclick="criarFuncionario()">+ Adicionar funcionário</button>
       <div id="eq-msg" style="font-size:12px;margin-top:8px;"></div>
     </div>
@@ -4176,8 +4203,8 @@ async function renderEquipe() {
         (equipe||[]).map(f => `
           <div class="frete-row">
             <div style="flex:1;">
-              <div style="font-size:14px;font-weight:700;">${esc(f.nome)}</div>
-              <div style="font-size:12px;color:var(--texto-muted);">Adicionado em ${new Date(f.criado_em).toLocaleDateString('pt-BR')}</div>
+              <div style="font-size:14px;font-weight:700;">${esc(f.nome)}${f.funcao ? ` <span style="font-weight:400;color:var(--texto-muted);">— ${esc(f.funcao)}</span>` : ''}</div>
+              <div style="font-size:12px;color:var(--texto-muted);">Usuário: ${esc(f.usuario||'—')} · Adicionado em ${new Date(f.criado_em).toLocaleDateString('pt-BR')}</div>
             </div>
             <button class="btn-sm perigo" onclick="removerFuncionario('${f.id}')">Remover acesso</button>
           </div>
@@ -4189,15 +4216,21 @@ async function renderEquipe() {
 
 async function criarFuncionario() {
   const nome = document.getElementById('eq-nome').value.trim();
-  const email = document.getElementById('eq-email').value.trim();
+  const usuario = document.getElementById('eq-usuario').value.trim();
   const senha = document.getElementById('eq-senha').value;
+  const funcao = document.getElementById('eq-funcao').value.trim();
   const msgEl = document.getElementById('eq-msg');
   msgEl.style.color = 'var(--texto-muted)';
   msgEl.textContent = '';
 
-  if (!nome || !email || !senha) {
+  if (!nome || !usuario || !senha) {
     msgEl.style.color = '#c0392b';
-    msgEl.textContent = 'Preencha nome, e-mail e senha.';
+    msgEl.textContent = 'Preencha nome, usuário e senha.';
+    return;
+  }
+  if (/\s/.test(usuario)) {
+    msgEl.style.color = '#c0392b';
+    msgEl.textContent = 'O usuário não pode ter espaços.';
     return;
   }
 
@@ -4209,7 +4242,7 @@ async function criarFuncionario() {
     const resp = await fetch('/api/equipe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'criar', restauranteId: restauranteAtual.id, nome, email, senha, tokenDono })
+      body: JSON.stringify({ acao: 'criar', restauranteId: restauranteAtual.id, nome, usuario, senha, funcao, tokenDono })
     });
     const data = await resp.json();
     if (!resp.ok) {
