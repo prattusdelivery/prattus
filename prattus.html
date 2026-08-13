@@ -2660,7 +2660,8 @@ async function renderPedidos() {
     .eq('restaurante_id', restauranteAtual.id)
     .order('criado_em', {ascending: false});
 
-  const lista = (pedidos || []).filter(p => !(p.observacao||'').includes('Modo: Consumir no local'));
+  const ehComanda = p => !!p.codigo_comanda_id || (p.observacao||'').includes('Modo: Consumir no local');
+  const lista = (pedidos || []).filter(p => !ehComanda(p));
   pedidosCache = lista;
   const novos = lista.filter(p => p.status === 'novo');
   const preparando = lista.filter(p => p.status === 'preparando');
@@ -2715,7 +2716,8 @@ async function renderComandas() {
     .eq('restaurante_id', restauranteAtual.id)
     .order('criado_em', {ascending: false});
 
-  const lista = (pedidos || []).filter(p => (p.observacao||'').includes('Modo: Consumir no local'));
+  const ehComanda = p => !!p.codigo_comanda_id || (p.observacao||'').includes('Modo: Consumir no local');
+  const lista = (pedidos || []).filter(ehComanda);
   const novos = lista.filter(p => p.status === 'novo');
   const preparando = lista.filter(p => p.status === 'preparando');
   const finalizados = lista.filter(p => p.status === 'entrega' || p.status === 'entregue');
