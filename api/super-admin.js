@@ -18,7 +18,8 @@ export default async function handler(req, res) {
 
   try {
     const { acao, restauranteId, tokenAdmin, dias, planoTipo } = req.body || {};
-    if (!acao || !tokenAdmin || (acao !== 'exportar_dados' && !restauranteId)) {
+    const acoesSemRestauranteId = ['exportar_dados', 'criar_restaurante'];
+    if (!acao || !tokenAdmin || (!acoesSemRestauranteId.includes(acao) && !restauranteId)) {
       return res.status(400).json({ error: 'Dados incompletos' });
     }
 
@@ -102,6 +103,71 @@ export default async function handler(req, res) {
         body: JSON.stringify({ trial_extra_dias: atual + diasNum })
       });
       return res.status(200).json({ ok: true });
+    }
+
+    if (acao === 'criar_restaurante') {
+      const { nome, restNome, whatsapp, cpfCnpj, email, senha, slug } = req.body || {};
+      if (!nome || !restNome || !whatsapp || !cpfCnpj || !email || !senha || !slug) {
+        return res.status(400).json({ error: 'Preencha todos os campos.' });
+      }
+      if (senha.length < 6) return res.status(400).json({ error: 'A senha precisa ter pelo menos 6 caracteres.' });
+
+      const cpfCnpjLimpo = String(cpfCnpj).replace(/\D/g, '');
+      const whatsappLimpo = String(whatsapp).replace(/\D/g, '');
+
+      const criaResp = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
+        method: 'POST',
+        headers: svcHeaders,
+        body: JSON.stringify({ email, password: senha, email_confirm: true, user_metadata: { nome, tipo: 'restaurante' } })
+      });
+      const criaData = await criaResp.json();
+      if (!criaResp.ok) {
+        const msg = criaData?.msg || criaData?.error_description || criaData?.message || 'Erro ao criar a conta (talvez esse e-mail já esteja em uso).';
+        return res.status(400).json({ error: msg });
+      }
+
+      const restResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes`, {
+        method: 'POST',
+        headers: { ...svcHeaders, 'Prefer': 'return=representation' },
+        body: JSON.stringify({ nome: restNome, whatsapp: whatsappLimpo, user_id: criaData.id, slug })
+      });
+      const restData = await restResp.json();
+      if (!restResp.ok || !restData?.[0]) {
+        return res.status(500).json({ error: 'Conta criada, mas houve erro ao criar o restaurante.', detalhe: JSON.stringify(restData) });
+      }
+      const novoRest = restData[0];
+
+      await fetch(`${SUPABASE_URL}/rest/v1/restaurante_privado`, {
+        method: 'POST',
+        headers: { ...svcHeaders, 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ restaurante_id: novoRest.id, cpf_cnpj: cpfCnpjLimpo })
+      });
+
+      try {
+        const catResp = await fetch(`${SUPABASE_URL}/rest/v1/categorias`, {
+          method: 'POST',
+          headers: { ...svcHeaders, 'Prefer': 'return=representation' },
+          body: JSON.stringify({ restaurante_id: novoRest.id, nome: 'Exemplos (edite ou apague)' })
+        });
+        const catData = await catResp.json();
+        const cat = catData?.[0];
+        if (cat) {
+          await fetch(`${SUPABASE_URL}/rest/v1/itens`, {
+            method: 'POST',
+            headers: { ...svcHeaders, 'Prefer': 'return=minimal' },
+            body: JSON.stringify([
+              { restaurante_id: novoRest.id, categoria_id: cat.id, nome: 'Exemplo de prato', descricao: 'Troque o nome, a descrição, o preço e a foto pelos do seu produto de verdade', preco: 25.00, opcoes: null },
+              { restaurante_id: novoRest.id, categoria_id: cat.id, nome: 'Exemplo com tamanhos e adicionais', descricao: 'Este item mostra como funcionam as opções: escolha um tamanho (preço muda sozinho) e marque adicionais (somam ao preço)', preco: 15.00, opcoes: [
+                { nome: 'Tamanho', tipo: 'unica_preco', opcoes: [{ nome: 'Pequeno', preco: 15 }, { nome: 'Grande', preco: 25 }] },
+                { nome: 'Adicionais', tipo: 'multipla', opcoes: [{ nome: 'Extra 1', preco: 3 }, { nome: 'Extra 2', preco: 3 }] }
+              ] },
+              { restaurante_id: novoRest.id, categoria_id: cat.id, nome: 'Exemplo de bebida', descricao: 'Apague este item quando cadastrar suas bebidas de verdade', preco: 6.00, opcoes: null }
+            ])
+          });
+        }
+      } catch (e) {}
+
+      return res.status(200).json({ ok: true, slug, restauranteId: novoRest.id });
     }
 
     return res.status(400).json({ error: 'Ação desconhecida' });
