@@ -2693,7 +2693,17 @@ function irPara(pagina) {
 }
 
 // ===== DASHBOARD =====
+// Finaliza de verdade no banco os pedidos "saiu para entrega" há mais de 30 minutos —
+// evita que fiquem presos nesse status pra sempre e mantém o faturamento certo no Dashboard.
+async function autoFinalizarEntregasAntigas() {
+  if (!restauranteAtual) return;
+  const limite = new Date(Date.now() - 30*60*1000).toISOString();
+  await db.from('pedidos').update({ status: 'entregue' })
+    .eq('restaurante_id', restauranteAtual.id).eq('status', 'entrega').lt('saiu_entrega_em', limite);
+}
+
 async function renderDashboard() {
+  await autoFinalizarEntregasAntigas();
   if (!restauranteAtual) return;
   const rid = restauranteAtual.id;
 
@@ -2764,6 +2774,7 @@ async function buscarComandaPorCodigo() {
 }
 
 async function renderPedidos() {
+  await autoFinalizarEntregasAntigas();
   if (!restauranteAtual) return;
   const { data: pedidos } = await db.from('pedidos')
     .select('*,pedido_itens(nome,quantidade,preco,observacao)')
@@ -2820,6 +2831,7 @@ async function renderPedidos() {
 }
 
 async function renderComandas() {
+  await autoFinalizarEntregasAntigas();
   if (!restauranteAtual) return;
   const { data: pedidos } = await db.from('pedidos')
     .select('*,pedido_itens(nome,quantidade,preco,observacao)')
@@ -2999,7 +3011,7 @@ function montaBotoesStatus(p, telefone) {
     `;
   }
   if (p.status === 'preparando') {
-    return `<button class="btn-sm" style="background:var(--laranja);color:#fff;border:none;" onclick="avancarStatus('${p.id}','entregue','${nomeCliente.replace(/'/g,"")}','${telefone||''}','${p.id.slice(-4).toUpperCase()}')">Pedido pronto, saiu p/ entrega</button>`;
+    return `<button class="btn-sm" style="background:var(--laranja);color:#fff;border:none;" onclick="avancarStatus('${p.id}','entrega','${nomeCliente.replace(/'/g,"")}','${telefone||''}','${p.id.slice(-4).toUpperCase()}')">Pedido pronto, saiu p/ entrega</button>`;
   }
   if (p.status === 'entrega') {
     return `<button class="btn-sm" style="background:var(--texto);color:#fff;border:none;" onclick="mudarStatus('${p.id}','entregue')">Marcar como entregue</button>`;
@@ -3008,7 +3020,9 @@ function montaBotoesStatus(p, telefone) {
 }
 
 async function avancarStatus(id, novoStatus, nomeCliente, telefone, numPedido) {
-  await db.from('pedidos').update({ status: novoStatus }).eq('id', id);
+  const dadosUpdate = { status: novoStatus };
+  if (novoStatus === 'entrega') dadosUpdate.saiu_entrega_em = new Date().toISOString();
+  await db.from('pedidos').update(dadosUpdate).eq('id', id);
   toast('Status atualizado!', 'ok');
 
   const avisosConfig = restauranteAtual?.avisos_whatsapp || {};
@@ -5540,6 +5554,15 @@ async function mostrarAcompanhamento(pedidoId) {
     .select('*,pedido_itens(nome,quantidade,preco,observacao)')
     .eq('id', pedidoId).single();
 
+  // Depois de 30min "saiu para entrega", mostra como entregue pro cliente mesmo que o
+  // dono ainda não tenha clicado em nada — só na exibição, sem alterar o banco (o cliente
+  // não tem permissão de escrita; quem finaliza de verdade é o painel do dono).
+  let statusExibicao = pedido?.status;
+  if (pedido?.status === 'entrega' && pedido?.saiu_entrega_em) {
+    const decorridoMs = Date.now() - new Date(pedido.saiu_entrega_em).getTime();
+    if (decorridoMs > 30*60*1000) statusExibicao = 'entregue';
+  }
+
   const statusMap = {
     novo: { label: 'Pedido recebido', icon: '📥', pct: 25 },
     preparando: { label: 'Em preparo', icon: '👨‍🍳', pct: 55 },
@@ -5548,9 +5571,9 @@ async function mostrarAcompanhamento(pedidoId) {
     cancelado: { label: 'Cancelado', icon: '❌', pct: 0 },
   };
 
-  const s = statusMap[pedido?.status] || statusMap.novo;
+  const s = statusMap[statusExibicao] || statusMap.novo;
   const etapas = ['novo', 'preparando', 'entrega', 'entregue'];
-  const idxAtual = etapas.indexOf(pedido?.status);
+  const idxAtual = etapas.indexOf(statusExibicao);
 
   document.body.innerHTML = `
     <div style="max-width:440px;margin:0 auto;padding:28px 20px;font-family:var(--font-body);">
