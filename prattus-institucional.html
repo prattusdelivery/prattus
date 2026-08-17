@@ -368,12 +368,12 @@ footer{padding:40px 0 32px;border-top:1px solid var(--creme-borda);margin-top:20
         <h3>Sem fidelidade</h3>
         <p>Cancela quando quiser, sem multa e sem burocracia. Se não funcionar pro seu restaurante, você não fica preso.</p>
       </div>
-      <div class="trocar-card reveal">
+      <div class="trocar-card reveal" onclick="abrirModalCadastroGuiado()" style="cursor:pointer;position:relative;">
         <div class="trocar-icon">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 11l3 3L22 4M21 12v6a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2h11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
         <h3>Cadastro guiado</h3>
-        <p>Um passo a passo dentro do próprio painel leva você do zero ao cardápio pronto — sem depender de ninguém pra começar.</p>
+        <p>Não quer montar o cardápio sozinho? A gente monta pra você. <span style="color:var(--laranja);text-decoration:underline;">Saiba como →</span></p>
       </div>
     </div>
   </section>
@@ -463,10 +463,34 @@ footer{padding:40px 0 32px;border-top:1px solid var(--creme-borda);margin-top:20
   </div>
 </footer>
 
-<a href="https://wa.me/55997092904?text=Oi!%20Ainda%20tenho%20d%C3%BAvidas%20sobre%20o%20ServiDelivery" target="_blank" title="Precisa de ajuda? Fala com a gente"
-  style="position:fixed;bottom:22px;right:22px;width:56px;height:56px;background:#25D366;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,0.25);z-index:999;text-decoration:none;">
-  <svg viewBox="0 0 24 24" width="28" height="28" fill="#fff"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.71.45 3.36 1.3 4.83L2.05 22l5.44-1.42c1.41.77 3.01 1.18 4.55 1.18h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2zm5.8 14.02c-.24.68-1.19 1.24-1.95 1.4-.53.11-1.21.2-3.5-.75-2.94-1.22-4.83-4.19-4.98-4.39-.14-.19-1.19-1.58-1.19-3.02s.75-2.15 1.02-2.44c.26-.29.57-.36.76-.36h.55c.18 0 .41-.07.64.49.24.58.81 1.99.87 2.13.07.14.11.31.02.5-.09.19-.14.31-.28.48-.14.17-.29.37-.42.5-.14.14-.29.29-.12.57.16.28.72 1.19 1.55 1.92 1.06.95 1.96 1.24 2.24 1.38.28.14.44.12.61-.07.16-.19.7-.81.88-1.09.19-.28.37-.23.62-.14.26.09 1.63.77 1.91.91.28.14.47.21.53.33.07.12.07.68-.17 1.36z"/></svg>
+<a href="https://wa.me/55997092904?text=Oi!%20Ainda%20tenho%20d%C3%BAvidas%20sobre%20o%20ServiDelivery" target="_blank" title="Precisa de ajuda? Fala com a gente" class="wa-float">
+  <span class="wa-float-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="#fff"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.71.45 3.36 1.3 4.83L2.05 22l5.44-1.42c1.41.77 3.01 1.18 4.55 1.18h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2zm5.8 14.02c-.24.68-1.19 1.24-1.95 1.4-.53.11-1.21.2-3.5-.75-2.94-1.22-4.83-4.19-4.98-4.39-.14-.19-1.19-1.58-1.19-3.02s.75-2.15 1.02-2.44c.26-.29.57-.36.76-.36h.55c.18 0 .41-.07.64.49.24.58.81 1.99.87 2.13.07.14.11.31.02.5-.09.19-.14.31-.28.48-.14.17-.29.37-.42.5-.14.14-.29.29-.12.57.16.28.72 1.19 1.55 1.92 1.06.95 1.96 1.24 2.24 1.38.28.14.44.12.61-.07.16-.19.7-.81.88-1.09.19-.28.37-.23.62-.14.26.09 1.63.77 1.91.91.28.14.47.21.53.33.07.12.07.68-.17 1.36z"/></svg></span>
+  <span class="wa-float-label">Fala com a gente</span>
 </a>
+<style>
+.wa-float{
+  position:fixed;bottom:22px;right:22px;height:56px;
+  background:#25D366;border-radius:28px;
+  display:flex;align-items:center;
+  box-shadow:0 4px 14px rgba(0,0,0,0.25);z-index:999;text-decoration:none;
+  overflow:hidden;
+  width:56px;
+  transition:width .28s cubic-bezier(.4,0,.2,1);
+}
+.wa-float-icon{width:56px;height:56px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.wa-float-label{
+  white-space:nowrap;color:#fff;font-family:var(--font-body);font-weight:600;font-size:14.5px;
+  opacity:0;transition:opacity .18s ease .05s;padding-right:20px;
+}
+.wa-float:hover, .wa-float:focus-visible{width:206px;}
+.wa-float:hover .wa-float-label, .wa-float:focus-visible .wa-float-label{opacity:1;}
+@media(max-width:600px){
+  .wa-float{width:52px;height:52px;bottom:16px;right:16px;}
+  .wa-float-icon{width:52px;height:52px;}
+  .wa-float:hover, .wa-float:focus-visible{width:52px;}
+  .wa-float:hover .wa-float-label{opacity:0;}
+}
+</style>
 
 <script>
 (function(){
@@ -479,7 +503,49 @@ footer{padding:40px 0 32px;border-top:1px solid var(--creme-borda);margin-top:20
   }, {threshold:0.15});
   els.forEach(function(e){ io.observe(e); });
 })();
+function abrirModalCadastroGuiado(){ document.getElementById('modal-cadastro-guiado').classList.add('aberto'); }
+function fecharModalCadastroGuiado(){ document.getElementById('modal-cadastro-guiado').classList.remove('aberto'); }
 </script>
+
+<div id="modal-cadastro-guiado" class="mcg-overlay" onclick="if(event.target===this)fecharModalCadastroGuiado()">
+  <div class="mcg-box">
+    <button class="mcg-fechar" onclick="fecharModalCadastroGuiado()" aria-label="Fechar">✕</button>
+    <div class="mcg-eyebrow">Cadastro guiado</div>
+    <h3 class="mcg-titulo">A gente monta seu cardápio do zero, de A a Z</h3>
+    <p class="mcg-texto">Sabemos que montar cardápio dá trabalho — descrever cada prato, tirar foto, organizar categoria por categoria. Se você não tem tempo (ou paciência) pra isso, a gente faz por você.</p>
+    <p class="mcg-texto"><b>É só nos enviar:</b></p>
+    <ul class="mcg-lista">
+      <li>Fotos dos seus produtos</li>
+      <li>Nome, descrição e preço de cada item</li>
+      <li>Logo do seu restaurante</li>
+      <li>Qualquer outra informação que ache importante (categorias, promoções, etc.)</li>
+    </ul>
+    <p class="mcg-texto">Em até <b>48 horas</b>, devolvemos seu cardápio completo, já publicado e pronto pra receber pedidos.</p>
+    <p class="mcg-texto">Depois disso, o cardápio é todo seu — você mesmo vai editando e atualizando quando precisar, com a ajuda dos nossos vídeos de autoajuda.</p>
+    <div class="mcg-preco-box">
+      <div class="mcg-preco-label">Pagamento único</div>
+      <div class="mcg-preco-valor">R$ 299,90</div>
+    </div>
+    <a class="mcg-cta" href="https://wa.me/55997092904?text=Oi!%20Quero%20contratar%20o%20Cadastro%20guiado%20do%20ServiDelivery" target="_blank">Quero contratar pelo WhatsApp</a>
+  </div>
+</div>
+<style>
+.mcg-overlay{display:none;position:fixed;inset:0;background:rgba(35,25,20,0.55);z-index:1000;align-items:center;justify-content:center;padding:20px;}
+.mcg-overlay.aberto{display:flex;}
+.mcg-box{background:var(--branco);border-radius:16px;max-width:520px;width:100%;max-height:88vh;overflow-y:auto;padding:36px 32px;position:relative;}
+.mcg-fechar{position:absolute;top:18px;right:18px;background:var(--creme);border:none;width:32px;height:32px;border-radius:50%;font-size:15px;color:var(--texto-muted);cursor:pointer;}
+.mcg-fechar:hover{background:var(--creme-2);}
+.mcg-eyebrow{font-family:var(--font-mono);font-size:11.5px;letter-spacing:1.5px;color:var(--laranja-dark);text-transform:uppercase;margin-bottom:10px;}
+.mcg-titulo{font-family:var(--font-display);font-size:24px;font-weight:600;line-height:1.2;margin-bottom:16px;padding-right:20px;}
+.mcg-texto{font-size:14.5px;color:var(--texto);line-height:1.6;margin-bottom:12px;}
+.mcg-lista{margin:0 0 12px 20px;padding:0;}
+.mcg-lista li{font-size:14.5px;color:var(--texto);line-height:1.8;}
+.mcg-preco-box{background:var(--laranja-light);border-radius:12px;padding:18px 20px;text-align:center;margin:24px 0 18px;}
+.mcg-preco-label{font-family:var(--font-mono);font-size:12px;color:var(--laranja-dark);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
+.mcg-preco-valor{font-family:var(--font-display);font-size:30px;font-weight:700;color:var(--laranja-dark);}
+.mcg-cta{display:block;text-align:center;background:var(--preto);color:var(--branco);padding:15px;border-radius:9px;font-size:15px;font-weight:600;transition:background .15s;}
+.mcg-cta:hover{background:var(--laranja-dark);}
+</style>
 
 </body>
 </html>
