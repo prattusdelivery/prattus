@@ -5549,6 +5549,7 @@ function buscarItens(termo) {
 }
 
 // ===== ACOMPANHAMENTO DO PEDIDO =====
+let acompanhamentoInterval = null;
 async function mostrarAcompanhamento(pedidoId) {
   const { data: pedido } = await db.from('pedidos')
     .select('*,pedido_itens(nome,quantidade,preco,observacao)')
@@ -5631,6 +5632,13 @@ async function mostrarAcompanhamento(pedidoId) {
       </button>
     </div>
   `;
+
+  // Atualiza sozinho a cada 15s, sem precisar clicar em nada — para de verificar
+  // assim que o pedido chegar em "entregue" ou "cancelado" (não precisa mais).
+  if (acompanhamentoInterval) clearInterval(acompanhamentoInterval);
+  if (statusExibicao !== 'entregue' && statusExibicao !== 'cancelado') {
+    acompanhamentoInterval = setInterval(() => mostrarAcompanhamento(pedidoId), 15000);
+  }
 }
 
 function pintarEstrelas(nota) {
