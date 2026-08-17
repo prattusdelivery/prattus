@@ -167,6 +167,12 @@ export default async function handler(req, res) {
         }
       } catch (e) {}
 
+      fetch('https://servidelivery.com.br/api/notificar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo: 'boas_vindas', nomeRestaurante: restNome, email })
+      }).catch(() => {});
+
       return res.status(200).json({ ok: true, slug, restauranteId: novoRest.id });
     }
 
