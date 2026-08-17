@@ -2627,6 +2627,11 @@ async function fazerCadastro() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tipo: 'admin', titulo: '📋 Novo cadastro!', corpo: `${restNome} acabou de se cadastrar no ServiDelivery.` })
     }).catch(() => {});
+    fetch('/api/notificar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tipo: 'boas_vindas', nomeRestaurante: restNome, email })
+    }).catch(() => {});
     await criarCardapioExemplo(novoRest.id);
     await carregarRestaurante();
   } else {
