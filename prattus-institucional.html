@@ -411,6 +411,7 @@ footer{padding:40px 0 32px;border-top:1px solid var(--creme-borda);margin-top:20
             <div class="label">Anual</div>
             <div class="price">R$399,90</div>
             <div class="per">R$33,33/mês</div>
+            <div style="margin-top:8px;font-size:11.5px;color:var(--laranja-dark);font-weight:600;line-height:1.4;">🎁 Cardápio montado de graça (até 40 itens)</div>
           </div>
         </div>
         <a class="recibo-cta" href="https://servidelivery.com.br/prattus.html?cadastro=true">COMEÇAR TESTE GRÁTIS →</a>
@@ -522,6 +523,9 @@ function fecharModalCadastroGuiado(){ document.getElementById('modal-cadastro-gu
     </ul>
     <p class="mcg-texto">Em até <b>48 horas</b>, devolvemos seu cardápio completo, já publicado e pronto pra receber pedidos.</p>
     <p class="mcg-texto">Depois disso, o cardápio é todo seu — você mesmo vai editando e atualizando quando precisar, com a ajuda dos nossos vídeos de autoajuda.</p>
+    <div class="mcg-gratis-box">
+      🎁 <b>Assinando o plano anual</b>, isso já vem incluso sem custo (até 40 itens). Cardápios maiores ou plano mensal: valor abaixo.
+    </div>
     <div class="mcg-preco-box">
       <div class="mcg-preco-label">Pagamento único</div>
       <div class="mcg-preco-valor">R$ 299,90</div>
@@ -540,7 +544,8 @@ function fecharModalCadastroGuiado(){ document.getElementById('modal-cadastro-gu
 .mcg-texto{font-size:14.5px;color:var(--texto);line-height:1.6;margin-bottom:12px;}
 .mcg-lista{margin:0 0 12px 20px;padding:0;}
 .mcg-lista li{font-size:14.5px;color:var(--texto);line-height:1.8;}
-.mcg-preco-box{background:var(--laranja-light);border-radius:12px;padding:18px 20px;text-align:center;margin:24px 0 18px;}
+.mcg-gratis-box{background:#EAF7EC;border:1px solid #BFE6C4;border-radius:10px;padding:12px 14px;font-size:13.5px;line-height:1.5;color:#1F6B2C;margin-bottom:18px;}
+.mcg-preco-box{background:var(--laranja-light);border-radius:12px;padding:18px 20px;text-align:center;margin:0 0 18px;}
 .mcg-preco-label{font-family:var(--font-mono);font-size:12px;color:var(--laranja-dark);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
 .mcg-preco-valor{font-family:var(--font-display);font-size:30px;font-weight:700;color:var(--laranja-dark);}
 .mcg-cta{display:block;text-align:center;background:var(--preto);color:var(--branco);padding:15px;border-radius:9px;font-size:15px;font-weight:600;transition:background .15s;}
