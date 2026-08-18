@@ -1210,7 +1210,8 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
   <div style="display:flex;gap:8px;margin-bottom:16px;">
     <input type="text" id="etq-nome" placeholder="Ex: 🌶️ Picante" style="flex:1;">
     <input type="color" id="etq-cor" value="#8A7B6C" style="width:44px;padding:2px;">
-    <button class="btn-sm" onclick="criarEtiqueta()">+ Criar</button>
+    <button class="btn-sm" id="etq-btn-salvar" onclick="salvarEtiqueta()">+ Criar</button>
+    <button class="btn-sm" id="etq-btn-cancelar" onclick="cancelarEdicaoEtiqueta()" style="display:none;background:none;">Cancelar</button>
   </div>
   <div id="lista-etiquetas"></div>
 </div>
@@ -1262,7 +1263,7 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
 <div class="modal-overlay" id="modal-cadastro-cliente">
 <div class="modal">
   <div class="modal-header">
-    <div class="modal-titulo">Cadastrar cliente</div>
+    <div class="modal-titulo" id="cad-cliente-titulo">Cadastrar cliente</div>
     <button class="modal-fechar" onclick="fecharModal('modal-cadastro-cliente')">×</button>
   </div>
   <div class="form-group">
@@ -1279,7 +1280,7 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
   </div>
   <div style="display:flex;gap:10px;">
     <button class="btn" style="flex:1;background:none;border:1px solid var(--creme-borda);" onclick="fecharModal('modal-cadastro-cliente')">Cancelar</button>
-    <button class="btn btn-laranja" style="flex:1;" onclick="salvarClienteManual()">Cadastrar</button>
+    <button class="btn btn-laranja" id="cad-cliente-btn-salvar" style="flex:1;" onclick="salvarClienteManual()">Cadastrar</button>
   </div>
 </div>
 </div>
@@ -1342,6 +1343,7 @@ let fretesSelecionado = 0;
 let restPublico = null;
 let categorias = [];
 let etiquetasCache = [];
+let clientesCache = [];
 let catAtiva = 'todas';
 let autoRefreshTimer = null;
 let ultimosPedidosIds = new Set();
@@ -2734,7 +2736,7 @@ async function renderDashboard() {
       <div class="metrica">
         <div class="metrica-label">Clientes</div>
         <div class="metrica-val">${(clientes||[]).length}</div>
-        <button class="btn-sm" style="margin-top:6px;" onclick="abrirModal('modal-cadastro-cliente')">+ Cadastrar cliente</button>
+        <button class="btn-sm" style="margin-top:6px;" onclick="resetarFormCliente();abrirModal('modal-cadastro-cliente')">+ Cadastrar cliente</button>
       </div>
     </div>
     <div class="metricas">
@@ -3225,6 +3227,15 @@ function renderGruposOpcoes() {
         </select>
         <button type="button" class="btn-sm perigo" onclick="removerGrupoOpcao(${gi})" title="Remover grupo">🗑️</button>
       </div>
+      ${g.tipo === 'multipla' ? `
+      <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;">
+        <label style="font-size:12px;color:var(--texto-muted);flex-shrink:0;">Mínimo</label>
+        <input type="number" min="0" placeholder="0" value="${g.min ?? 0}" oninput="atualizarMinMaxGrupo(${gi},'min',this.value)" style="width:70px;">
+        <label style="font-size:12px;color:var(--texto-muted);flex-shrink:0;margin-left:8px;">Máximo</label>
+        <input type="number" min="0" placeholder="Sem limite" value="${g.max ?? ''}" oninput="atualizarMinMaxGrupo(${gi},'max',this.value)" style="width:100px;">
+        <span style="font-size:11px;color:var(--texto-muted);">Mínimo 0 = opcional. Máximo em branco = sem limite.</span>
+      </div>
+      ` : ''}
       ${g.opcoes.map((o, oi) => `
         <div style="display:flex;gap:8px;margin-bottom:6px;align-items:center;">
           <input type="text" placeholder="Ex: 2 bifes" value="${esc(o.nome)}" oninput="atualizarOpcaoCampo(${gi},${oi},'nome',this.value)" style="flex:2;">
@@ -3238,8 +3249,13 @@ function renderGruposOpcoes() {
 }
 
 function adicionarGrupoOpcao() {
-  gruposOpcoesEditando.push({ nome: '', tipo: 'unica', opcoes: [{ nome: '', preco: 0 }] });
+  gruposOpcoesEditando.push({ nome: '', tipo: 'unica', opcoes: [{ nome: '', preco: 0 }], min: 0, max: null });
   renderGruposOpcoes();
+}
+
+function atualizarMinMaxGrupo(gi, campo, valor) {
+  const num = valor === '' ? (campo === 'max' ? null : 0) : Math.max(0, parseInt(valor, 10) || 0);
+  gruposOpcoesEditando[gi][campo] = num;
 }
 
 function removerGrupoOpcao(gi) {
@@ -3271,7 +3287,7 @@ function atualizarOpcaoCampo(gi, oi, campo, valor) {
 
 function gruposOpcoesValidos() {
   const limpos = gruposOpcoesEditando
-    .map(g => ({ nome: (g.nome||'').trim(), tipo: g.tipo, opcoes: g.opcoes.filter(o => (o.nome||'').trim()) }))
+    .map(g => ({ nome: (g.nome||'').trim(), tipo: g.tipo, opcoes: g.opcoes.filter(o => (o.nome||'').trim()), min: g.tipo === 'multipla' ? (g.min ?? 0) : undefined, max: g.tipo === 'multipla' ? (g.max ?? null) : undefined }))
     .filter(g => g.nome && g.opcoes.length > 0);
   return limpos.length ? limpos : null;
 }
@@ -3382,6 +3398,7 @@ function renderEtiquetasItemForm(selecionadas) {
 }
 
 function abrirModalEtiquetas() {
+  cancelarEdicaoEtiqueta();
   renderListaEtiquetas();
   abrirModal('modal-etiquetas');
 }
@@ -3395,19 +3412,45 @@ function renderListaEtiquetas() {
   lista.innerHTML = etiquetasCache.map(e => `
     <div class="frete-row">
       <span style="background:${e.cor}22;color:${e.cor};border:1px solid ${e.cor}55;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">${esc(e.nome)}</span>
+      <button class="btn-sm" onclick="editarEtiqueta('${e.id}')">✏️ Editar</button>
       <button class="btn-sm perigo" onclick="excluirEtiqueta('${e.id}')">Excluir</button>
     </div>
   `).join('');
 }
 
-async function criarEtiqueta() {
+let etiquetaEditandoId = null;
+
+function editarEtiqueta(id) {
+  const et = etiquetasCache.find(e => e.id === id);
+  if (!et) return;
+  etiquetaEditandoId = id;
+  document.getElementById('etq-nome').value = et.nome;
+  document.getElementById('etq-cor').value = et.cor;
+  document.getElementById('etq-btn-salvar').textContent = '💾 Salvar';
+  document.getElementById('etq-btn-cancelar').style.display = 'inline-block';
+  document.getElementById('etq-nome').focus();
+}
+
+function cancelarEdicaoEtiqueta() {
+  etiquetaEditandoId = null;
+  document.getElementById('etq-nome').value = '';
+  document.getElementById('etq-cor').value = '#8A7B6C';
+  document.getElementById('etq-btn-salvar').textContent = '+ Criar';
+  document.getElementById('etq-btn-cancelar').style.display = 'none';
+}
+
+async function salvarEtiqueta() {
   const nome = document.getElementById('etq-nome').value.trim();
   const cor = document.getElementById('etq-cor').value;
   if (!nome) { toast('Digite o nome da etiqueta.', 'erro'); return; }
-  const { error } = await db.from('etiquetas').insert({ restaurante_id: restauranteAtual.id, nome, cor });
-  if (error) { toast('Erro ao criar etiqueta.', 'erro'); return; }
-  document.getElementById('etq-nome').value = '';
-  toast('Etiqueta criada!', 'ok');
+
+  const { error } = etiquetaEditandoId
+    ? await db.from('etiquetas').update({ nome, cor }).eq('id', etiquetaEditandoId)
+    : await db.from('etiquetas').insert({ restaurante_id: restauranteAtual.id, nome, cor });
+
+  if (error) { toast('Erro ao salvar etiqueta.', 'erro'); return; }
+  toast(etiquetaEditandoId ? 'Etiqueta atualizada!' : 'Etiqueta criada!', 'ok');
+  cancelarEdicaoEtiqueta();
   const { data } = await db.from('etiquetas').select('*').eq('restaurante_id', restauranteAtual.id).order('nome');
   etiquetasCache = data || [];
   renderListaEtiquetas();
@@ -3612,6 +3655,29 @@ async function excluirRecompensa(id) {
   renderClientes();
 }
 
+let clienteEditandoId = null;
+
+function editarCliente(id) {
+  const c = clientesCache.find(x => x.id === id);
+  if (!c) return;
+  clienteEditandoId = id;
+  document.getElementById('cad-cliente-nome').value = c.nome || '';
+  document.getElementById('cad-cliente-telefone').value = c.telefone || '';
+  document.getElementById('cad-cliente-nascimento').value = c.data_nascimento || '';
+  document.getElementById('cad-cliente-titulo').textContent = 'Editar cliente';
+  document.getElementById('cad-cliente-btn-salvar').textContent = 'Salvar alterações';
+  abrirModal('modal-cadastro-cliente');
+}
+
+function resetarFormCliente() {
+  clienteEditandoId = null;
+  document.getElementById('cad-cliente-nome').value = '';
+  document.getElementById('cad-cliente-telefone').value = '';
+  document.getElementById('cad-cliente-nascimento').value = '';
+  document.getElementById('cad-cliente-titulo').textContent = 'Cadastrar cliente';
+  document.getElementById('cad-cliente-btn-salvar').textContent = 'Cadastrar';
+}
+
 async function salvarClienteManual() {
   const nome = document.getElementById('cad-cliente-nome').value.trim();
   const telefone = document.getElementById('cad-cliente-telefone').value.trim();
@@ -3624,24 +3690,24 @@ async function salvarClienteManual() {
 
   const { data: existente } = await db.from('clientes').select('id')
     .eq('restaurante_id', restauranteAtual.id).eq('telefone', telefone).maybeSingle();
-  if (existente) {
+  if (existente && existente.id !== clienteEditandoId) {
     toast('Já existe um cliente cadastrado com esse telefone.', 'erro');
     return;
   }
 
-  const { error } = await db.from('clientes').insert({
-    restaurante_id: restauranteAtual.id, nome, telefone, data_nascimento: nascimento
-  });
+  const { error } = clienteEditandoId
+    ? await db.from('clientes').update({ nome, telefone, data_nascimento: nascimento }).eq('id', clienteEditandoId)
+    : await db.from('clientes').insert({ restaurante_id: restauranteAtual.id, nome, telefone, data_nascimento: nascimento });
+
   if (error) {
-    toast('Erro ao cadastrar cliente.', 'erro');
+    toast(clienteEditandoId ? 'Erro ao salvar alterações.' : 'Erro ao cadastrar cliente.', 'erro');
     return;
   }
 
-  document.getElementById('cad-cliente-nome').value = '';
-  document.getElementById('cad-cliente-telefone').value = '';
-  document.getElementById('cad-cliente-nascimento').value = '';
+  const mensagemSucesso = clienteEditandoId ? 'Cliente atualizado!' : 'Cliente cadastrado!';
+  resetarFormCliente();
   fecharModal('modal-cadastro-cliente');
-  toast('Cliente cadastrado!', 'ok');
+  toast(mensagemSucesso, 'ok');
   if (paginaAtual === 'dashboard') renderDashboard();
   if (paginaAtual === 'clientes') renderClientes();
 }
@@ -3683,6 +3749,7 @@ async function renderClientes() {
   if (!restauranteAtual) return;
   const { data: clientes } = await db.from('clientes').select('*')
     .eq('restaurante_id', restauranteAtual.id).order('total_gasto', {ascending: false});
+  clientesCache = clientes || [];
   const { data: recompensas } = await db.from('recompensas').select('*')
     .eq('restaurante_id', restauranteAtual.id).order('pontos_necessarios');
   const { data: itensCardapio } = await db.from('itens').select('id,nome,preco').is('excluido_em', null)
@@ -3770,9 +3837,21 @@ async function renderClientes() {
       </div>
     </div>
     <div class="card">
-      <div class="card-titulo">Todos os clientes</div>
-      ${(clientes||[]).length === 0 ? '<div class="empty"><div class="empty-ico">👥</div><div class="empty-txt">Nenhum cliente cadastrado ainda</div></div>' :
-        (clientes||[]).map(c => `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <div class="card-titulo" style="margin-bottom:0;">Todos os clientes</div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="cliente-busca" placeholder="🔍 Buscar por nome ou telefone..." oninput="filtrarClientesLista(this.value)" style="min-width:220px;">
+          <button class="btn-sm" onclick="resetarFormCliente();abrirModal('modal-cadastro-cliente')">+ Cadastrar</button>
+        </div>
+      </div>
+      <div id="lista-todos-clientes">${renderClienteLista(clientesCache)}</div>
+    </div>
+  `;
+}
+
+function renderClienteLista(lista) {
+  if (!lista.length) return '<div class="empty"><div class="empty-ico">👥</div><div class="empty-txt">Nenhum cliente encontrado</div></div>';
+  return lista.map(c => `
           <div class="cliente-row">
             <div class="cliente-avatar">${esc(c.nome).charAt(0).toUpperCase()}</div>
             <div style="flex:1;">
@@ -3783,13 +3862,19 @@ async function renderClientes() {
               <div style="font-size:13px;font-weight:700;color:var(--laranja)">R$ ${parseFloat(c.total_gasto||0).toFixed(2).replace('.',',')}</div>
               <div style="font-size:11px;color:var(--texto-muted)">${c.total_pedidos} pedidos · ${c.pontos} pts</div>
             </div>
-            <button class="btn-sm" onclick="enviarPromocao('${c.telefone}')" style="margin-left:10px;">📣 Enviar</button>
+            <button class="btn-sm" onclick="editarCliente('${c.id}')" style="margin-left:10px;">✏️ Editar</button>
+            <button class="btn-sm" onclick="enviarPromocao('${c.telefone}')" style="margin-left:6px;">📣 Enviar</button>
             ${c.senha_hash ? `<button class="btn-sm" onclick="resetarSenhaCliente('${c.id}','${esc(c.nome).replace(/'/g,"\\'")}')" style="margin-left:6px;" title="Cliente esqueceu a senha de fidelidade">🔑 Resetar senha</button>` : ''}
           </div>
-        `).join('')
-      }
-    </div>
-  `;
+    `).join('');
+}
+
+function filtrarClientesLista(termo) {
+  const t = termo.trim().toLowerCase();
+  const filtrados = !t ? clientesCache : clientesCache.filter(c =>
+    (c.nome||'').toLowerCase().includes(t) || (c.telefone||'').replace(/\D/g,'').includes(t.replace(/\D/g,''))
+  );
+  document.getElementById('lista-todos-clientes').innerHTML = renderClienteLista(filtrados);
 }
 
 // ===== RELATORIOS =====
@@ -5388,8 +5473,13 @@ function abrirModalItem(item) {
 
   document.getElementById('mic-grupos').innerHTML = grupos.map((g, gi) => {
     const ehUnica = g.tipo === 'unica' || g.tipo === 'unica_preco';
-    const badgeTxt = ehUnica ? 'Obrigatório' : 'Opcional';
-    const badgeCor = ehUnica ? 'background:var(--laranja-light);color:var(--laranja-dark);' : 'background:var(--creme);color:var(--texto-muted);';
+    const ehObrigatorio = ehUnica || (g.min > 0);
+    let badgeTxt = 'Opcional';
+    if (ehUnica) badgeTxt = 'Obrigatório';
+    else if (g.min > 0 && g.max != null) badgeTxt = `Escolha de ${g.min} a ${g.max}`;
+    else if (g.min > 0) badgeTxt = `Escolha pelo menos ${g.min}`;
+    else if (g.max != null) badgeTxt = `Escolha até ${g.max}`;
+    const badgeCor = ehObrigatorio ? 'background:var(--laranja-light);color:var(--laranja-dark);' : 'background:var(--creme);color:var(--texto-muted);';
     return `
     <div class="mic-grupo">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -5426,8 +5516,14 @@ function micSelecionar(gi, oi, el) {
     micSelecoes[gi] = oi;
   } else {
     const arr = micSelecoes[gi] || [];
-    if (el.checked) arr.push(oi);
-    else { const p = arr.indexOf(oi); if (p >= 0) arr.splice(p, 1); }
+    if (el.checked) {
+      if (grupo.max != null && arr.length >= grupo.max) {
+        el.checked = false;
+        toast(`Escolha no máximo ${grupo.max} ${grupo.max === 1 ? 'opção' : 'opções'} em "${grupo.nome}".`, 'erro');
+        return;
+      }
+      arr.push(oi);
+    } else { const p = arr.indexOf(oi); if (p >= 0) arr.splice(p, 1); }
     micSelecoes[gi] = arr;
   }
   micAtualizarTotal();
@@ -5487,6 +5583,18 @@ function micAdicionar() {
   }
   const item = micItemAtual;
   const grupos = item.opcoes || [];
+
+  for (let gi = 0; gi < grupos.length; gi++) {
+    const g = grupos[gi];
+    if (g.tipo === 'multipla' && g.min > 0) {
+      const qtdSelecionada = (micSelecoes[gi] || []).length;
+      if (qtdSelecionada < g.min) {
+        toast(`Escolha pelo menos ${g.min} ${g.min === 1 ? 'opção' : 'opções'} em "${g.nome}".`, 'erro');
+        return;
+      }
+    }
+  }
+
   const variacaoPartes = [];
   const obsPartes = [];
 
