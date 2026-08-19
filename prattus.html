@@ -899,6 +899,10 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
     <label>Telefone (com DDD)</label>
     <input type="text" id="priv-telefone" placeholder="55999999999">
   </div>
+  <div class="form-group" id="priv-senha-wrap" style="display:none;">
+    <label>Senha de fidelidade</label>
+    <input type="password" id="priv-senha" placeholder="A mesma senha que você usa pra ver seus pontos" inputmode="numeric">
+  </div>
   <div id="priv-msg" style="font-size:12px;margin-bottom:10px;"></div>
   <button class="btn" style="background:#C0392B;color:#fff;" onclick="excluirMeusDados()">Excluir meus dados</button>
   <div style="font-size:11px;color:var(--texto-muted);margin-top:10px;text-align:center;">Pedidos já feitos podem ser mantidos pelo restaurante por exigência fiscal, mesmo após a exclusão do seu perfil.</div>
@@ -5018,13 +5022,20 @@ function lerHistoricoPedidos() {
 
 async function excluirMeusDados() {
   const telefone = document.getElementById('priv-telefone').value.replace(/\D/g, '');
+  const senhaWrap = document.getElementById('priv-senha-wrap');
+  const senha = document.getElementById('priv-senha').value.trim();
   const msgEl = document.getElementById('priv-msg');
   if (!telefone) {
     msgEl.style.color = '#c0392b';
     msgEl.textContent = 'Digite seu telefone.';
     return;
   }
-  if (!confirm('Tem certeza que quer excluir seu perfil (nome, pontos de fidelidade e histórico) desse restaurante? Essa ação não pode ser desfeita.')) return;
+
+  // Se o campo de senha já está visível e preenchido, essa tentativa realmente
+  // vai apagar os dados se a senha bater — confirma a intenção ANTES de mandar.
+  if (senhaWrap.style.display !== 'none' && senha) {
+    if (!confirm('Confirma a exclusão do seu perfil (nome, telefone e histórico salvo) desse restaurante? Essa ação não pode ser desfeita.')) return;
+  }
 
   msgEl.style.color = 'var(--texto-muted)';
   msgEl.textContent = 'Processando...';
@@ -5032,16 +5043,33 @@ async function excluirMeusDados() {
     const resp = await fetch('/api/excluir-dados-cliente', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ restauranteId: restPublico.id, telefone })
+      body: JSON.stringify({ restauranteId: restPublico.id, telefone, senha: senha || undefined })
     });
     const data = await resp.json();
+
     if (!resp.ok) {
       msgEl.style.color = '#c0392b';
       msgEl.textContent = data.error || 'Erro ao excluir.';
       return;
     }
+
+    if (data.precisaSenha) {
+      senhaWrap.style.display = 'block';
+      msgEl.style.color = 'var(--laranja)';
+      msgEl.textContent = 'Por segurança, digite sua senha de fidelidade e clique em "Excluir meus dados" de novo pra confirmar.';
+      document.getElementById('priv-senha').focus();
+      return;
+    }
+
+    if (!data.encontrado) {
+      msgEl.style.color = '#0F6E56';
+      msgEl.textContent = 'Não encontramos nenhum perfil com esse telefone.';
+      return;
+    }
+
     msgEl.style.color = '#0F6E56';
-    msgEl.textContent = data.encontrado ? 'Seus dados foram excluídos.' : 'Não encontramos nenhum perfil com esse telefone.';
+    msgEl.textContent = 'Seus dados foram excluídos.';
+    senhaWrap.style.display = 'none';
   } catch (e) {
     msgEl.style.color = '#c0392b';
     msgEl.textContent = 'Erro de conexão. Tente de novo.';
