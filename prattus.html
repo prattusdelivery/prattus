@@ -4264,22 +4264,25 @@ async function renderHistorico() {
   document.getElementById('conteudo').innerHTML = `
     <div class="card" style="margin-bottom:20px;">
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-        <label style="font-size:13px;font-weight:600;">Ver pedidos do dia:</label>
-        <input type="date" id="historico-data" value="${hoje}" max="${hoje}" onchange="carregarHistoricoDoDia()" style="width:auto;">
+        <label style="font-size:13px;font-weight:600;">De:</label>
+        <input type="date" id="historico-data-inicio" value="${hoje}" max="${hoje}" onchange="carregarHistoricoPeriodo()" style="width:auto;">
+        <label style="font-size:13px;font-weight:600;">Até:</label>
+        <input type="date" id="historico-data-fim" value="${hoje}" max="${hoje}" onchange="carregarHistoricoPeriodo()" style="width:auto;">
       </div>
     </div>
     <div id="historico-resultado">Carregando...</div>
   `;
-  carregarHistoricoDoDia();
+  carregarHistoricoPeriodo();
 }
 
-async function carregarHistoricoDoDia() {
-  const dataEscolhida = document.getElementById('historico-data').value;
+async function carregarHistoricoPeriodo() {
+  const dataInicioStr = document.getElementById('historico-data-inicio').value;
+  const dataFimStr = document.getElementById('historico-data-fim').value;
   const resultado = document.getElementById('historico-resultado');
   resultado.innerHTML = 'Carregando...';
 
-  const inicio = new Date(dataEscolhida + 'T00:00:00');
-  const fim = new Date(inicio.getTime() + 24*60*60*1000);
+  const inicio = new Date(dataInicioStr + 'T00:00:00');
+  const fim = new Date(new Date(dataFimStr + 'T00:00:00').getTime() + 24*60*60*1000);
 
   const { data: pedidos } = await db.from('pedidos')
     .select('*,pedido_itens(nome,quantidade,preco,observacao)')
@@ -4291,16 +4294,19 @@ async function carregarHistoricoDoDia() {
 
   const lista = pedidos || [];
   const total = lista.reduce((s,p) => s + parseFloat(p.total||0), 0);
-  const dataFormatada = inicio.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'});
+  const mesmodia = dataInicioStr === dataFimStr;
+  const periodoFormatado = mesmodia
+    ? inicio.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'})
+    : `${inicio.toLocaleDateString('pt-BR', {day:'2-digit', month:'short'})} a ${new Date(dataFimStr + 'T00:00:00').toLocaleDateString('pt-BR', {day:'2-digit', month:'short'})}`;
 
   if (lista.length === 0) {
-    resultado.innerHTML = `<div class="empty"><div class="empty-ico">📋</div><div class="empty-txt">Nenhum pedido finalizado em ${dataFormatada}.</div></div>`;
+    resultado.innerHTML = `<div class="empty"><div class="empty-ico">📋</div><div class="empty-txt">Nenhum pedido finalizado nesse período.</div></div>`;
     return;
   }
 
   resultado.innerHTML = `
     <div class="card" style="margin-bottom:16px;background:var(--laranja-light);border:1.5px dashed var(--laranja);">
-      <div style="font-size:13px;color:var(--texto-muted);text-transform:capitalize;">${dataFormatada}</div>
+      <div style="font-size:13px;color:var(--texto-muted);text-transform:capitalize;">${periodoFormatado}</div>
       <div style="display:flex;gap:24px;margin-top:6px;">
         <div><div style="font-size:22px;font-weight:700;">${lista.length}</div><div style="font-size:12px;color:var(--texto-muted);">pedido(s)</div></div>
         <div><div style="font-size:22px;font-weight:700;color:var(--laranja);">R$ ${total.toFixed(2).replace('.',',')}</div><div style="font-size:12px;color:var(--texto-muted);">faturado</div></div>
@@ -4316,7 +4322,7 @@ async function carregarHistoricoDoDia() {
             <div class="pedido-num">#${p.id.slice(-4).toUpperCase()} — ${esc(nome)}</div>
             <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
           </div>
-          <div style="font-size:12px;color:var(--texto-muted);margin-bottom:4px;">${new Date(p.criado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})} · ${esc(p.endereco||p.bairro||'')}</div>
+          <div style="font-size:12px;color:var(--texto-muted);margin-bottom:4px;">${new Date(p.criado_em).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})} ${new Date(p.criado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})} · ${esc(p.endereco||p.bairro||'')}</div>
           <div style="font-size:13px;">${itensTxt}</div>
         </div>
       `;
@@ -4548,7 +4554,25 @@ async function renderConfig() {
           <input type="text" id="cfg-banner" value="${r.banner_url||''}" style="margin-top:6px;" oninput="atualizarPreviewGenerica(this.value,'cfg-banner-preview')">
         </details>
       </div>
-      <div class="form-group"><label>Categoria do restaurante</label><input type="text" id="cfg-categoria" value="${esc(r.categoria||'')}" placeholder="Ex: Lanchonete, Pizzaria, Marmitaria..."></div>
+      <div class="form-group"><label>Descrição do restaurante</label><input type="text" id="cfg-categoria" value="${esc(r.categoria||'')}" placeholder="Ex: Lanchonete, Pizzaria, Marmitaria..."><div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Esse texto aparece no seu cardápio público, embaixo do nome da loja.</div></div>
+
+      <div class="form-group" style="margin-top:24px;">
+        <label style="font-size:14px;font-weight:700;">Endereço da empresa</label>
+        <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Usado pra identificação da sua empresa — não aparece pro cliente.</div>
+      </div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;">
+        <div class="form-group"><label>Rua/Avenida</label><input type="text" id="cfg-end-rua" value="${esc(r.endereco_rua||'')}" placeholder="Ex: Rua das Flores"></div>
+        <div class="form-group"><label>Número</label><input type="text" id="cfg-end-numero" value="${esc(r.endereco_numero||'')}" placeholder="123"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group"><label>Bairro</label><input type="text" id="cfg-end-bairro" value="${esc(r.endereco_bairro||'')}" placeholder="Ex: Centro"></div>
+        <div class="form-group"><label>Complemento (opcional)</label><input type="text" id="cfg-end-complemento" value="${esc(r.endereco_complemento||'')}" placeholder="Ex: Sala 2"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;">
+        <div class="form-group"><label>Cidade</label><input type="text" id="cfg-end-cidade" value="${esc(r.endereco_cidade||'')}" placeholder="Ex: Frederico Westphalen"></div>
+        <div class="form-group"><label>Estado</label><input type="text" id="cfg-end-estado" value="${esc(r.endereco_estado||'')}" maxlength="2" placeholder="RS"></div>
+        <div class="form-group"><label>CEP</label><input type="text" id="cfg-end-cep" value="${esc(r.endereco_cep||'')}" placeholder="00000-000"></div>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <div class="form-group"><label>Cor principal (hex)</label><input type="color" id="cfg-cor" value="${r.cor_primaria||'#E86339'}"></div>
         <div class="form-group">
@@ -4735,6 +4759,13 @@ async function salvarConfig() {
     banner_url: document.getElementById('cfg-banner').value || null,
     cor_primaria: document.getElementById('cfg-cor').value,
     categoria: document.getElementById('cfg-categoria').value || null,
+    endereco_rua: document.getElementById('cfg-end-rua').value || null,
+    endereco_numero: document.getElementById('cfg-end-numero').value || null,
+    endereco_bairro: document.getElementById('cfg-end-bairro').value || null,
+    endereco_complemento: document.getElementById('cfg-end-complemento').value || null,
+    endereco_cidade: document.getElementById('cfg-end-cidade').value || null,
+    endereco_estado: document.getElementById('cfg-end-estado').value || null,
+    endereco_cep: document.getElementById('cfg-end-cep').value || null,
     tema: document.getElementById('cfg-tema').value,
     som_notificacao: document.getElementById('cfg-som').value,
     fidelidade_ativa: document.getElementById('cfg-fidelidade').checked,
