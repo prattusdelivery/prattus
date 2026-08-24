@@ -3240,14 +3240,23 @@ function renderGruposOpcoes() {
         <span style="font-size:11px;color:var(--texto-muted);">Mínimo 0 = opcional. Máximo em branco = sem limite.</span>
       </div>
       ` : ''}
-      ${g.opcoes.map((o, oi) => `
+      ${g.opcoes.map((o, oi) => o.subgrupo ? `
+        <div style="display:flex;gap:8px;margin:14px 0 6px;align-items:center;padding-top:10px;border-top:1px dashed var(--creme-borda);">
+          <span style="font-size:11px;color:var(--texto-muted);flex-shrink:0;">📁 Subgrupo:</span>
+          <input type="text" placeholder="Ex: Sabores salgados" value="${esc(o.nome)}" oninput="atualizarOpcaoCampo(${gi},${oi},'nome',this.value)" style="flex:1;font-weight:600;">
+          <button type="button" class="btn-sm perigo" onclick="removerOpcaoDoGrupo(${gi},${oi})" title="Remover subgrupo" style="padding:6px 10px;">×</button>
+        </div>
+      ` : `
         <div style="display:flex;gap:8px;margin-bottom:6px;align-items:center;">
           <input type="text" placeholder="Ex: 2 bifes" value="${esc(o.nome)}" oninput="atualizarOpcaoCampo(${gi},${oi},'nome',this.value)" style="flex:2;">
           <input type="number" placeholder="0.00" step="0.01" value="${o.preco}" oninput="atualizarOpcaoCampo(${gi},${oi},'preco',this.value)" style="flex:1;">
           <button type="button" class="btn-sm perigo" onclick="removerOpcaoDoGrupo(${gi},${oi})" title="Remover opção" style="padding:6px 10px;">×</button>
         </div>
       `).join('')}
-      <button type="button" class="btn-sm" onclick="adicionarOpcaoNoGrupo(${gi})">+ Adicionar opção</button>
+      <div style="display:flex;gap:8px;">
+        <button type="button" class="btn-sm" onclick="adicionarOpcaoNoGrupo(${gi})">+ Adicionar opção</button>
+        ${g.tipo === 'multipla' ? `<button type="button" class="btn-sm" onclick="adicionarSubgrupoNoGrupo(${gi})">📁 Adicionar subgrupo</button>` : ''}
+      </div>
     </div>
   `).join('');
 }
@@ -3278,6 +3287,11 @@ function atualizarTipoGrupo(gi, valor) {
 
 function adicionarOpcaoNoGrupo(gi) {
   gruposOpcoesEditando[gi].opcoes.push({ nome: '', preco: 0 });
+  renderGruposOpcoes();
+}
+
+function adicionarSubgrupoNoGrupo(gi) {
+  gruposOpcoesEditando[gi].opcoes.push({ subgrupo: true, nome: '' });
   renderGruposOpcoes();
 }
 
@@ -5553,6 +5567,9 @@ function abrirModalItem(item) {
         <span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.3px;${badgeCor}">${badgeTxt}</span>
       </div>
       ${g.opcoes.map((o, oi) => {
+        if (o.subgrupo) {
+          return `<div style="font-size:12px;font-weight:700;color:var(--laranja-dark);text-transform:uppercase;letter-spacing:.4px;margin:${oi===0?'0':'14px'} 0 6px;">${esc(o.nome)}</div>`;
+        }
         const precoTxt = g.tipo === 'unica_preco'
           ? 'R$ ' + parseFloat(o.preco).toFixed(2).replace('.',',')
           : (parseFloat(o.preco) > 0 ? '+ R$ '+parseFloat(o.preco).toFixed(2).replace('.',',') : '');
