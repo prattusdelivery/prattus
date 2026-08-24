@@ -137,6 +137,13 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
 }
 .btn-sair:hover{border-color:var(--vermelho);color:var(--vermelho);}
 
+.toggle-switch{position:relative;display:inline-block;width:46px;height:26px;}
+.toggle-switch input{opacity:0;width:0;height:0;}
+.toggle-slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#ccc;border-radius:26px;transition:.2s;}
+.toggle-slider:before{position:absolute;content:"";height:20px;width:20px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s;}
+.toggle-switch input:checked + .toggle-slider{background:var(--laranja);}
+.toggle-switch input:checked + .toggle-slider:before{transform:translateX(20px);}
+
 /* ===== CONTEUDO PRINCIPAL ===== */
 .main{margin-left:220px;flex:1;display:flex;flex-direction:column;min-height:100vh;}
 .topbar{
@@ -4575,6 +4582,17 @@ async function renderConfig() {
       </div>
       <div class="form-group"><label>Descrição do restaurante</label><input type="text" id="cfg-categoria" value="${esc(r.categoria||'')}" placeholder="Ex: Lanchonete, Pizzaria, Marmitaria..."><div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Esse texto aparece no seu cardápio público, embaixo do nome da loja.</div></div>
 
+      <div class="form-group" style="display:flex;justify-content:space-between;align-items:center;background:var(--creme);border-radius:10px;padding:14px;margin-top:16px;">
+        <div>
+          <label style="font-weight:700;">Retirada no local disponível hoje?</label>
+          <div style="font-size:12px;color:var(--texto-muted);margin-top:2px;">Desligue quando não tiver ninguém pra atender quem for buscar o pedido. O Delivery continua funcionando normalmente.</div>
+        </div>
+        <label class="toggle-switch" style="flex-shrink:0;margin-left:14px;">
+          <input type="checkbox" id="cfg-retirada-disponivel" ${r.retirada_disponivel !== false ? 'checked' : ''}>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
       <div class="form-group" style="margin-top:24px;">
         <label style="font-size:14px;font-weight:700;">Endereço da empresa</label>
         <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Quando preenchido, aparece pro cliente no seu cardápio digital.</div>
@@ -4785,6 +4803,7 @@ async function salvarConfig() {
     endereco_cidade: document.getElementById('cfg-end-cidade').value || null,
     endereco_estado: document.getElementById('cfg-end-estado').value || null,
     endereco_cep: document.getElementById('cfg-end-cep').value || null,
+    retirada_disponivel: document.getElementById('cfg-retirada-disponivel').checked,
     tema: document.getElementById('cfg-tema').value,
     som_notificacao: document.getElementById('cfg-som').value,
     fidelidade_ativa: document.getElementById('cfg-fidelidade').checked,
@@ -4912,6 +4931,17 @@ async function carregarPublico(restId) {
     if (enderecoTxt) infos.push(`📍 ${esc(enderecoTxt)}`);
   }
   infoBar.innerHTML = infos.map(i => `<span style="background:rgba(255,255,255,0.15);padding:4px 10px;border-radius:20px;font-size:12px;color:#fff;">${i}</span>`).join('');
+
+  // Retirada no local — o dono pode desligar dia a dia
+  const btnRetirada = document.getElementById('modo-retirada');
+  if (btnRetirada) {
+    if (rest.retirada_disponivel === false) {
+      btnRetirada.style.display = 'none';
+      if (typeof modoAtual !== 'undefined' && modoAtual === 'retirada') selecionarModo('delivery');
+    } else {
+      btnRetirada.style.display = '';
+    }
+  }
 
   // Nota média (busca à parte, pra não travar o carregamento do resto)
   db.from('pedidos').select('avaliacao').eq('restaurante_id', rest.id).not('avaliacao', 'is', null).then(({data: avals}) => {
@@ -6193,6 +6223,11 @@ function mudarQtd(idx, delta) {
 async function finalizarPedido() {
   if (restPublico?.pausado_manual) {
     toast('Este restaurante pausou os pedidos no momento. Tente novamente mais tarde.', 'erro');
+    return;
+  }
+  if (modoAtual === 'retirada' && restPublico?.retirada_disponivel === false) {
+    toast('A retirada no local não está disponível hoje. Escolha Delivery.', 'erro');
+    selecionarModo('delivery');
     return;
   }
   const nome = document.getElementById('ped-nome').value;
