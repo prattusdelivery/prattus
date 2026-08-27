@@ -1957,50 +1957,11 @@ function cardRestauranteSA(r) {
           ${(status === 'vencido' || status === 'cancelado') && whatsLimpo ? `<a href="https://wa.me/${whatsLimpo}?text=${msgOferta}" target="wa_servidelivery" style="font-size:11px;padding:4px 10px;border-radius:6px;background:var(--laranja);color:#fff;text-decoration:none;font-weight:600;">Enviar oferta</a>` : ''}
           <a href="?rest=${r.id}" target="_blank" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);text-decoration:none;">Ver cardápio</a>
           <button onclick="toggleDetalhesSA('${r.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);border:none;cursor:pointer;">Detalhes</button>
-          <button onclick='excluirRestauranteSA(${JSON.stringify(r.id)}, ${JSON.stringify(r.nome)})' style="font-size:11px;padding:4px 10px;border-radius:6px;background:#c0392b;color:#fff;border:none;cursor:pointer;">🗑️ Excluir</button>
         </div>
       </div>
       <div id="sa-detalhes-${r.id}" style="display:none;margin-top:12px;padding-top:12px;border-top:1px dashed rgba(255,255,255,0.08);font-size:12px;color:rgba(255,255,255,0.5);"></div>
     </div>
   `;
-}
-
-async function excluirRestauranteSA(restauranteId, nomeRestaurante) {
-  // ETAPA 1 — digitar o nome exato do restaurante, pra evitar clique errado
-  const digitado = prompt(
-    `⚠️ Isso vai apagar PERMANENTEMENTE a empresa "${nomeRestaurante}": todos os pedidos, comandas, cardápio, categorias, clientes, cupons, fretes, etiquetas, recompensas, equipe e o login do dono.\n\nNão existe backup — não tem como desfazer.\n\nPra confirmar, digite exatamente o nome da empresa abaixo:`
-  );
-  if (digitado === null) return;
-  if (digitado.trim().toLowerCase() !== nomeRestaurante.trim().toLowerCase()) {
-    toast('Nome não confere. Operação cancelada por segurança.', 'erro');
-    return;
-  }
-
-  // ETAPA 2 — confirmação final
-  if (!confirm(`Última confirmação: excluir "${nomeRestaurante}" e TODOS os dados dela agora, sem volta?`)) {
-    return;
-  }
-
-  const { data: sessao } = await db.auth.getSession();
-  const tokenAdmin = sessao?.session?.access_token;
-
-  toast('Excluindo empresa...', 'ok');
-  try {
-    const resp = await fetch('/api/super-admin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'excluir_restaurante', restauranteId, tokenAdmin })
-    });
-    const data = await resp.json();
-    if (resp.ok) {
-      toast('Empresa excluída.', 'ok');
-      await carregarSuperAdmin();
-    } else {
-      toast(data.error || 'Erro ao excluir.', 'erro');
-    }
-  } catch (e) {
-    toast('Erro de conexão.', 'erro');
-  }
 }
 
 function secaoSA(titulo, cor, lista) {
