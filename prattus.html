@@ -2729,10 +2729,10 @@ async function renderDashboard() {
   if (!restauranteAtual) return;
   const rid = restauranteAtual.id;
 
-  const { data: pedHoje } = await db.from('pedidos').select('total').eq('restaurante_id', rid).eq('status', 'entregue').gte('criado_em', inicioDoDiaLocal());
-  const { data: pedMes } = await db.from('pedidos').select('total').eq('restaurante_id', rid).eq('status', 'entregue').gte('criado_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
-  const { data: comandaHoje } = await db.from('pedidos').select('total').eq('restaurante_id', rid).eq('status', 'entregue').ilike('observacao', '%Modo: Consumir no local%').gte('criado_em', inicioDoDiaLocal());
-  const { data: comandaMes } = await db.from('pedidos').select('total').eq('restaurante_id', rid).eq('status', 'entregue').ilike('observacao', '%Modo: Consumir no local%').gte('criado_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
+  const { data: pedHoje } = await db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).gte('criado_em', inicioDoDiaLocal());
+  const { data: pedMes } = await db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).gte('criado_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
+  const { data: comandaHoje } = await db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).ilike('observacao', '%Modo: Consumir no local%').gte('criado_em', inicioDoDiaLocal());
+  const { data: comandaMes } = await db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).ilike('observacao', '%Modo: Consumir no local%').gte('criado_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
   const { data: clientes } = await db.from('clientes').select('id').eq('restaurante_id', rid);
   const { data: pedidos } = await db.from('pedidos').select('*,clientes(nome),pedido_itens(nome,quantidade,preco)').eq('restaurante_id', rid).order('criado_em', {ascending:false}).limit(5);
 
@@ -3927,10 +3927,10 @@ async function renderRelatorios(dataInicio = null, dataFim = null) {
   const periodoAnteriorInicio = new Date(periodoAnteriorFim.getTime() - duracaoMs);
 
   const [{ data: pedPeriodo }, { data: pedAno }, { data: todosIds }, { data: pedAnterior }] = await Promise.all([
-    db.from('pedidos').select('total,criado_em').eq('restaurante_id', rid).gte('criado_em', periodoInicio).lte('criado_em', periodoFim),
-    db.from('pedidos').select('total,criado_em').eq('restaurante_id', rid).gte('criado_em', inicioAno),
-    db.from('pedidos').select('id').eq('restaurante_id', rid),
-    db.from('pedidos').select('total').eq('restaurante_id', rid).gte('criado_em', periodoAnteriorInicio.toISOString()).lte('criado_em', periodoAnteriorFim.toISOString())
+    db.from('pedidos').select('total,criado_em').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).gte('criado_em', periodoInicio).lte('criado_em', periodoFim),
+    db.from('pedidos').select('total,criado_em').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).gte('criado_em', inicioAno),
+    db.from('pedidos').select('id').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']),
+    db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).gte('criado_em', periodoAnteriorInicio.toISOString()).lte('criado_em', periodoAnteriorFim.toISOString())
   ]);
 
   const { data: itensPed } = await db.from('pedido_itens').select('nome,quantidade')
@@ -4317,7 +4317,7 @@ async function carregarHistoricoPeriodo() {
   const { data: pedidos } = await db.from('pedidos')
     .select('*,pedido_itens(nome,quantidade,preco,observacao)')
     .eq('restaurante_id', restauranteAtual.id)
-    .in('status', ['entrega','entregue'])
+    .in('status', ['preparando','entrega','entregue'])
     .gte('criado_em', inicio.toISOString())
     .lt('criado_em', fim.toISOString())
     .order('criado_em', {ascending: false});
