@@ -2109,6 +2109,7 @@ async function carregarModoComanda(comandaId) {
     return;
   }
 
+  let historicoId = null;
   if (codigo.status !== 'em_uso') {
     const mesa = prompt('Código livre! Qual o número da mesa?');
     if (!mesa || !mesa.trim()) return;
@@ -2117,9 +2118,23 @@ async function carregarModoComanda(comandaId) {
     }).eq('id', comandaId);
     if (erroAbrir) { alert('Erro ao abrir a comanda. Tente de novo.'); return; }
     codigo.mesa = mesa.trim();
+
+    // Guarda um registro permanente dessa abertura — sobrevive mesmo depois da mesa fechar,
+    // pra contar corretamente quantas comandas foram abertas por dia/mês
+    const { data: historico } = await db.from('comandas_historico').insert({
+      restaurante_id: restauranteAtual.id, codigo_comanda_id: codigo.id, mesa: codigo.mesa
+    }).select().single();
+    historicoId = historico?.id || null;
+  } else {
+    // Mesa já estava aberta (garçom voltou pra adicionar mais itens) — reaproveita o
+    // registro de histórico já criado, não cria um novo
+    const { data: historicoExistente } = await db.from('comandas_historico')
+      .select('id').eq('codigo_comanda_id', codigo.id).is('fechada_em', null)
+      .order('aberta_em', {ascending: false}).limit(1).maybeSingle();
+    historicoId = historicoExistente?.id || null;
   }
 
-  comandaAtual = { id: codigo.id, mesa: codigo.mesa };
+  comandaAtual = { id: codigo.id, mesa: codigo.mesa, historicoId };
   modoComandaAtivo = true;
   carrinho = [];
 
@@ -2246,6 +2261,18 @@ async function abrirFechamentoComanda() {
 async function confirmarFechamentoComanda() {
   if (!comandaAtual) return;
   if (!confirm('Confirma o pagamento e libera essa mesa pra um novo cliente?')) return;
+
+  // Calcula o total de novo (mesma lógica da tela de fechamento) pra guardar no histórico
+  const { data: codigoAtual } = await db.from('codigos_comanda').select('aberta_em').eq('id', comandaAtual.id).single();
+  const { data: pedidosFechando } = await db.from('pedidos').select('total')
+    .eq('codigo_comanda_id', comandaAtual.id).gte('criado_em', codigoAtual?.aberta_em || '1970-01-01');
+  const totalFechamento = (pedidosFechando||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
+
+  if (comandaAtual.historicoId) {
+    await db.from('comandas_historico').update({
+      fechada_em: new Date().toISOString(), total: totalFechamento
+    }).eq('id', comandaAtual.historicoId);
+  }
 
   const { error } = await db.from('codigos_comanda').update({
     status: 'livre', mesa: null, aberta_em: null
@@ -2731,15 +2758,17 @@ async function renderDashboard() {
 
   const { data: pedHoje } = await db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).gte('criado_em', inicioDoDiaLocal());
   const { data: pedMes } = await db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).gte('criado_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
-  const { data: comandaHoje } = await db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).ilike('observacao', '%Modo: Consumir no local%').gte('criado_em', inicioDoDiaLocal());
-  const { data: comandaMes } = await db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).ilike('observacao', '%Modo: Consumir no local%').gte('criado_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
+  const { data: comandaHoje } = await db.from('comandas_historico').select('id').eq('restaurante_id', rid).gte('aberta_em', inicioDoDiaLocal());
+  const { data: comandaMes } = await db.from('comandas_historico').select('id').eq('restaurante_id', rid).gte('aberta_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
+  const { data: comandaFatHoje } = await db.from('comandas_historico').select('total').eq('restaurante_id', rid).not('fechada_em', 'is', null).gte('fechada_em', inicioDoDiaLocal());
+  const { data: comandaFatMes } = await db.from('comandas_historico').select('total').eq('restaurante_id', rid).not('fechada_em', 'is', null).gte('fechada_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
   const { data: clientes } = await db.from('clientes').select('id').eq('restaurante_id', rid);
   const { data: pedidos } = await db.from('pedidos').select('*,clientes(nome),pedido_itens(nome,quantidade,preco)').eq('restaurante_id', rid).order('criado_em', {ascending:false}).limit(5);
 
   const fatHoje = (pedHoje||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
   const fatMes = (pedMes||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
-  const fatComandaHoje = (comandaHoje||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
-  const fatComandaMes = (comandaMes||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
+  const fatComandaHoje = (comandaFatHoje||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
+  const fatComandaMes = (comandaFatMes||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
   const ticketMedio = pedHoje && pedHoje.length ? (fatHoje / pedHoje.length) : 0;
 
   document.getElementById('conteudo').innerHTML = `
