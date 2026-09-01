@@ -2764,7 +2764,8 @@ async function renderDashboard() {
   const { data: comandaFatHoje } = await db.from('comandas_historico').select('total').eq('restaurante_id', rid).not('fechada_em', 'is', null).gte('fechada_em', inicioDoDiaLocal());
   const { data: comandaFatMes } = await db.from('comandas_historico').select('total').eq('restaurante_id', rid).not('fechada_em', 'is', null).gte('fechada_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
   const { data: clientes } = await db.from('clientes').select('id').eq('restaurante_id', rid);
-  const { data: pedidos } = await db.from('pedidos').select('*,clientes(nome),pedido_itens(nome,quantidade,preco)').eq('restaurante_id', rid).order('criado_em', {ascending:false}).limit(5);
+  const { data: pedidosDelivery } = await db.from('pedidos').select('*,clientes(nome),pedido_itens(nome,quantidade,preco)').eq('restaurante_id', rid).is('codigo_comanda_id', null).order('criado_em', {ascending:false}).limit(5);
+  const { data: pedidosComanda } = await db.from('pedidos').select('*,clientes(nome),pedido_itens(nome,quantidade,preco)').eq('restaurante_id', rid).not('codigo_comanda_id', 'is', null).order('criado_em', {ascending:false}).limit(5);
 
   const fatHoje = (pedHoje||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
   const fatMes = (pedMes||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
@@ -2790,10 +2791,11 @@ async function renderDashboard() {
       <div class="metrica"><div class="metrica-label">🍽️ Comandas no mês</div><div class="metrica-val">${(comandaMes||[]).length}</div></div>
       <div class="metrica"><div class="metrica-label">🍽️ Faturamento comandas no mês</div><div class="metrica-val">R$ ${fatComandaMes.toFixed(2).replace('.',',')}</div></div>
     </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
     <div class="card">
       <div class="card-titulo">Últimos pedidos</div>
-      ${(pedidos||[]).length === 0 ? '<div class="empty"><div class="empty-ico">🛵</div><div class="empty-txt">Nenhum pedido ainda</div></div>' :
-        (pedidos||[]).map(p => `
+      ${(pedidosDelivery||[]).length === 0 ? '<div class="empty"><div class="empty-ico">🛵</div><div class="empty-txt">Nenhum pedido ainda</div></div>' :
+        (pedidosDelivery||[]).map(p => `
           <div class="pedido-card">
             <div class="pedido-info">
               <div class="pedido-num">#${p.id.slice(-4).toUpperCase()} — ${esc(p.observacao?.split('Nome:')[1]?.split('\n')[0]?.trim() || p.clientes?.nome || 'Cliente')}</div>
@@ -2804,6 +2806,24 @@ async function renderDashboard() {
           </div>
         `).join('')
       }
+    </div>
+    <div class="card">
+      <div class="card-titulo">🍽️ Últimas comandas</div>
+      ${(pedidosComanda||[]).length === 0 ? '<div class="empty"><div class="empty-ico">🍽️</div><div class="empty-txt">Nenhuma comanda ainda</div></div>' :
+        (pedidosComanda||[]).map(p => {
+          const mesaMatch = (p.observacao||'').match(/Mesa\s+(\S+)/);
+          return `
+          <div class="pedido-card">
+            <div class="pedido-info">
+              <div class="pedido-num">#${p.id.slice(-4).toUpperCase()}${mesaMatch ? ' — Mesa '+esc(mesaMatch[1]) : ''}</div>
+              <div class="pedido-cliente">${new Date(p.criado_em).toLocaleString('pt-BR')}</div>
+            </div>
+            <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
+            <span class="badge badge-${p.status === 'novo' ? 'novo' : p.status === 'preparando' ? 'prep' : p.status === 'entrega' ? 'entrega' : 'entregue'}">${p.status}</span>
+          </div>
+        `}).join('')
+      }
+    </div>
     </div>
   `;
 }
@@ -2851,6 +2871,7 @@ async function renderPedidos() {
           <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
         </div>
         ${mesaMatch ? `<div style="display:inline-block;background:var(--laranja);color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;">🍽️ Mesa ${esc(mesaMatch[1])}</div>` : ''}
+        ${p.status === 'preparando' && p.aceito_em ? `<div style="display:inline-block;background:#FFF3E0;color:#B26A00;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;margin-left:4px;">⏱️ ${tempoDecorridoTexto(p.aceito_em)} em preparo</div>` : ''}
         <div class="pedido-cliente" style="margin-bottom:8px;">${esc(p.endereco)} — ${esc(p.bairro)}</div>
         <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">${itensTxt}</div>
         ${p.observacao ? `<div style="font-size:11px;color:var(--laranja);margin-bottom:10px;">${esc(p.observacao).replace(/\n/g,' · ')}</div>` : ''}
@@ -2907,6 +2928,7 @@ async function renderComandas() {
           <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
         </div>
         ${mesaMatch ? `<div style="display:inline-block;background:var(--laranja);color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;">🍽️ Mesa ${esc(mesaMatch[1])}</div>` : ''}
+        ${p.status === 'preparando' && p.aceito_em ? `<div style="display:inline-block;background:#FFF3E0;color:#B26A00;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;margin-left:4px;">⏱️ ${tempoDecorridoTexto(p.aceito_em)} em preparo</div>` : ''}
         <div class="pedido-cliente" style="margin-bottom:8px;">${esc(p.endereco)} — ${esc(p.bairro)}</div>
         <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">${itensTxt}</div>
         ${p.observacao ? `<div style="font-size:11px;color:var(--laranja);margin-bottom:10px;">${esc(p.observacao).replace(/\n/g,' · ')}</div>` : ''}
@@ -3052,6 +3074,16 @@ function imprimirComanda(p) {
   window.print();
 }
 
+function tempoDecorridoTexto(dataIso) {
+  if (!dataIso) return null;
+  const min = Math.floor((Date.now() - new Date(dataIso).getTime()) / 60000);
+  if (min < 1) return 'agora mesmo';
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${h}h${m > 0 ? m+'min' : ''}`;
+}
+
 function montaBotoesStatus(p, telefone) {
   const nomeMatch = (p.observacao||'').match(/Nome:\s*([^\n]+)/);
   const nomeCliente = nomeMatch ? nomeMatch[1].trim() : 'Cliente';
@@ -3073,6 +3105,7 @@ function montaBotoesStatus(p, telefone) {
 
 async function avancarStatus(id, novoStatus, nomeCliente, telefone, numPedido) {
   const dadosUpdate = { status: novoStatus };
+  if (novoStatus === 'preparando') dadosUpdate.aceito_em = new Date().toISOString();
   if (novoStatus === 'entrega') dadosUpdate.saiu_entrega_em = new Date().toISOString();
   await db.from('pedidos').update(dadosUpdate).eq('id', id);
   toast('Status atualizado!', 'ok');
