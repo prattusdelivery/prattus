@@ -810,7 +810,6 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:12px;">
-        <button id="btn-notificacoes" onclick="ativarNotificacoes()" style="display:none;font-size:12px;font-weight:600;padding:8px 14px;border-radius:8px;border:1px solid var(--creme-borda);background:var(--creme);color:var(--texto-muted);cursor:pointer;white-space:nowrap;"></button>
         <button id="btn-pausar-loja" onclick="alternarPausaLoja()" style="display:none;font-size:12px;font-weight:600;padding:8px 14px;border-radius:8px;border:none;cursor:pointer;white-space:nowrap;"></button>
         <div class="topbar-avatar-wrap">
           <div class="topbar-avatar" id="topbar-avatar" onclick="document.getElementById('topbar-avatar-menu').classList.toggle('aberto')">A</div>
@@ -1516,7 +1515,7 @@ function iniciarAutoRefresh() {
       const novosIds = new Set((data||[]).map(p => p.id));
       let temNovo = false;
       novosIds.forEach(id => { if (!ultimosPedidosIds.has(id)) temNovo = true; });
-      if (temNovo) {
+      if (temNovo && localStorage.getItem('som_sistema_ativo_' + restauranteAtual.id) !== 'false') {
         // Busca o som certinho direto do banco (evita tocar um som desatualizado
         // se a configuração foi trocada em outra aba/dispositivo/celular)
         const { data: cfg } = await db.from('restaurantes').select('som_notificacao').eq('id', restauranteAtual.id).maybeSingle();
@@ -2358,15 +2357,17 @@ async function ativarNotificacoes() {
 }
 
 function atualizarBotaoNotificacao() {
-  const btn = document.getElementById('btn-notificacoes');
-  if (!btn || !restauranteAtual) return;
+  if (!restauranteAtual) return;
   const suportado = ('Notification' in window) && ('serviceWorker' in navigator) && ('PushManager' in window);
-  if (!suportado) { btn.style.display = 'none'; return; }
-  const ativada = localStorage.getItem('notif_ativada_' + restauranteAtual.id) === 'true' && Notification.permission === 'granted';
-  btn.style.display = 'inline-block';
-  btn.textContent = ativada ? '🔔 Notificações ativas · clique pra desativar' : '🔕 Ativar notificações';
-  btn.style.opacity = ativada ? '0.75' : '1';
-  btn.disabled = false;
+  const ativada = suportado && localStorage.getItem('notif_ativada_' + restauranteAtual.id) === 'true' && Notification.permission === 'granted';
+  const check = document.getElementById('cfg-notif-navegador');
+  if (check) check.checked = ativada;
+}
+
+function alternarSomSistema(ligado) {
+  if (!restauranteAtual) return;
+  localStorage.setItem('som_sistema_ativo_' + restauranteAtual.id, ligado ? 'true' : 'false');
+  toast(ligado ? 'Som de pedido novo ativado.' : 'Som de pedido novo desativado.', 'ok');
 }
 
 function atualizarBotaoPausa() {
@@ -3139,10 +3140,11 @@ async function renderCardapio() {
       <button class="btn btn-outline" style="width:auto;padding:10px 20px" onclick="baixarCardapioPDF()">🖨️ Baixar cardápio em PDF</button>
       <button class="btn btn-outline" style="width:auto;padding:10px 20px" onclick="abrirModalLixeira()">🗑️ Lixeira</button>
     </div>
+    ${(cats||[]).length > 1 ? `<div style="font-size:11px;color:var(--texto-muted);margin-bottom:10px;">☰ Arraste o título de uma categoria pra reordenar como aparecem no cardápio.</div>` : ''}
     ${(cats||[]).map(cat => `
-      <div class="card" style="margin-bottom:16px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-          <div class="card-titulo" style="margin-bottom:0;">${cat.nome}</div>
+      <div class="card" style="margin-bottom:16px;" ondragover="dragOverItem(event)" ondrop="dropCategoria(event,'${cat.id}')">
+        <div draggable="true" ondragstart="dragStartCategoria(event,'${cat.id}')" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;cursor:grab;">
+          <div class="card-titulo" style="margin-bottom:0;">☰ ${cat.nome}</div>
           <div style="display:flex;gap:6px;">
             <button class="btn-sm" onclick="editarCategoria('${cat.id}','${cat.nome.replace(/'/g,"\\'")}')">Renomear</button>
             <button class="btn-sm perigo" onclick="excluirCategoria('${cat.id}')">Excluir</button>
@@ -3224,6 +3226,32 @@ async function baixarCardapioPDF() {
   setTimeout(() => window.print(), 200);
 }
 let itemArrastando = null;
+let categoriaArrastando = null;
+
+function dragStartCategoria(ev, catId) {
+  ev.stopPropagation();
+  categoriaArrastando = catId;
+  ev.dataTransfer.effectAllowed = 'move';
+}
+
+async function dropCategoria(ev, catIdAlvo) {
+  ev.preventDefault();
+  ev.stopPropagation();
+  if (!categoriaArrastando || categoriaArrastando === catIdAlvo) { categoriaArrastando = null; return; }
+
+  const { data: cats } = await db.from('categorias').select('id').eq('restaurante_id', restauranteAtual.id).is('excluido_em', null).order('ordem');
+  const lista = cats || [];
+  const idxOrigem = lista.findIndex(c => c.id === categoriaArrastando);
+  const idxDestino = lista.findIndex(c => c.id === catIdAlvo);
+  if (idxOrigem === -1 || idxDestino === -1) { categoriaArrastando = null; return; }
+
+  const [movida] = lista.splice(idxOrigem, 1);
+  lista.splice(idxDestino, 0, movida);
+
+  await Promise.all(lista.map((c, i) => db.from('categorias').update({ ordem: i }).eq('id', c.id)));
+  categoriaArrastando = null;
+  renderCardapio();
+}
 
 function dragStartItem(ev, itemId) {
   itemArrastando = itemId;
@@ -4622,6 +4650,31 @@ async function renderConfig() {
         </div>
         <label class="toggle-switch" style="flex-shrink:0;margin-left:14px;">
           <input type="checkbox" id="cfg-retirada-disponivel" ${r.retirada_disponivel !== false ? 'checked' : ''}>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="form-group" style="margin-top:24px;">
+        <label style="font-size:14px;font-weight:700;">Notificações</label>
+        <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Vale só nesse aparelho/navegador.</div>
+      </div>
+      <div class="form-group" style="display:flex;justify-content:space-between;align-items:center;background:var(--creme);border-radius:10px;padding:14px;margin-bottom:10px;">
+        <div>
+          <label style="font-weight:700;">Notificação do navegador</label>
+          <div style="font-size:12px;color:var(--texto-muted);margin-top:2px;">Avisa mesmo com o painel fechado ou minimizado.</div>
+        </div>
+        <label class="toggle-switch" style="flex-shrink:0;margin-left:14px;">
+          <input type="checkbox" id="cfg-notif-navegador" ${localStorage.getItem('notif_ativada_' + restauranteAtual.id) === 'true' && typeof Notification !== 'undefined' && Notification.permission === 'granted' ? 'checked' : ''} onchange="ativarNotificacoes()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="form-group" style="display:flex;justify-content:space-between;align-items:center;background:var(--creme);border-radius:10px;padding:14px;">
+        <div>
+          <label style="font-weight:700;">Som de pedido novo no sistema</label>
+          <div style="font-size:12px;color:var(--texto-muted);margin-top:2px;">O som e o aviso "🛵 Novo pedido chegou!" que tocam com o painel aberto.</div>
+        </div>
+        <label class="toggle-switch" style="flex-shrink:0;margin-left:14px;">
+          <input type="checkbox" id="cfg-som-sistema" ${localStorage.getItem('som_sistema_ativo_' + restauranteAtual.id) !== 'false' ? 'checked' : ''} onchange="alternarSomSistema(this.checked)">
           <span class="toggle-slider"></span>
         </label>
       </div>
