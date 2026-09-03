@@ -2179,16 +2179,20 @@ async function finalizarComanda() {
 
   const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
   const obsGeral = document.getElementById('ped-obs')?.value || '';
+  const direto = !!restauranteAtual.comanda_direto_cozinha;
 
-  const { data: pedido, error } = await db.from('pedidos').insert({
+  const dadosPedido = {
     restaurante_id: restauranteAtual.id,
-    status: 'novo',
+    status: direto ? 'preparando' : 'novo',
     endereco: `Mesa ${comandaAtual.mesa}`,
     bairro: 'Salão',
     frete: 0, subtotal: sub, total: sub,
     codigo_comanda_id: comandaAtual.id,
     observacao: `Comanda — Mesa ${comandaAtual.mesa}${obsGeral ? '\nObs: '+obsGeral : ''}`
-  }).select().single();
+  };
+  if (direto) dadosPedido.aceito_em = new Date().toISOString();
+
+  const { data: pedido, error } = await db.from('pedidos').insert(dadosPedido).select().single();
 
   if (error || !pedido) { toast('Erro ao enviar pedido. Tente de novo.', 'erro'); return; }
 
@@ -2202,7 +2206,8 @@ async function finalizarComanda() {
   atualizarCarrinho();
   fecharModal('modal-carrinho');
   if (document.getElementById('ped-obs')) document.getElementById('ped-obs').value = '';
-  toast(`Pedido enviado pra cozinha — Mesa ${comandaAtual.mesa}! 🍽️`, 'ok');
+  if (direto) imprimirComandaPorId(pedido.id);
+  toast(direto ? `Pedido enviado direto pra cozinha — Mesa ${comandaAtual.mesa}! 🍽️` : `Pedido enviado pra cozinha — Mesa ${comandaAtual.mesa}! 🍽️`, 'ok');
 }
 
 function sairModoComanda() {
@@ -2819,7 +2824,7 @@ async function renderDashboard() {
               <div class="pedido-cliente">${new Date(p.criado_em).toLocaleString('pt-BR')}</div>
             </div>
             <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
-            <span class="badge badge-${p.status === 'novo' ? 'novo' : p.status === 'preparando' ? 'prep' : p.status === 'entrega' ? 'entrega' : 'entregue'}">${p.status}</span>
+            <span class="badge badge-${p.status === 'novo' ? 'novo' : p.status === 'preparando' ? 'prep' : p.status === 'entrega' ? 'entrega' : 'entregue'}">${(p.status === 'entrega' || p.status === 'entregue') ? 'Finalizado' : p.status}</span>
           </div>
         `}).join('')
       }
@@ -2973,7 +2978,7 @@ async function renderComandas() {
     <div style="font-size:14px;color:var(--texto-muted);margin-bottom:16px;">${lista.length} comanda(s) no total</div>
     <div class="kanban">
       <div class="kanban-col col-novo">
-        <div class="kanban-col-titulo"><span class="kanban-dot novo"></span>Novos pedidos <span class="kanban-count">${novos.length}</span></div>
+        <div class="kanban-col-titulo"><span class="kanban-dot novo"></span>Aguardando Confirmação <span class="kanban-count">${novos.length}</span></div>
         ${novos.length === 0 ? '<div class="kanban-empty">Nenhum pedido novo</div>' : novos.map(montaCard).join('')}
       </div>
       <div class="kanban-col col-prep">
@@ -2981,7 +2986,7 @@ async function renderComandas() {
         ${preparando.length === 0 ? '<div class="kanban-empty">Nenhum pedido em preparo</div>' : preparando.map(montaCard).join('')}
       </div>
       <div class="kanban-col col-entrega">
-        <div class="kanban-col-titulo"><span class="kanban-dot entrega"></span>A caminho / Finalizado <span class="kanban-count">${finalizados.length}</span></div>
+        <div class="kanban-col-titulo"><span class="kanban-dot entrega"></span>Pronto/Servido <span class="kanban-count">${finalizados.length}</span></div>
         ${finalizados.length === 0 ? '<div class="kanban-empty">Nenhum pedido finalizado</div>' : finalizados.slice(0,3).map(montaCard).join('')}
         ${finalizados.length > 3 ? `<div style="text-align:center;font-size:11px;color:var(--texto-muted);padding:8px 0;">Mostrando os 3 mais recentes de ${finalizados.length}</div>` : ''}
       </div>
@@ -3087,15 +3092,19 @@ function tempoDecorridoTexto(dataIso) {
 function montaBotoesStatus(p, telefone) {
   const nomeMatch = (p.observacao||'').match(/Nome:\s*([^\n]+)/);
   const nomeCliente = nomeMatch ? nomeMatch[1].trim() : 'Cliente';
+  const ehComanda = !!p.codigo_comanda_id;
 
   if (p.status === 'novo') {
     return `
-      <button class="btn-sm" style="background:var(--verde);color:#fff;border:none;" onclick="avancarStatus('${p.id}','preparando','${nomeCliente.replace(/'/g,"")}','${telefone||''}','${p.id.slice(-4).toUpperCase()}')">Aceitar pedido</button>
+      <button class="btn-sm" style="background:var(--verde);color:#fff;border:none;" onclick="avancarStatus('${p.id}','preparando','${nomeCliente.replace(/'/g,"")}','${telefone||''}','${p.id.slice(-4).toUpperCase()}')">${ehComanda ? 'Enviar para Cozinha' : 'Aceitar pedido'}</button>
       <button class="btn-sm perigo" onclick="mudarStatus('${p.id}','cancelado')">Recusar</button>
     `;
   }
   if (p.status === 'preparando') {
-    return `<button class="btn-sm" style="background:var(--laranja);color:#fff;border:none;" onclick="avancarStatus('${p.id}','entrega','${nomeCliente.replace(/'/g,"")}','${telefone||''}','${p.id.slice(-4).toUpperCase()}')">Pedido pronto, saiu p/ entrega</button>`;
+    return `<button class="btn-sm" style="background:var(--laranja);color:#fff;border:none;" onclick="avancarStatus('${p.id}','entrega','${nomeCliente.replace(/'/g,"")}','${telefone||''}','${p.id.slice(-4).toUpperCase()}')">${ehComanda ? 'Pronto para Servir' : 'Pedido pronto, saiu p/ entrega'}</button>`;
+  }
+  if (ehComanda) {
+    return `<button class="btn-sm" disabled style="background:#ccc;color:#fff;border:none;cursor:default;">Servido</button>`;
   }
   if (p.status === 'entrega') {
     return `<button class="btn-sm" style="background:var(--texto);color:#fff;border:none;" onclick="mudarStatus('${p.id}','entregue')">Marcar como entregue</button>`;
@@ -3112,14 +3121,20 @@ async function avancarStatus(id, novoStatus, nomeCliente, telefone, numPedido) {
 
   const avisosConfig = restauranteAtual?.avisos_whatsapp || {};
   const chaveConfigAviso = novoStatus === 'entregue' ? 'entrega' : novoStatus;
-  if (telefone && avisosConfig[chaveConfigAviso] !== false) {
-    const mensagens = {
-      preparando: `Olá ${nomeCliente}! Seu pedido #${numPedido} foi confirmado e já está sendo preparado.`,
-      entrega: `Seu pedido #${numPedido} está pronto e saiu para entrega! Chegará em breve.`,
-      entregue: `Seu pedido #${numPedido} está pronto e saiu para entrega! Chegará em breve.`
+  const configAviso = avisosConfig[chaveConfigAviso];
+  // Compatibilidade: formato antigo era só true/false; o novo é {ativo, texto}
+  const avisoAtivo = typeof configAviso === 'object' && configAviso !== null ? configAviso.ativo !== false : configAviso !== false;
+  const textoCustom = typeof configAviso === 'object' && configAviso !== null ? configAviso.texto : null;
+
+  if (telefone && avisoAtivo) {
+    const padroes = {
+      preparando: `Olá %cliente%! Seu pedido #%pedido% foi confirmado e já está sendo preparado.`,
+      entrega: `Seu pedido #%pedido% está pronto e saiu para entrega! Chegará em breve.`,
+      entregue: `Seu pedido #%pedido% está pronto e saiu para entrega! Chegará em breve.`
     };
-    const msg = mensagens[novoStatus];
-    if (msg) {
+    const modelo = textoCustom || padroes[novoStatus];
+    if (modelo) {
+      const msg = modelo.replace(/%cliente%/g, nomeCliente).replace(/%pedido%/g, numPedido);
       const fone = telefone.replace(/\D/g, '');
       window.open(`https://wa.me/${fone}?text=${encodeURIComponent(msg)}`, 'wa_servidelivery');
     }
@@ -4610,6 +4625,16 @@ async function excluirCupom(id) {
 async function renderConfig() {
   if (!restauranteAtual) return;
   const r = restauranteAtual;
+
+  // Compatibilidade: o formato antigo salvava só true/false; o novo salva {ativo, texto}
+  const avisoPrepRaw = r.avisos_whatsapp?.preparando;
+  const avisoPrepAtivo = typeof avisoPrepRaw === 'object' && avisoPrepRaw !== null ? avisoPrepRaw.ativo !== false : avisoPrepRaw !== false;
+  const avisoPrepTexto = typeof avisoPrepRaw === 'object' && avisoPrepRaw !== null ? (avisoPrepRaw.texto || '') : '';
+
+  const avisoEntregaRaw = r.avisos_whatsapp?.entrega;
+  const avisoEntregaAtivo = typeof avisoEntregaRaw === 'object' && avisoEntregaRaw !== null ? avisoEntregaRaw.ativo !== false : avisoEntregaRaw !== false;
+  const avisoEntregaTexto = typeof avisoEntregaRaw === 'object' && avisoEntregaRaw !== null ? (avisoEntregaRaw.texto || '') : '';
+
   document.getElementById('conteudo').innerHTML = `
     <div class="card" style="max-width:760px;">
       <div class="config-titulo">Dados do restaurante</div>
@@ -4642,17 +4667,46 @@ async function renderConfig() {
         </label>
         <div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Desligado, o cliente não acumula nem vê a opção de resgatar pontos no checkout.</div>
       </div>
-      <div class="form-group">
-        <label style="font-weight:600;">Avisos automáticos por WhatsApp</label>
-        <div style="font-size:11px;color:var(--texto-muted);margin-bottom:8px;">Escolha em quais etapas o WhatsApp abre sozinho pra avisar o cliente.</div>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;">
-          <input type="checkbox" id="cfg-aviso-preparando" ${(r.avisos_whatsapp?.preparando !== false) ? 'checked' : ''} style="width:auto;">
-          Avisar quando eu <strong>aceitar o pedido</strong>
-        </label>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <input type="checkbox" id="cfg-aviso-entrega" ${(r.avisos_whatsapp?.entrega !== false) ? 'checked' : ''} style="width:auto;">
-          Avisar quando <strong>sair para entrega</strong>
-        </label>
+      <div class="form-group" style="margin-top:24px;">
+        <label style="font-size:14px;font-weight:700;">Mensagens WhatsApp</label>
+        <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Escolha em quais etapas o WhatsApp abre sozinho pra avisar o cliente, e personalize o texto se quiser.</div>
+      </div>
+      <div class="form-group" style="background:var(--creme);border-radius:10px;padding:14px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <label style="font-weight:700;">Avisar quando aceitar o pedido</label>
+            <div style="font-size:12px;color:var(--texto-muted);margin-top:2px;">Abre o WhatsApp automaticamente com essa mensagem.</div>
+          </div>
+          <label class="toggle-switch" style="flex-shrink:0;margin-left:14px;">
+            <input type="checkbox" id="cfg-aviso-preparando-ativo" ${avisoPrepAtivo ? 'checked' : ''} onchange="document.getElementById('cfg-aviso-preparando-wrap').style.display=this.checked?'block':'none'">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div id="cfg-aviso-preparando-wrap" style="margin-top:12px;${avisoPrepAtivo ? '' : 'display:none;'}">
+          <textarea id="cfg-aviso-preparando-texto" rows="3" style="width:100%;">${esc(avisoPrepTexto || 'Olá %cliente%! Seu pedido #%pedido% foi confirmado e já está sendo preparado.')}</textarea>
+        </div>
+      </div>
+      <div class="form-group" style="background:var(--creme);border-radius:10px;padding:14px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <label style="font-weight:700;">Avisar quando sair para entrega/pedido produzido</label>
+            <div style="font-size:12px;color:var(--texto-muted);margin-top:2px;">Abre o WhatsApp automaticamente com essa mensagem.</div>
+          </div>
+          <label class="toggle-switch" style="flex-shrink:0;margin-left:14px;">
+            <input type="checkbox" id="cfg-aviso-entrega-ativo" ${avisoEntregaAtivo ? 'checked' : ''} onchange="document.getElementById('cfg-aviso-entrega-wrap').style.display=this.checked?'block':'none'">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div id="cfg-aviso-entrega-wrap" style="margin-top:12px;${avisoEntregaAtivo ? '' : 'display:none;'}">
+          <textarea id="cfg-aviso-entrega-texto" rows="3" style="width:100%;">${esc(avisoEntregaTexto || 'Seu pedido #%pedido% está pronto e saiu para entrega! Chegará em breve.')}</textarea>
+        </div>
+      </div>
+      <div class="form-group" style="background:var(--creme);border-radius:10px;padding:14px;">
+        <label style="font-weight:700;">Tags disponíveis nas mensagens</label>
+        <div style="font-size:12px;color:var(--texto-muted);margin-top:6px;line-height:1.6;">
+          <code style="background:var(--branco);padding:2px 6px;border-radius:4px;">%cliente%</code> — nome do cliente<br>
+          <code style="background:var(--branco);padding:2px 6px;border-radius:4px;">%pedido%</code> — código do pedido
+        </div>
       </div>
       <div class="form-group">
         <label>Logo da loja</label>
@@ -4708,6 +4762,21 @@ async function renderConfig() {
         </div>
         <label class="toggle-switch" style="flex-shrink:0;margin-left:14px;">
           <input type="checkbox" id="cfg-som-sistema" ${localStorage.getItem('som_sistema_ativo_' + restauranteAtual.id) !== 'false' ? 'checked' : ''} onchange="alternarSomSistema(this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="form-group" style="margin-top:24px;">
+        <label style="font-size:14px;font-weight:700;">Comandas</label>
+        <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Configurações específicas de quem atende mesa/comanda.</div>
+      </div>
+      <div class="form-group" style="display:flex;justify-content:space-between;align-items:center;background:var(--creme);border-radius:10px;padding:14px;">
+        <div>
+          <label style="font-weight:700;">Enviar pedido da comanda direto pra cozinha</label>
+          <div style="font-size:12px;color:var(--texto-muted);margin-top:2px;">Ligado, o pedido do garçom pula "Aguardando Confirmação" e cai direto em "Em Preparo" — sem precisar aceitar.</div>
+        </div>
+        <label class="toggle-switch" style="flex-shrink:0;margin-left:14px;">
+          <input type="checkbox" id="cfg-comanda-direto-cozinha" ${r.comanda_direto_cozinha === true ? 'checked' : ''}>
           <span class="toggle-slider"></span>
         </label>
       </div>
@@ -4923,12 +4992,13 @@ async function salvarConfig() {
     endereco_estado: document.getElementById('cfg-end-estado').value || null,
     endereco_cep: document.getElementById('cfg-end-cep').value || null,
     retirada_disponivel: document.getElementById('cfg-retirada-disponivel').checked,
+    comanda_direto_cozinha: document.getElementById('cfg-comanda-direto-cozinha').checked,
     tema: document.getElementById('cfg-tema').value,
     som_notificacao: document.getElementById('cfg-som').value,
     fidelidade_ativa: document.getElementById('cfg-fidelidade').checked,
     avisos_whatsapp: {
-      preparando: document.getElementById('cfg-aviso-preparando').checked,
-      entrega: document.getElementById('cfg-aviso-entrega').checked
+      preparando: { ativo: document.getElementById('cfg-aviso-preparando-ativo').checked, texto: document.getElementById('cfg-aviso-preparando-texto').value.trim() || null },
+      entrega: { ativo: document.getElementById('cfg-aviso-entrega-ativo').checked, texto: document.getElementById('cfg-aviso-entrega-texto').value.trim() || null }
     },
     tempo_entrega: document.getElementById('cfg-tempo').value || null,
     pedido_minimo: parseFloat(document.getElementById('cfg-minimo').value) || null,
