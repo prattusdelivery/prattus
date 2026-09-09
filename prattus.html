@@ -4677,6 +4677,9 @@ async function renderConfig() {
   if (!restauranteAtual) return;
   const r = restauranteAtual;
 
+  const { data: privadoCfg } = await db.from('restaurante_privado').select('chave_pix').eq('restaurante_id', r.id).maybeSingle();
+  const chavePixAtual = privadoCfg?.chave_pix || '';
+
   // Compatibilidade: o formato antigo salvava só true/false; o novo salva {ativo, texto}
   const avisoPrepRaw = r.avisos_whatsapp?.preparando;
   const avisoPrepAtivo = typeof avisoPrepRaw === 'object' && avisoPrepRaw !== null ? avisoPrepRaw.ativo !== false : avisoPrepRaw !== false;
@@ -4706,7 +4709,7 @@ async function renderConfig() {
       <div class="form-group">
         <label>Chave Pix (opcional)</label>
         <div style="display:flex;gap:8px;">
-          <input type="text" id="cfg-pix" value="${esc(r.chave_pix||'')}" placeholder="CPF, e-mail, telefone ou chave aleatória" ${meuPapel!=='dono'?'readonly style="background:var(--creme);"':''}>
+          <input type="text" id="cfg-pix" value="${esc(chavePixAtual)}" placeholder="CPF, e-mail, telefone ou chave aleatória" ${meuPapel!=='dono'?'readonly style="background:var(--creme);"':''}>
           ${meuPapel!=='dono' ? `<button type="button" onclick="navigator.clipboard.writeText(document.getElementById('cfg-pix').value);toast('Chave Pix copiada!','ok')" style="padding:0 14px;border-radius:8px;border:1px solid var(--creme-borda);background:none;cursor:pointer;white-space:nowrap;">📋 Copiar</button>` : ''}
         </div>
         ${meuPapel!=='dono' ? '<div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Só o dono pode alterar a chave Pix.</div>' : ''}
@@ -5030,7 +5033,6 @@ async function salvarConfig() {
     whatsapp: document.getElementById('cfg-whats').value,
     instagram_url: document.getElementById('cfg-insta').value || null,
     facebook_url: document.getElementById('cfg-face').value || null,
-    chave_pix: document.getElementById('cfg-pix').value || null,
     logo_url: document.getElementById('cfg-logo').value || null,
     banner_url: document.getElementById('cfg-banner').value || null,
     cor_primaria: document.getElementById('cfg-cor').value,
@@ -5057,6 +5059,10 @@ async function salvarConfig() {
     dias_funcionamento: diasMarcados,
   };
   const { error } = await db.from('restaurantes').update(dados).eq('id', restauranteAtual.id);
+  await db.from('restaurante_privado').upsert(
+    { restaurante_id: restauranteAtual.id, chave_pix: document.getElementById('cfg-pix').value || null },
+    { onConflict: 'restaurante_id' }
+  );
   if (!error) {
     restauranteAtual = { ...restauranteAtual, ...dados };
     document.getElementById('sb-rest-nome').textContent = dados.nome;
@@ -5070,6 +5076,7 @@ async function salvarConfig() {
 
 // ===== TELA PUBLICA (CLIENTE) =====
 async function carregarPublico(restId) {
+  chavePixCache = null;
   let rest, cats, itens, fretes;
   let usandoCache = false;
 
@@ -6337,20 +6344,39 @@ function copiarPixCola() {
   navigator.clipboard.writeText(el.value).then(() => toast('Código Pix copiado!', 'ok'));
 }
 
-function alternarFormaPagamento() {
+let chavePixCache = null;
+
+async function alternarFormaPagamento() {
   const pagamento = document.getElementById('ped-pagamento').value;
   const campoPix = document.getElementById('campo-pix');
   const campoTroco = document.getElementById('campo-troco');
 
   campoTroco.style.display = pagamento === 'Dinheiro' ? 'block' : 'none';
 
-  if (pagamento === 'Pix' && restPublico && restPublico.chave_pix) {
-    const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
-    const total = Math.max(0, sub + (fretesSelecionado||0) - (descontoAtual||0));
-    const codigo = gerarPixCopiaCola(restPublico.chave_pix, restPublico.nome, restPublico.cidade, total, 'SERVIDELIVERY' + Date.now().toString().slice(-8));
-    document.getElementById('pix-copia-cola').value = codigo;
-    document.getElementById('pix-qrcode').src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(codigo);
-    campoPix.style.display = 'block';
+  if (pagamento === 'Pix' && restPublico) {
+    if (chavePixCache === null) {
+      try {
+        const resp = await fetch('/api/consultar-pontos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ acao: 'buscar_pix', restauranteId: restPublico.id })
+        });
+        const data = await resp.json();
+        chavePixCache = data.chavePix || false;
+      } catch (e) {
+        chavePixCache = false;
+      }
+    }
+    if (chavePixCache) {
+      const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
+      const total = Math.max(0, sub + (fretesSelecionado||0) - (descontoAtual||0));
+      const codigo = gerarPixCopiaCola(chavePixCache, restPublico.nome, restPublico.cidade, total, 'SERVIDELIVERY' + Date.now().toString().slice(-8));
+      document.getElementById('pix-copia-cola').value = codigo;
+      document.getElementById('pix-qrcode').src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(codigo);
+      campoPix.style.display = 'block';
+    } else {
+      campoPix.style.display = 'none';
+    }
   } else {
     campoPix.style.display = 'none';
   }
