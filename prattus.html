@@ -1336,6 +1336,21 @@ function dataLocalHoje() {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
+// Sempre calcula em cima do horário de Brasília, não importa o fuso configurado no aparelho —
+// evita bug de "dia/hora errado" quando o dispositivo está com fuso diferente.
+function dataBR(date) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year:'numeric', month:'2-digit', day:'2-digit' }).format(date);
+}
+function diaSemanaBR(date) {
+  const dias = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  const partes = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', weekday: 'short' }).format(date);
+  const mapa = { Sun:'Dom', Mon:'Seg', Tue:'Ter', Wed:'Qua', Thu:'Qui', Fri:'Sex', Sat:'Sáb' };
+  return mapa[partes] || partes;
+}
+function horaBR(date) {
+  return parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', hour: 'numeric', hour12: false }).format(date), 10) % 24;
+}
+
 function esc(str) {
   if (str == null) return '';
   return String(str)
@@ -4013,9 +4028,10 @@ function filtrarClientesLista(termo) {
 }
 
 // ===== RELATORIOS =====
-async function renderRelatorios(dataInicio = null, dataFim = null) {
+async function renderRelatorios(dataInicio = null, dataFim = null, filtroTipo = 'todos') {
   if (!restauranteAtual) return;
   const rid = restauranteAtual.id;
+  relEstado = { inicio: dataInicio, fim: dataFim, tipo: filtroTipo };
 
   const hoje = new Date();
   const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString();
@@ -4031,15 +4047,17 @@ async function renderRelatorios(dataInicio = null, dataFim = null) {
   const periodoAnteriorFim = new Date(new Date(periodoInicio) - 1);
   const periodoAnteriorInicio = new Date(periodoAnteriorFim.getTime() - duracaoMs);
 
-  const [{ data: pedPeriodo }, { data: pedAno }, { data: todosIds }, { data: pedAnterior }] = await Promise.all([
-    db.from('pedidos').select('total,criado_em').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).gte('criado_em', periodoInicio).lte('criado_em', periodoFim),
+  const [{ data: pedPeriodoRaw }, { data: pedAno }, { data: pedAnterior }] = await Promise.all([
+    db.from('pedidos').select('id,total,criado_em,codigo_comanda_id').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).gte('criado_em', periodoInicio).lte('criado_em', periodoFim),
     db.from('pedidos').select('total,criado_em').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).gte('criado_em', inicioAno),
-    db.from('pedidos').select('id').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']),
     db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).gte('criado_em', periodoAnteriorInicio.toISOString()).lte('criado_em', periodoAnteriorFim.toISOString())
   ]);
 
-  const { data: itensPed } = await db.from('pedido_itens').select('nome,quantidade')
-    .in('pedido_id', (todosIds||[]).map(p=>p.id));
+  // Filtro Pedidos/Comanda aplicado por cima dos dados do período
+  const pedPeriodoTudo = pedPeriodoRaw || [];
+  const pedPeriodo = filtroTipo === 'pedidos' ? pedPeriodoTudo.filter(p => !p.codigo_comanda_id)
+    : filtroTipo === 'comandas' ? pedPeriodoTudo.filter(p => !!p.codigo_comanda_id)
+    : pedPeriodoTudo;
 
   const fatPeriodo = (pedPeriodo||[]).reduce((s,p) => s+parseFloat(p.total||0),0);
   const fatAno = (pedAno||[]).reduce((s,p) => s+parseFloat(p.total||0),0);
@@ -4051,27 +4069,33 @@ async function renderRelatorios(dataInicio = null, dataFim = null) {
     ? `${variacaoFat >= 0 ? '↑' : '↓'} ${Math.abs(variacaoFat).toFixed(0)}% vs período anterior`
     : (fatPeriodo > 0 ? 'Sem dados do período anterior pra comparar' : '');
 
-  // Demanda por item
+  // Últimos 7 dias corridos, terminando na data final do período filtrado — sempre no fuso de Brasília
+  const fimBase = new Date(periodoFim);
+  const janela7dias = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(fimBase); d.setDate(d.getDate() - i);
+    janela7dias.push(dataBR(d));
+  }
+  const pedUltimos7 = (pedPeriodo||[]).filter(p => janela7dias.includes(dataBR(new Date(p.criado_em))));
+
+  const dias = janela7dias.map(ds => {
+    const dTemp = new Date(ds + 'T12:00:00'); // meio-dia evita virar de data em conversões
+    const fat = pedUltimos7.filter(p => dataBR(new Date(p.criado_em)) === ds).reduce((s,p) => s+parseFloat(p.total||0),0);
+    return { label: diaSemanaBR(dTemp), fat };
+  });
+  const maxFat = Math.max(...dias.map(d => d.fat), 1);
+
+  // Itens mais pedidos — mesma janela de 7 dias, respeitando o filtro Pedidos/Comanda
+  const { data: itensPed } = await db.from('pedido_itens').select('nome,quantidade,pedido_id')
+    .in('pedido_id', pedUltimos7.map(p=>p.id));
   const demanda = {};
   (itensPed||[]).forEach(i => { demanda[i.nome] = (demanda[i.nome]||0) + i.quantidade; });
   const demandaOrdenada = Object.entries(demanda).sort((a,b) => b[1]-a[1]);
 
-  // Vendas por dia no período
-  const diffDias = Math.min(7, Math.ceil((new Date(periodoFim) - new Date(periodoInicio)) / (1000*60*60*24)) + 1);
-  const dias = [];
-  for (let i = diffDias - 1; i >= 0; i--) {
-    const d = new Date(periodoFim); d.setDate(d.getDate() - i);
-    const ds = d.toISOString().split('T')[0];
-    const fat = (pedPeriodo||[]).filter(p => p.criado_em.startsWith(ds)).reduce((s,p) => s+parseFloat(p.total||0),0);
-    dias.push({ label: ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][d.getDay()], fat });
-  }
-  const maxFat = Math.max(...dias.map(d => d.fat), 1);
-
-  // Horário de pico: quantidade de pedidos por hora do dia
+  // Horário de pico: quantidade de pedidos por hora do dia (fuso de Brasília)
   const contagemHora = new Array(24).fill(0);
   (pedPeriodo||[]).forEach(p => {
-    const h = new Date(p.criado_em).getHours();
-    contagemHora[h]++;
+    contagemHora[horaBR(new Date(p.criado_em))]++;
   });
   const maxPedidosHora = Math.max(...contagemHora, 1);
   const horaPico = contagemHora.indexOf(Math.max(...contagemHora));
@@ -4091,7 +4115,7 @@ async function renderRelatorios(dataInicio = null, dataFim = null) {
           <input type="date" id="rel-fim" value="${dataFim||''}" style="padding:8px 10px;border:1px solid var(--creme-borda);border-radius:8px;font-size:13px;width:100%;">
         </div>
         <button class="btn btn-laranja" style="width:auto;padding:10px 20px;" onclick="filtrarRelatorio()">Filtrar</button>
-        <button class="btn btn-outline" style="width:auto;padding:10px 20px;" onclick="renderRelatorios()">Este mês</button>
+        <button class="btn btn-outline" style="width:auto;padding:10px 20px;" onclick="relatorioEsteMes()">Este mês</button>
         <button class="btn btn-outline" style="width:auto;padding:10px 20px;" onclick="exportarRelatorio()">⬇ Exportar</button>
       </div>
     </div>
@@ -4104,7 +4128,14 @@ async function renderRelatorios(dataInicio = null, dataFim = null) {
     </div>
     <div class="grid-2">
       <div class="card">
-        <div class="card-titulo">Vendas — últimos ${diffDias} dias</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+          <div class="card-titulo" style="margin-bottom:0;">Vendas — últimos 7 dias</div>
+          <div style="display:flex;gap:4px;">
+            <button class="btn-sm" onclick="filtrarRelatorioTipo('todos')" style="padding:4px 10px;font-size:11px;${filtroTipo==='todos'?'background:var(--laranja);color:#fff;border:none;':''}">Todos</button>
+            <button class="btn-sm" onclick="filtrarRelatorioTipo('pedidos')" style="padding:4px 10px;font-size:11px;${filtroTipo==='pedidos'?'background:var(--laranja);color:#fff;border:none;':''}">Pedidos</button>
+            <button class="btn-sm" onclick="filtrarRelatorioTipo('comandas')" style="padding:4px 10px;font-size:11px;${filtroTipo==='comandas'?'background:var(--laranja);color:#fff;border:none;':''}">Comanda</button>
+          </div>
+        </div>
         <div class="barras">
           ${dias.map(d => `
             <div class="barra-wrap">
@@ -4115,7 +4146,14 @@ async function renderRelatorios(dataInicio = null, dataFim = null) {
         </div>
       </div>
       <div class="card">
-        <div class="card-titulo">Itens mais pedidos</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+          <div class="card-titulo" style="margin-bottom:0;">Itens mais pedidos — últimos 7 dias</div>
+          <div style="display:flex;gap:4px;">
+            <button class="btn-sm" onclick="filtrarRelatorioTipo('todos')" style="padding:4px 10px;font-size:11px;${filtroTipo==='todos'?'background:var(--laranja);color:#fff;border:none;':''}">Todos</button>
+            <button class="btn-sm" onclick="filtrarRelatorioTipo('pedidos')" style="padding:4px 10px;font-size:11px;${filtroTipo==='pedidos'?'background:var(--laranja);color:#fff;border:none;':''}">Pedidos</button>
+            <button class="btn-sm" onclick="filtrarRelatorioTipo('comandas')" style="padding:4px 10px;font-size:11px;${filtroTipo==='comandas'?'background:var(--laranja);color:#fff;border:none;':''}">Comanda</button>
+          </div>
+        </div>
         ${demandaOrdenada.length === 0 ? '<div class="empty-txt">Sem dados ainda</div>' :
           demandaOrdenada.slice(0,6).map(([nome, qtd]) => `
             <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--creme-borda);">
@@ -4150,11 +4188,24 @@ async function renderRelatorios(dataInicio = null, dataFim = null) {
   `;
 }
 
+let relEstado = { inicio: null, fim: null, tipo: 'todos' };
+
 function filtrarRelatorio() {
   const inicio = document.getElementById('rel-inicio').value;
   const fim = document.getElementById('rel-fim').value;
   if (!inicio) { toast('Selecione a data inicial!', 'erro'); return; }
-  renderRelatorios(inicio, fim || inicio);
+  relEstado.inicio = inicio; relEstado.fim = fim || inicio;
+  renderRelatorios(relEstado.inicio, relEstado.fim, relEstado.tipo);
+}
+
+function filtrarRelatorioTipo(tipo) {
+  relEstado.tipo = tipo;
+  renderRelatorios(relEstado.inicio, relEstado.fim, tipo);
+}
+
+function relatorioEsteMes() {
+  relEstado = { inicio: null, fim: null, tipo: 'todos' };
+  renderRelatorios();
 }
 
 function gerarCSV(linhas) {
