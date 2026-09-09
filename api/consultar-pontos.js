@@ -1,4 +1,6 @@
 // Devolve os pontos de um cliente, protegido por senha — impede que qualquer um veja/resgate pontos de outra pessoa.
+// Também devolve a chave Pix de UM restaurante específico (pra montar o QR code no checkout),
+// sem expor a tabela restaurante_privado inteira pra consulta livre do navegador.
 import crypto from 'crypto';
 
 const SUPABASE_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
@@ -20,21 +22,33 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método não permitido' });
   }
+  if (!process.env.SUPABASE_SERVICE_KEY) {
+    return res.status(500).json({ error: 'Chave de serviço não configurada' });
+  }
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'apikey': process.env.SUPABASE_SERVICE_KEY,
+    'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
+  };
 
   try {
-    const { restauranteId, telefone, senha } = req.body || {};
+    const { acao, restauranteId, telefone, senha } = req.body || {};
+
+    if (acao === 'buscar_pix') {
+      if (!restauranteId) return res.status(400).json({ error: 'restauranteId é obrigatório' });
+      const resp = await fetch(
+        `${SUPABASE_URL}/rest/v1/restaurante_privado?restaurante_id=eq.${restauranteId}&select=chave_pix`,
+        { headers }
+      );
+      const data = await resp.json();
+      const chave = Array.isArray(data) && data[0] ? data[0].chave_pix : null;
+      return res.status(200).json({ chavePix: chave || null });
+    }
+
     if (!restauranteId || !telefone) {
       return res.status(400).json({ error: 'Dados incompletos' });
     }
-    if (!process.env.SUPABASE_SERVICE_KEY) {
-      return res.status(500).json({ error: 'Chave de serviço não configurada' });
-    }
-
-    const headers = {
-      'Content-Type': 'application/json',
-      'apikey': process.env.SUPABASE_SERVICE_KEY,
-      'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
-    };
 
     const resp = await fetch(
       `${SUPABASE_URL}/rest/v1/clientes?restaurante_id=eq.${restauranteId}&telefone=eq.${encodeURIComponent(telefone)}&select=id,pontos,senha_hash`,
