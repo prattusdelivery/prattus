@@ -1331,6 +1331,15 @@ function fimDoDiaLocal(dataBase) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0, 0).toISOString();
 }
 
+// Datas que vêm do banco (criado_em, aceito_em, etc.) chegam sem indicação de fuso —
+// o JavaScript, por padrão, trataria isso como horário local (errado). Essa função
+// força a leitura correta como UTC antes de qualquer conversão pro fuso de Brasília.
+function dataDoBanco(valor) {
+  if (!valor) return null;
+  const jaTemFuso = /Z$|[+-]\d{2}:\d{2}$/.test(valor);
+  return new Date(jaTemFuso ? valor : valor + 'Z');
+}
+
 function dataLocalHoje() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -1714,7 +1723,7 @@ async function exportarAssinantesCSV() {
     linhas.push([
       r.nome, protegido.email || '', protegido.cpfCnpj || '', r.whatsapp||'', statusDeSA(r), r.plano_tipo||'',
       r.plano_tipo ? 'R$ '+valorPlano[r.plano_tipo]?.toFixed(2).replace('.',',') : '',
-      new Date(r.criado_em).toLocaleDateString('pt-BR'),
+      dataDoBanco(r.criado_em).toLocaleDateString('pt-BR'),
       fatRest.toFixed(2).replace('.',','), pedRest.length
     ]);
   });
@@ -1903,7 +1912,7 @@ async function carregarSuperAdmin() {
     meses.push({ ano: d.getFullYear(), mes: d.getMonth(), label: d.toLocaleDateString('pt-BR', {month:'short'}).replace('.','') });
   }
   const contagemMeses = meses.map(m => (restaurantes||[]).filter(r => {
-    const dr = new Date(r.criado_em);
+    const dr = dataDoBanco(r.criado_em);
     return dr.getFullYear() === m.ano && dr.getMonth() === m.mes;
   }).length);
   const maxContagem = Math.max(1, ...contagemMeses);
@@ -1928,7 +1937,7 @@ async function carregarSuperAdmin() {
 }
 
 function statusDeSA(r) {
-  const diasDesde = Math.floor((Date.now() - new Date(r.criado_em)) / 86400000);
+  const diasDesde = Math.floor((Date.now() - dataDoBanco(r.criado_em)) / 86400000);
   const limiteTeste = 14 + (r.trial_extra_dias || 0);
   if (r.plano_ativo) return 'ativo';
   if (r.plano_tipo) return 'cancelado'; // já foi assinante de verdade, mas não está ativo agora
@@ -1939,7 +1948,7 @@ function statusDeSA(r) {
 function cardRestauranteSA(r) {
   const pedRest = (pedidosSA||[]).filter(p => p.restaurante_id === r.id);
   const fatRest = pedRest.filter(p => p.status === 'entregue').reduce((s,p) => s + parseFloat(p.total||0), 0);
-  const diasDesde = Math.floor((Date.now() - new Date(r.criado_em)) / 86400000);
+  const diasDesde = Math.floor((Date.now() - dataDoBanco(r.criado_em)) / 86400000);
   const limiteTeste = 14 + (r.trial_extra_dias || 0);
   const status = statusDeSA(r);
   const badges = {
@@ -1960,7 +1969,7 @@ function cardRestauranteSA(r) {
         <div style="width:38px;height:38px;border-radius:50%;background:var(--laranja);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex-shrink:0;">${r.nome.charAt(0).toUpperCase()}</div>
         <div style="flex:1;min-width:0;">
           <div style="font-size:14px;font-weight:600;color:var(--branco);">${r.nome}</div>
-          <div style="font-size:12px;color:rgba(255,255,255,0.4);">WhatsApp: ${r.whatsapp||'—'} · Cadastrado em ${new Date(r.criado_em).toLocaleDateString('pt-BR')}</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.4);">WhatsApp: ${r.whatsapp||'—'} · Cadastrado em ${dataDoBanco(r.criado_em).toLocaleDateString('pt-BR')}</div>
           <div style="font-size:12px;font-weight:600;color:${badges.cor};margin-top:2px;">${badges.txt}</div>
         </div>
         <div style="text-align:right;flex-shrink:0;">
@@ -2819,7 +2828,7 @@ async function renderDashboard() {
           <div class="pedido-card">
             <div class="pedido-info">
               <div class="pedido-num">#${p.id.slice(-4).toUpperCase()} — ${esc(p.observacao?.split('Nome:')[1]?.split('\n')[0]?.trim() || p.clientes?.nome || 'Cliente')}</div>
-              <div class="pedido-cliente">${esc(p.bairro)} · ${new Date(p.criado_em).toLocaleString('pt-BR')}</div>
+              <div class="pedido-cliente">${esc(p.bairro)} · ${dataDoBanco(p.criado_em).toLocaleString('pt-BR')}</div>
             </div>
             <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
             <span class="badge badge-${p.status === 'novo' ? 'novo' : p.status === 'preparando' ? 'prep' : p.status === 'entrega' ? 'entrega' : 'entregue'}">${p.status}</span>
@@ -2836,7 +2845,7 @@ async function renderDashboard() {
           <div class="pedido-card">
             <div class="pedido-info">
               <div class="pedido-num">#${p.id.slice(-4).toUpperCase()}${mesaMatch ? ' — Mesa '+esc(mesaMatch[1]) : ''}</div>
-              <div class="pedido-cliente">${new Date(p.criado_em).toLocaleString('pt-BR')}</div>
+              <div class="pedido-cliente">${dataDoBanco(p.criado_em).toLocaleString('pt-BR')}</div>
             </div>
             <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
             <span class="badge badge-${p.status === 'novo' ? 'novo' : p.status === 'preparando' ? 'prep' : p.status === 'entrega' ? 'entrega' : 'entregue'}">${(p.status === 'entrega' || p.status === 'entregue') ? 'Finalizado' : p.status}</span>
@@ -2964,7 +2973,7 @@ async function renderComandas() {
     .select('*').eq('restaurante_id', restauranteAtual.id).eq('status', 'em_uso').order('aberta_em');
 
   const mesasComTotal = (mesasAbertas||[]).map(m => {
-    const pedidosDaMesa = lista.filter(p => p.codigo_comanda_id === m.id && new Date(p.criado_em) >= new Date(m.aberta_em));
+    const pedidosDaMesa = lista.filter(p => p.codigo_comanda_id === m.id && dataDoBanco(p.criado_em) >= dataDoBanco(m.aberta_em));
     const total = pedidosDaMesa.reduce((s,p) => s + parseFloat(p.total||0), 0);
     return { ...m, total, qtdPedidos: pedidosDaMesa.length };
   });
@@ -2982,7 +2991,7 @@ async function renderComandas() {
         <div class="frete-row">
           <div style="flex:1;">
             <div style="font-size:14px;font-weight:600;">Mesa ${esc(m.mesa)}</div>
-            <div style="font-size:12px;color:var(--texto-muted);">${m.qtdPedidos} pedido(s) · aberta desde ${new Date(m.aberta_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
+            <div style="font-size:12px;color:var(--texto-muted);">${m.qtdPedidos} pedido(s) · aberta desde ${dataDoBanco(m.aberta_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
           </div>
           <div style="font-size:15px;font-weight:700;color:var(--laranja);margin-right:12px;">R$ ${m.total.toFixed(2).replace('.',',')}</div>
           <a href="?comanda=${m.id}" class="btn-sm" style="text-decoration:none;">Ver / Fechar conta</a>
@@ -3039,7 +3048,7 @@ async function renderAvaliacoes() {
           <div class="frete-row" style="${ruim?'background:#FBE9E7;border-radius:8px;padding:10px;margin-bottom:6px;':''}">
             <div style="flex:1;">
               <div style="font-size:15px;">${'⭐'.repeat(p.avaliacao)}${'☆'.repeat(5-p.avaliacao)}</div>
-              <div style="font-size:12px;color:var(--texto-muted);margin-top:2px;">#${p.id.slice(-4).toUpperCase()} · ${new Date(p.criado_em).toLocaleDateString('pt-BR')} · R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
+              <div style="font-size:12px;color:var(--texto-muted);margin-top:2px;">#${p.id.slice(-4).toUpperCase()} · ${dataDoBanco(p.criado_em).toLocaleDateString('pt-BR')} · R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
               ${itensTxt ? `<div style="font-size:12px;color:var(--texto-muted);margin-top:2px;">${itensTxt}</div>` : ''}
             </div>
             ${ruim && telefone ? `<button class="btn-sm" onclick="window.open('https://wa.me/${telefone.replace(/\D/g,'')}?text=${encodeURIComponent('Olá! Vimos que sua última experiência não foi das melhores. Podemos conversar sobre o que houve?')}','wa_servidelivery')">💬 Entrar em contato</button>` : ''}
@@ -3077,7 +3086,7 @@ function imprimirComanda(p) {
   document.getElementById('comanda-print').innerHTML = `
     <h2>${esc(restauranteAtual?.nome) || 'Pedido'}</h2>
     <div style="text-align:center;">Pedido #${p.id.slice(-4).toUpperCase()}</div>
-    <div style="text-align:center;">${new Date(p.criado_em).toLocaleString('pt-BR')}</div>
+    <div style="text-align:center;">${dataDoBanco(p.criado_em).toLocaleString('pt-BR')}</div>
     <div class="cp-linha"></div>
     <div><strong>${esc(modo)}</strong></div>
     <div>Cliente: ${esc(nome)}</div>
@@ -4076,11 +4085,11 @@ async function renderRelatorios(dataInicio = null, dataFim = null, filtroTipo = 
     const d = new Date(fimBase); d.setDate(d.getDate() - i);
     janela7dias.push(dataBR(d));
   }
-  const pedUltimos7 = (pedPeriodo||[]).filter(p => janela7dias.includes(dataBR(new Date(p.criado_em))));
+  const pedUltimos7 = (pedPeriodo||[]).filter(p => janela7dias.includes(dataBR(dataDoBanco(p.criado_em))));
 
   const dias = janela7dias.map(ds => {
     const dTemp = new Date(ds + 'T12:00:00'); // meio-dia evita virar de data em conversões
-    const fat = pedUltimos7.filter(p => dataBR(new Date(p.criado_em)) === ds).reduce((s,p) => s+parseFloat(p.total||0),0);
+    const fat = pedUltimos7.filter(p => dataBR(dataDoBanco(p.criado_em)) === ds).reduce((s,p) => s+parseFloat(p.total||0),0);
     return { label: diaSemanaBR(dTemp), fat };
   });
   const maxFat = Math.max(...dias.map(d => d.fat), 1);
@@ -4095,7 +4104,7 @@ async function renderRelatorios(dataInicio = null, dataFim = null, filtroTipo = 
   // Horário de pico: quantidade de pedidos por hora do dia (fuso de Brasília)
   const contagemHora = new Array(24).fill(0);
   (pedPeriodo||[]).forEach(p => {
-    contagemHora[horaBR(new Date(p.criado_em))]++;
+    contagemHora[horaBR(dataDoBanco(p.criado_em))]++;
   });
   const maxPedidosHora = Math.max(...contagemHora, 1);
   const horaPico = contagemHora.indexOf(Math.max(...contagemHora));
@@ -4300,7 +4309,7 @@ async function exportarPedidosCSV() {
   const { data: pedidos } = await db.from('pedidos').select('*').eq('restaurante_id', restauranteAtual.id).order('criado_em', {ascending:false}).limit(1000);
   const linhas = [['Data','Subtotal','Frete','Total','Status','Avaliação']];
   (pedidos||[]).forEach(p => linhas.push([
-    new Date(p.criado_em).toLocaleString('pt-BR'), parseFloat(p.subtotal||0).toFixed(2).replace('.',','),
+    dataDoBanco(p.criado_em).toLocaleString('pt-BR'), parseFloat(p.subtotal||0).toFixed(2).replace('.',','),
     parseFloat(p.frete||0).toFixed(2).replace('.',','), parseFloat(p.total||0).toFixed(2).replace('.',','),
     p.status||'', p.avaliacao||''
   ]));
@@ -4508,7 +4517,7 @@ async function carregarHistoricoPeriodo() {
             <div class="pedido-num">#${p.id.slice(-4).toUpperCase()} — ${esc(nome)}</div>
             <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
           </div>
-          <div style="font-size:12px;color:var(--texto-muted);margin-bottom:4px;">${new Date(p.criado_em).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})} ${new Date(p.criado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})} · ${esc(p.endereco||p.bairro||'')}</div>
+          <div style="font-size:12px;color:var(--texto-muted);margin-bottom:4px;">${dataDoBanco(p.criado_em).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})} ${dataDoBanco(p.criado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})} · ${esc(p.endereco||p.bairro||'')}</div>
           <div style="font-size:13px;">${itensTxt}</div>
         </div>
       `;
@@ -4584,7 +4593,7 @@ async function renderEquipe() {
           <div class="frete-row">
             <div style="flex:1;">
               <div style="font-size:14px;font-weight:700;">${esc(f.nome)}${f.funcao ? ` <span style="font-weight:400;color:var(--texto-muted);">— ${esc(f.funcao)}</span>` : ''}</div>
-              <div style="font-size:12px;color:var(--texto-muted);">Usuário: ${esc(f.usuario||'—')} · Adicionado em ${new Date(f.criado_em).toLocaleDateString('pt-BR')}</div>
+              <div style="font-size:12px;color:var(--texto-muted);">Usuário: ${esc(f.usuario||'—')} · Adicionado em ${dataDoBanco(f.criado_em).toLocaleDateString('pt-BR')}</div>
             </div>
             <button class="btn-sm perigo" onclick="removerFuncionario('${f.id}')">Remover acesso</button>
           </div>
@@ -5494,7 +5503,7 @@ async function verificarAvaliacaoPendente() {
   try { meta = JSON.parse(raw); } catch (e) { return; }
   if (!meta.pedidoId || !meta.criado_em) return;
 
-  const passou = Date.now() - new Date(meta.criado_em).getTime();
+  const passou = Date.now() - dataDoBanco(meta.criado_em).getTime();
   if (passou < TEMPO_MINIMO_AVALIACAO_MS) return;
 
   const { data: pedido } = await db.from('pedidos').select('avaliacao').eq('id', meta.pedidoId).maybeSingle();
@@ -5576,7 +5585,7 @@ function statusTrial(rest) {
   if (rest.graca_ativa_ate && new Date(rest.graca_ativa_ate) > new Date()) {
     return { trial: false, bloqueado: false, emGraca: true };
   }
-  const diasPassados = Math.floor((new Date() - new Date(rest.criado_em)) / 86400000);
+  const diasPassados = Math.floor((new Date() - dataDoBanco(rest.criado_em)) / 86400000);
   const diasRestantes = 14 + (rest.trial_extra_dias || 0) - diasPassados;
   return { trial: true, bloqueado: diasRestantes <= 0, diasRestantes: Math.max(0, diasRestantes) };
 }
@@ -6033,7 +6042,7 @@ async function mostrarAcompanhamento(pedidoId) {
   // não tem permissão de escrita; quem finaliza de verdade é o painel do dono).
   let statusExibicao = pedido?.status;
   if (pedido?.status === 'entrega' && pedido?.saiu_entrega_em) {
-    const decorridoMs = Date.now() - new Date(pedido.saiu_entrega_em).getTime();
+    const decorridoMs = Date.now() - dataDoBanco(pedido.saiu_entrega_em).getTime();
     if (decorridoMs > 30*60*1000) statusExibicao = 'entregue';
   }
 
@@ -6082,7 +6091,7 @@ async function mostrarAcompanhamento(pedidoId) {
         </div>
       </div>
 
-      ${pedido && (Date.now() - new Date(pedido.criado_em).getTime() > TEMPO_MINIMO_AVALIACAO_MS) ? (
+      ${pedido && (Date.now() - dataDoBanco(pedido.criado_em).getTime() > TEMPO_MINIMO_AVALIACAO_MS) ? (
         pedido.avaliacao ? `
         <div style="background:var(--branco);border-radius:16px;padding:20px;border:1px solid var(--creme-borda);margin-bottom:16px;text-align:center;">
           <div style="font-size:13px;color:var(--texto-muted);margin-bottom:6px;">Sua avaliação</div>
