@@ -5200,9 +5200,11 @@ async function carregarPublico(restId) {
   }
 
   // Nota média (busca à parte, pra não travar o carregamento do resto)
-  db.from('pedidos').select('avaliacao').eq('restaurante_id', rest.id).not('avaliacao', 'is', null).then(({data: avals}) => {
-    if (avals && avals.length > 0) {
-      const media = avals.reduce((s,p) => s + p.avaliacao, 0) / avals.length;
+  fetch('/api/consultar-pontos', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ acao: 'media_avaliacoes', restauranteId: rest.id })
+  }).then(r => r.json()).then(({media}) => {
+    if (media != null) {
       const span = document.createElement('span');
       span.style.cssText = 'background:rgba(255,255,255,0.15);padding:4px 10px;border-radius:20px;font-size:12px;color:#fff;';
       span.textContent = `⭐ ${media.toFixed(1)}`;
@@ -5506,7 +5508,11 @@ async function verificarAvaliacaoPendente() {
   const passou = Date.now() - dataDoBanco(meta.criado_em).getTime();
   if (passou < TEMPO_MINIMO_AVALIACAO_MS) return;
 
-  const { data: pedido } = await db.from('pedidos').select('avaliacao').eq('id', meta.pedidoId).maybeSingle();
+  const respPed = await fetch('/api/consultar-pontos', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ acao: 'acompanhar_pedido', pedidoId: meta.pedidoId })
+  });
+  const { pedido } = await respPed.json();
   if (!pedido || pedido.avaliacao) return;
 
   pedidoParaAvaliarId = meta.pedidoId;
@@ -6033,9 +6039,13 @@ function buscarItens(termo) {
 // ===== ACOMPANHAMENTO DO PEDIDO =====
 let acompanhamentoInterval = null;
 async function mostrarAcompanhamento(pedidoId) {
-  const { data: pedido } = await db.from('pedidos')
-    .select('*,pedido_itens(nome,quantidade,preco,observacao)')
-    .eq('id', pedidoId).single();
+  const resp = await fetch('/api/consultar-pontos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ acao: 'acompanhar_pedido', pedidoId })
+  });
+  const dataResp = await resp.json();
+  const pedido = dataResp.pedido || null;
 
   // Depois de 30min "saiu para entrega", mostra como entregue pro cliente mesmo que o
   // dono ainda não tenha clicado em nada — só na exibição, sem alterar o banco (o cliente
