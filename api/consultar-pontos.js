@@ -1,6 +1,8 @@
 // Devolve os pontos de um cliente, protegido por senha — impede que qualquer um veja/resgate pontos de outra pessoa.
 // Também devolve a chave Pix de UM restaurante específico (pra montar o QR code no checkout),
-// sem expor a tabela restaurante_privado inteira pra consulta livre do navegador.
+// o acompanhamento de UM pedido específico (pro cliente ver o status sem estar logado),
+// e a nota média de avaliação de um restaurante — sem expor as tabelas inteiras (pedidos,
+// restaurante_privado) pra consulta livre do navegador.
 import crypto from 'crypto';
 
 const SUPABASE_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
@@ -33,7 +35,7 @@ export default async function handler(req, res) {
   };
 
   try {
-    const { acao, restauranteId, telefone, senha } = req.body || {};
+    const { acao, restauranteId, telefone, senha, pedidoId } = req.body || {};
 
     if (acao === 'buscar_pix') {
       if (!restauranteId) return res.status(400).json({ error: 'restauranteId é obrigatório' });
@@ -44,6 +46,31 @@ export default async function handler(req, res) {
       const data = await resp.json();
       const chave = Array.isArray(data) && data[0] ? data[0].chave_pix : null;
       return res.status(200).json({ chavePix: chave || null });
+    }
+
+    if (acao === 'acompanhar_pedido') {
+      if (!pedidoId) return res.status(400).json({ error: 'pedidoId é obrigatório' });
+      const resp = await fetch(
+        `${SUPABASE_URL}/rest/v1/pedidos?id=eq.${pedidoId}&select=id,status,saiu_entrega_em,criado_em,total,avaliacao,pedido_itens(nome,quantidade,preco,observacao)`,
+        { headers }
+      );
+      const data = await resp.json();
+      const pedido = Array.isArray(data) && data[0] ? data[0] : null;
+      if (!pedido) return res.status(404).json({ error: 'Pedido não encontrado' });
+      return res.status(200).json({ pedido });
+    }
+
+    if (acao === 'media_avaliacoes') {
+      if (!restauranteId) return res.status(400).json({ error: 'restauranteId é obrigatório' });
+      const resp = await fetch(
+        `${SUPABASE_URL}/rest/v1/pedidos?restaurante_id=eq.${restauranteId}&avaliacao=not.is.null&select=avaliacao`,
+        { headers }
+      );
+      const data = await resp.json();
+      const avals = Array.isArray(data) ? data : [];
+      if (avals.length === 0) return res.status(200).json({ media: null, quantidade: 0 });
+      const media = avals.reduce((s, p) => s + p.avaliacao, 0) / avals.length;
+      return res.status(200).json({ media, quantidade: avals.length });
     }
 
     if (!restauranteId || !telefone) {
