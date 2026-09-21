@@ -59,7 +59,7 @@ export default async function handler(req, res) {
         value: valor,
         nextDueDate: hoje,
         cycle: ciclo,
-        description: 'Assinatura Prattus - ' + nome,
+        description: 'Assinatura ServiDelivery - ' + nome,
         externalReference: restauranteId
       })
     });
