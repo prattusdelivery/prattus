@@ -1,3 +1,4 @@
+import { reportarErro } from './_sentry.js';
 // Cria ou remove o acesso de um funcionário ao restaurante, só se quem chamar for o dono de verdade.
 const SUPABASE_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
 
@@ -86,6 +87,7 @@ export default async function handler(req, res) {
 
     return res.status(400).json({ error: 'Ação desconhecida' });
   } catch (e) {
+    await reportarErro(e, 'equipe');
     return res.status(500).json({ error: 'Erro interno', detalhe: e.message });
   }
 }

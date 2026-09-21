@@ -1,5 +1,6 @@
 // Registra a nota (1 a 5) que o cliente deu pro pedido, e alerta o dono se for nota baixa.
 import webpush from 'web-push';
+import { reportarErro } from './_sentry.js';
 
 const SUPABASE_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
 
@@ -57,6 +58,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ ok: true });
   } catch (e) {
+    await reportarErro(e, 'avaliar-pedido');
     return res.status(500).json({ error: 'Erro interno', detalhe: e.message });
   }
 }

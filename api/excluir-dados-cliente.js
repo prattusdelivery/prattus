@@ -4,6 +4,7 @@
 // Antes de apagar, desliga o cliente dos pedidos antigos (sem apagar os pedidos em si),
 // assim relatórios, faturamento e uso de cupons continuam intactos.
 import crypto from 'crypto';
+import { reportarErro } from './_sentry.js';
 
 const SUPABASE_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
 
@@ -73,6 +74,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ ok: true, encontrado: true });
   } catch (e) {
+    await reportarErro(e, 'excluir-dados-cliente');
     return res.status(500).json({ error: 'Erro interno', detalhe: e.message });
   }
 }

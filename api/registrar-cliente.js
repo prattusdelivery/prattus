@@ -1,3 +1,4 @@
+import { reportarErro } from './_sentry.js';
 // Busca (ou cria) o cliente pelo telefone e atualiza fidelidade (gasto total, pedidos, pontos).
 // Roda no servidor com a chave de serviço, pra nunca expor dados de clientes publicamente.
 const SUPABASE_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
@@ -65,6 +66,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ ok: true, clienteId });
   } catch (e) {
+    await reportarErro(e, 'registrar-cliente');
     return res.status(500).json({ error: 'Erro interno', detalhe: e.message });
   }
 }

@@ -1,3 +1,4 @@
+import { reportarErro } from './_sentry.js';
 // Cria (ou reaproveita) um cliente na Asaas e gera uma assinatura recorrente,
 // devolvendo o link de pagamento (checkoutUrl) pro restaurante pagar.
 export default async function handler(req, res) {
@@ -95,6 +96,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ ok: true, checkoutUrl, subscriptionId: subData.id });
   } catch (e) {
+    await reportarErro(e, 'criar-cobranca');
     return res.status(500).json({ error: 'Erro interno', detalhe: e.message });
   }
 }

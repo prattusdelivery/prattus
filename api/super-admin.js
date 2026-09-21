@@ -1,3 +1,4 @@
+import { reportarErro } from './_sentry.js';
 // Devolve detalhes protegidos de uma loja, ou ativa/desativa/estende teste — só se quem chamar for o Super Admin de verdade.
 const SUPABASE_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
 const ADMIN_EMAIL = 'alessandro.reval@hotmail.com';
@@ -178,6 +179,7 @@ export default async function handler(req, res) {
 
     return res.status(400).json({ error: 'Ação desconhecida' });
   } catch (e) {
+    await reportarErro(e, 'super-admin');
     return res.status(500).json({ error: 'Erro interno', detalhe: e.message });
   }
 }

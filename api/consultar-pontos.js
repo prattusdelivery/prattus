@@ -4,6 +4,7 @@
 // e a nota média de avaliação de um restaurante — sem expor as tabelas inteiras (pedidos,
 // restaurante_privado) pra consulta livre do navegador.
 import crypto from 'crypto';
+import { reportarErro } from './_sentry.js';
 
 const SUPABASE_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
 
@@ -116,6 +117,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ pontos: cliente.pontos || 0 });
   } catch (e) {
+    await reportarErro(e, 'consultar-pontos');
     return res.status(500).json({ error: 'Erro interno', detalhe: e.message });
   }
 }

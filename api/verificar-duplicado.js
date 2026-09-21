@@ -1,3 +1,4 @@
+import { reportarErro } from './_sentry.js';
 // Confere se um CPF/CNPJ ou WhatsApp já usou o teste grátis antes, sem precisar
 // abrir leitura pública nenhuma na tabela protegida de documentos.
 const SUPABASE_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
@@ -37,6 +38,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ duplicado });
   } catch (e) {
+    await reportarErro(e, 'verificar-duplicado');
     return res.status(500).json({ error: 'Erro interno', detalhe: e.message });
   }
 }

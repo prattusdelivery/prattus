@@ -2,6 +2,7 @@
 // Também envia o e-mail de boas-vindas com o link do vídeo tutorial pra quem acabou de se cadastrar.
 import webpush from 'web-push';
 import nodemailer from 'nodemailer';
+import { reportarErro } from './_sentry.js';
 
 const SUPABASE_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
 
@@ -96,6 +97,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ ok: true, enviados });
   } catch (e) {
+    await reportarErro(e, 'notificar');
     return res.status(500).json({ error: 'Erro interno', detalhe: e.message });
   }
 }

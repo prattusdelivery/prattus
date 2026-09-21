@@ -1,3 +1,4 @@
+import { reportarErro } from './_sentry.js';
 // Resolve o "usuário" de um funcionário pro e-mail interno usado por baixo dos panos no login.
 // Não retorna nada além do e-mail — a senha continua sendo checada normalmente pelo Supabase Auth no passo seguinte, no navegador do usuário.
 const SUPABASE_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
@@ -31,6 +32,7 @@ export default async function handler(req, res) {
     const emailInterno = `${usuarioLimpo}@${data[0].restaurante_id}.equipe.servidelivery.internal`;
     return res.status(200).json({ email: emailInterno });
   } catch (e) {
+    await reportarErro(e, 'login-funcionario');
     return res.status(500).json({ error: 'Erro interno', detalhe: e.message });
   }
 }
