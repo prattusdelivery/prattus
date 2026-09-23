@@ -93,6 +93,12 @@ function enviarParabens(telefone, nome) {
   window.open(`https://wa.me/${telefone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, 'wa_servidelivery');
 }
 
+function enviarRecuperacao(telefone, nome) {
+  if (!telefone) { toast('Esse cliente não tem telefone cadastrado.', 'erro'); return; }
+  const msg = `Oi, ${nome}! Faz um tempinho que você não pede com a gente e sentimos sua falta 💛 Bora dar uma olhada no cardápio de novo?`;
+  window.open(`https://wa.me/${telefone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, 'wa_servidelivery');
+}
+
 async function renderClientes() {
   if (!restauranteAtual) return;
   const { data: clientes } = await db.from('clientes').select('*')
@@ -102,6 +108,27 @@ async function renderClientes() {
     .eq('restaurante_id', restauranteAtual.id).order('pontos_necessarios');
   const { data: itensCardapio } = await db.from('itens').select('id,nome,preco').is('excluido_em', null)
     .eq('restaurante_id', restauranteAtual.id).order('nome');
+
+  // Clientes sumindo: 2+ pedidos, sem comprar há 15 dias ou mais
+  const { data: pedidosRecentes } = await db.from('pedidos').select('cliente_id,criado_em')
+    .eq('restaurante_id', restauranteAtual.id).not('cliente_id', 'is', null)
+    .in('status', ['preparando','entrega','entregue']);
+  const ultimaCompraPorCliente = {};
+  (pedidosRecentes||[]).forEach(p => {
+    const data = dataDoBanco(p.criado_em);
+    if (!ultimaCompraPorCliente[p.cliente_id] || data > ultimaCompraPorCliente[p.cliente_id]) {
+      ultimaCompraPorCliente[p.cliente_id] = data;
+    }
+  });
+  const agora = new Date();
+  const clientesSumindo = (clientes||[])
+    .filter(c => (c.total_pedidos||0) >= 2 && ultimaCompraPorCliente[c.id])
+    .map(c => {
+      const dias = Math.floor((agora - ultimaCompraPorCliente[c.id]) / (1000*60*60*24));
+      return { ...c, diasSemComprar: dias };
+    })
+    .filter(c => c.diasSemComprar >= 15)
+    .sort((a,b) => b.diasSemComprar - a.diasSemComprar);
 
   const aniversariantes = (clientes||[]).filter(c => estaAniversarioProximo(c.data_nascimento, 7));
 
@@ -116,6 +143,22 @@ async function renderClientes() {
             <div style="font-size:12px;color:var(--texto-muted);">${new Date(c.data_nascimento+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'long'})}</div>
           </div>
           <button class="btn-sm" onclick="enviarParabens('${c.telefone}','${esc(c.nome).replace(/'/g,"\\'")}')">🎉 Enviar parabéns</button>
+        </div>
+      `).join('')}
+    </div>
+    ` : ''}
+
+    ${clientesSumindo.length > 0 ? `
+    <div class="card" style="margin-bottom:20px;background:#FFF4E5;border:1.5px dashed #E8A33D;">
+      <div class="card-titulo">👋 Clientes sumindo</div>
+      <div style="font-size:12px;color:var(--texto-muted);margin-bottom:14px;">Já compraram pelo menos 2 vezes, mas estão há 15 dias ou mais sem voltar. Uma mensagem rápida pode trazer de volta.</div>
+      ${clientesSumindo.map(c => `
+        <div class="frete-row">
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:600;">${esc(c.nome)}</div>
+            <div style="font-size:12px;color:var(--texto-muted);">${c.diasSemComprar} dias sem comprar · ${c.total_pedidos} pedidos · R$ ${parseFloat(c.total_gasto||0).toFixed(2).replace('.',',')} no total</div>
+          </div>
+          <button class="btn-sm" onclick="enviarRecuperacao('${c.telefone}','${esc(c.nome).replace(/'/g,"\\'")}')">💬 Enviar mensagem</button>
         </div>
       `).join('')}
     </div>
