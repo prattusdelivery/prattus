@@ -5068,7 +5068,7 @@ const reciboParam = params.get('recibo');
 const acompParam = params.get('acompanhar');
 const fidelidadeParam = params.get('fidelidade');
 const pathSlug = window.location.pathname.replace(/^\/+|\/+$/g, '');
-const pathIgnorado = ['', 'prattus.html', 'index.html'].includes(pathSlug.toLowerCase());
+const pathIgnorado = ['', 'prattus.html', 'index.html', 'painel'].includes(pathSlug.toLowerCase());
 
 if (reciboParam) {
   mostrarRecibo(reciboParam);
