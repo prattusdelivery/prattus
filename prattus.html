@@ -3988,7 +3988,7 @@ function mostrarBannerTrial(dias) {
   const banner = document.createElement('div');
   banner.id = 'trial-banner';
   banner.style.cssText = 'background:#FFF1E6;color:#C4522E;font-size:13px;text-align:center;padding:10px 16px;font-weight:500;';
-  banner.innerHTML = `🎁 Teste grátis: <strong>${dias} dia${dias===1?'':'s'} restante${dias===1?'':'s'}</strong> · <a href="#" onclick="iniciarAssinatura('mensal', this); return false;" style="color:#C4522E;text-decoration:underline;font-weight:600;">Assinar agora</a>`;
+  banner.innerHTML = `🎁 Teste grátis: <strong>${dias} dia${dias===1?'':'s'} restante${dias===1?'':'s'}</strong> · <a href="#" onclick="iniciarAssinatura('mensal', this); return false;" style="color:#C4522E;text-decoration:underline;font-weight:600;">Assinar mensal</a> · <a href="#" onclick="iniciarAssinatura('anual', this); return false;" style="color:#C4522E;text-decoration:underline;font-weight:600;">Assinar anual (+ cardápio grátis)</a>`;
   document.querySelector('.topbar').after(banner);
 }
 
