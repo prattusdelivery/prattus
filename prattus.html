@@ -988,7 +988,7 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
     <!-- DADOS PESSOAIS -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <div class="form-group"><label>Nome completo</label><input type="text" id="ped-nome" placeholder="Seu nome"></div>
-      <div class="form-group"><label>Telefone (com DDD)</label><input type="text" id="ped-telefone" placeholder="55999999999"></div>
+      <div class="form-group"><label>Telefone (com DDD)</label><input type="text" id="ped-telefone" placeholder="55999999999" onblur="tentarLoginSalvo()"></div>
       <div class="form-group"><label>Data de nascimento (opcional)</label><input type="date" id="ped-nascimento"></div>
     </div>
 
@@ -4553,12 +4553,29 @@ function selecionarModo(modo) {
 let resgateAplicado = null;
 let descontoResgate = 0;
 
-async function consultarPontos() {
+function chaveLoginFidelidade() {
+  return `sd_fidelidade_${restPublico.id}`;
+}
+
+function tentarLoginSalvo() {
+  const telefoneDigitado = document.getElementById('ped-telefone').value.replace(/\D/g, '');
+  if (!telefoneDigitado) return;
+  const salvo = localStorage.getItem(chaveLoginFidelidade());
+  if (!salvo) return;
+  try {
+    const { telefone, senha } = JSON.parse(salvo);
+    if (telefone === telefoneDigitado && senha) {
+      consultarPontos(senha);
+    }
+  } catch (e) {}
+}
+
+async function consultarPontos(senhaAutomatica) {
   const telefone = document.getElementById('ped-telefone').value.replace(/\D/g, '');
   const info = document.getElementById('pontos-info');
   const lista = document.getElementById('pontos-recompensas');
   const senhaWrap = document.getElementById('pontos-senha-wrap');
-  const senha = document.getElementById('pontos-senha').value.trim();
+  const senha = senhaAutomatica || document.getElementById('pontos-senha').value.trim();
   if (!telefone) { info.style.color = 'var(--vermelho)'; info.textContent = 'Digite seu telefone acima primeiro.'; return; }
 
   info.style.color = 'var(--texto-muted)'; info.textContent = 'Consultando...';
@@ -4573,6 +4590,8 @@ async function consultarPontos() {
     if (!resp.ok) {
       info.style.color = 'var(--vermelho)';
       info.textContent = data.error || 'Erro ao consultar.';
+      // Senha automática errada (ex: trocou de celular) — apaga o que tava salvo e deixa pedir de novo
+      if (senhaAutomatica) localStorage.removeItem(chaveLoginFidelidade());
       return;
     }
 
@@ -4588,6 +4607,11 @@ async function consultarPontos() {
       info.style.color = 'var(--laranja)';
       info.textContent = 'Digite sua senha de fidelidade pra ver seus pontos.';
       return;
+    }
+
+    // Login certo (seja senha nova ou senha digitada) — guarda nesse aparelho pra não pedir de novo
+    if (senha) {
+      localStorage.setItem(chaveLoginFidelidade(), JSON.stringify({ telefone, senha }));
     }
 
     senhaWrap.style.display = 'none';
