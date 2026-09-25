@@ -166,16 +166,16 @@ async function renderClientes() {
 
     <div class="card" style="margin-bottom:20px;">
       <div class="card-titulo">🎁 Recompensas de fidelidade</div>
-      <div style="font-size:12px;color:var(--texto-muted);margin-bottom:14px;">O cliente acumula 1 ponto por real gasto. Crie prêmios que ele pode trocar na hora de fechar o pedido.</div>
-      <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;margin-bottom:14px;">
-        <select id="rec-item" onchange="preencherDescontoSugerido()">
+      <div style="font-size:12px;color:var(--texto-muted);margin-bottom:14px;">O cliente acumula 1 ponto por real gasto. Escolha um produto e quantos pontos são necessários — o resgate sempre dá o produto 100% grátis, sem meio-termo.</div>
+      <div style="display:grid;grid-template-columns:2fr 1fr auto;gap:8px;margin-bottom:6px;">
+        <select id="rec-item" onchange="atualizarPreviaRecompensa()">
           <option value="">Escolha um produto do cardápio...</option>
           ${(itensCardapio||[]).map(i => `<option value="${i.id}" data-preco="${i.preco}">${esc(i.nome)}</option>`).join('')}
         </select>
-        <input type="number" id="rec-pontos" placeholder="Pontos necessários">
-        <input type="number" id="rec-desconto" placeholder="Valor do desconto (R$)" step="0.01">
+        <input type="number" id="rec-pontos" placeholder="Pontos necessários" oninput="atualizarPreviaRecompensa()">
         <button class="btn-sm" onclick="criarRecompensa()">+ Criar</button>
       </div>
+      <div id="rec-previa" style="font-size:12px;color:var(--texto-muted);margin-bottom:14px;min-height:16px;"></div>
       ${(recompensas||[]).length === 0 ? '<div style="font-size:13px;color:var(--texto-muted);">Nenhuma recompensa criada ainda.</div>' :
         (recompensas||[]).map(r => `
           <div class="frete-row">
