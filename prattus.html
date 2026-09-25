@@ -1266,12 +1266,15 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
     <input type="text" id="cupom-codigo" placeholder="Ex: DESCONTO10">
   </div>
   <div class="form-group">
-    <label>Desconto em % (deixe 0 se for fixo)</label>
-    <input type="number" id="cupom-pct" placeholder="0" min="0" max="100">
+    <label>Tipo de desconto</label>
+    <select id="cupom-tipo" onchange="atualizarCampoDescontoCupom()">
+      <option value="percentual">Percentual (ex: 10% de desconto)</option>
+      <option value="fixo">Valor fixo (ex: R$5,00 de desconto)</option>
+    </select>
   </div>
   <div class="form-group">
-    <label>Desconto fixo em R$ (deixe 0 se for %)</label>
-    <input type="number" id="cupom-fixo" placeholder="0.00" step="0.01">
+    <label id="cupom-valor-label">Quantos % de desconto?</label>
+    <input type="number" id="cupom-valor" placeholder="Ex: 10" min="0" max="100">
   </div>
   <button class="btn btn-laranja" onclick="salvarCupom()">Salvar cupom</button>
 </div>
@@ -2998,13 +3001,31 @@ async function removerFuncionario(vinculoId) {
 }
 async function salvarCupom() {
   const codigo = document.getElementById('cupom-codigo').value.toUpperCase();
-  const pct = parseInt(document.getElementById('cupom-pct').value) || 0;
-  const fixo = parseFloat(document.getElementById('cupom-fixo').value) || 0;
+  const tipo = document.getElementById('cupom-tipo').value;
+  const valor = parseFloat(document.getElementById('cupom-valor').value) || 0;
   if (!codigo) return;
-  await db.from('cupons').insert({ restaurante_id: restauranteAtual.id, codigo, desconto_percent: pct||null, desconto_fixo: fixo||null });
+  if (!valor) { toast('Informe o valor do desconto.', 'erro'); return; }
+  const pct = tipo === 'percentual' ? valor : null;
+  const fixo = tipo === 'fixo' ? valor : null;
+  await db.from('cupons').insert({ restaurante_id: restauranteAtual.id, codigo, desconto_percent: pct, desconto_fixo: fixo });
   fecharModal('modal-cupom');
   toast('Cupom criado!', 'ok');
   renderCupons();
+}
+
+function atualizarCampoDescontoCupom() {
+  const tipo = document.getElementById('cupom-tipo').value;
+  const label = document.getElementById('cupom-valor-label');
+  const input = document.getElementById('cupom-valor');
+  if (tipo === 'percentual') {
+    label.textContent = 'Quantos % de desconto?';
+    input.placeholder = 'Ex: 10';
+    input.max = 100;
+  } else {
+    label.textContent = 'Quantos reais de desconto?';
+    input.placeholder = 'Ex: 5.00';
+    input.removeAttribute('max');
+  }
 }
 
 async function excluirCupom(id) {
