@@ -2597,14 +2597,19 @@ function irPara(pagina) {
 // Cardápio (itens, categorias, grupos de opções, etiquetas, lixeira) agora está em cardapio.js
 
 // ===== CLIENTES =====
-function preencherDescontoSugerido() {
+function atualizarPreviaRecompensa() {
   const select = document.getElementById('rec-item');
   const opcao = select.options[select.selectedIndex];
   const preco = opcao?.dataset?.preco;
-  const campoDesconto = document.getElementById('rec-desconto');
-  if (preco && campoDesconto && !campoDesconto.value) {
-    campoDesconto.value = parseFloat(preco).toFixed(2);
+  const pontos = document.getElementById('rec-pontos').value;
+  const previa = document.getElementById('rec-previa');
+  if (!preco || !select.value) {
+    previa.textContent = '';
+    return;
   }
+  previa.innerHTML = pontos
+    ? `Com <strong>${pontos} pontos</strong>, o cliente resgata "<strong>${esc(opcao.textContent.trim())}</strong>" 100% grátis (valor: R$ ${parseFloat(preco).toFixed(2).replace('.',',')}).`
+    : `Valor do item: <strong>R$ ${parseFloat(preco).toFixed(2).replace('.',',')}</strong> — defina quantos pontos serão necessários.`;
 }
 
 async function criarRecompensa() {
@@ -2612,16 +2617,18 @@ async function criarRecompensa() {
   const itemId = select.value;
   const opcao = select.options[select.selectedIndex];
   const descricao = opcao?.textContent?.trim();
+  const preco = parseFloat(opcao?.dataset?.preco);
   const pontos = parseInt(document.getElementById('rec-pontos').value);
-  const desconto = parseFloat(document.getElementById('rec-desconto').value);
-  if (!itemId || !pontos || !desconto) {
-    toast('Escolha um produto, os pontos necessários e o valor do desconto.', 'erro');
+  if (!itemId || !pontos || !preco) {
+    toast('Escolha um produto e informe os pontos necessários.', 'erro');
     return;
   }
   await db.from('recompensas').insert({
-    restaurante_id: restauranteAtual.id, item_id: itemId, descricao, pontos_necessarios: pontos, desconto_valor: desconto, ativo: true
+    restaurante_id: restauranteAtual.id, item_id: itemId, descricao, pontos_necessarios: pontos, desconto_valor: preco, ativo: true
   });
   toast('Recompensa criada!', 'ok');
+  document.getElementById('rec-pontos').value = '';
+  document.getElementById('rec-previa').textContent = '';
   renderClientes();
 }
 
