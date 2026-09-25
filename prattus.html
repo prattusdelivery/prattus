@@ -1869,6 +1869,7 @@ async function carregarSuperAdmin() {
         </div>
 
         <div id="sa-crescimento" style="margin-bottom:28px;"></div>
+        <div id="sa-indicacoes" style="margin-bottom:28px;"></div>
 
         <div class="card" style="background:#232323;border:1px solid rgba(255,255,255,0.08);margin-bottom:20px;">
           <div style="font-size:14px;font-weight:700;color:var(--branco);margin-bottom:4px;">+ Cadastrar restaurante novo</div>
@@ -1934,6 +1935,26 @@ async function carregarSuperAdmin() {
           <div style="font-size:10.5px;color:rgba(255,255,255,0.35);text-transform:capitalize;">${m.label}</div>
         </div>
       `).join('')}
+    </div>
+  `;
+
+  // Cadastros por indicação (parceiro/afiliado) — origem_ref capturado no link ?ref=NOME
+  const comRef = (restaurantes||[]).filter(r => r.origem_ref);
+  const contagemPorRef = {};
+  comRef.forEach(r => { contagemPorRef[r.origem_ref] = (contagemPorRef[r.origem_ref]||0) + 1; });
+  const refsOrdenados = Object.entries(contagemPorRef).sort((a,b) => b[1]-a[1]);
+  document.getElementById('sa-indicacoes').innerHTML = `
+    <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Cadastros por indicação</div>
+    <div style="background:#232323;border-radius:14px;padding:20px;border:1px solid rgba(255,255,255,0.06);">
+      <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:14px;">Manda um link tipo <code style="background:#1a1a1a;padding:2px 6px;border-radius:4px;">servidelivery.com.br?ref=NOMEDOPARCEIRO</code> pra rastrear quantos cadastros cada parceiro trouxe.</div>
+      ${refsOrdenados.length === 0 ? '<div style="font-size:13px;color:rgba(255,255,255,0.4);">Nenhum cadastro com link de indicação ainda.</div>' :
+        refsOrdenados.map(([ref, qtd]) => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+            <span style="font-size:14px;color:var(--branco);font-weight:600;">${esc(ref)}</span>
+            <span style="font-size:14px;color:var(--laranja);font-weight:700;">${qtd} cadastro${qtd===1?'':'s'}</span>
+          </div>
+        `).join('')
+      }
     </div>
   `;
 
@@ -2502,10 +2523,13 @@ async function fazerCadastro() {
     const temComputador = document.getElementById('cad-tem-computador')?.value || null;
     const faturamentoEstimado = document.getElementById('cad-faturamento')?.value || null;
     const slug = await gerarSlugUnico(restNome);
+    const origemRef = localStorage.getItem('sd_origem_ref') || null;
     const { data: novoRest, error: restError } = await db.from('restaurantes').insert({
       nome: restNome, whatsapp, user_id: usuarioAtual.id, slug,
-      pedidos_dia_estimado: pedidosDiaEstimado, tem_computador: temComputador, faturamento_estimado: faturamentoEstimado
+      pedidos_dia_estimado: pedidosDiaEstimado, tem_computador: temComputador, faturamento_estimado: faturamentoEstimado,
+      origem_ref: origemRef
     }).select().single();
+    if (novoRest) localStorage.removeItem('sd_origem_ref');
     if (restError) {
       msg.className = 'auth-msg erro';
       msg.textContent = 'Erro ao salvar restaurante: ' + restError.message;
@@ -5119,6 +5143,8 @@ const restParam = params.get('rest');
 const reciboParam = params.get('recibo');
 const acompParam = params.get('acompanhar');
 const fidelidadeParam = params.get('fidelidade');
+const refParam = params.get('ref');
+if (refParam) localStorage.setItem('sd_origem_ref', refParam);
 const pathSlug = window.location.pathname.replace(/^\/+|\/+$/g, '');
 const pathIgnorado = ['', 'prattus.html', 'index.html', 'painel'].includes(pathSlug.toLowerCase());
 
