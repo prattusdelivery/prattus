@@ -468,6 +468,12 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
 .pub-ranking-preco{font-size:11px;font-weight:700;color:var(--laranja);font-family:monospace;}
 .pub-ranking-plus{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:var(--laranja);color:#fff;border:none;font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .pub-ranking-caixa{background:var(--laranja-light,#FFF1E6);border:1.5px dashed var(--laranja);border-radius:12px;padding:14px;margin:14px 0;}
+.pub-ranking-caixa-carrinho{padding:10px 12px;margin:10px 0;}
+.pub-ranking-caixa-carrinho .pub-ranking-grid{gap:8px;margin-bottom:0;}
+.pub-ranking-caixa-carrinho .pub-ranking-card{width:calc(50% - 4px);max-width:none;padding:6px;border-top-width:2px;}
+.pub-ranking-caixa-carrinho .pub-ranking-foto{height:44px;font-size:18px;margin-bottom:4px;}
+.pub-ranking-caixa-carrinho .pub-ranking-nome{font-size:11px;min-height:auto;-webkit-line-clamp:1;}
+.pub-ranking-caixa-carrinho .pub-ranking-preco{font-size:11.5px;}
 .dark-mode .pub-ranking-card{background:#242424;border-color:#3a3a3a;}
 .dark-mode .pub-ranking-foto{background:#1c1c1c;}
 .dark-mode .pub-ranking-caixa{background:#2a1f18;}
@@ -3870,11 +3876,11 @@ function renderRankingCarrinho() {
   const wrap = document.getElementById('carr-ranking-wrap');
   if (!wrap) return;
   const idsNoCarrinho = new Set(carrinho.map(c => c.id));
-  const sugestoes = rankingItensPublico.filter(item => !idsNoCarrinho.has(item.id)).slice(0, 4);
+  const sugestoes = rankingItensPublico.filter(item => !idsNoCarrinho.has(item.id)).slice(0, 2);
   if (sugestoes.length === 0) { wrap.innerHTML = ''; return; }
   wrap.innerHTML = `
-    <div class="pub-ranking-caixa">
-      <div class="pub-ranking-titulo" style="margin-bottom:8px;">✨ Vai bem junto <span style="font-size:11px;font-weight:400;color:var(--texto-muted);">(ainda não está no seu pedido)</span></div>
+    <div class="pub-ranking-caixa pub-ranking-caixa-carrinho">
+      <div class="pub-ranking-titulo" style="margin-bottom:6px;font-size:13px;">✨ Vai bem junto</div>
       <div class="pub-ranking-grid">${sugestoes.map(renderRankingCard).join('')}</div>
     </div>
   `;
