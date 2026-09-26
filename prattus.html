@@ -4780,6 +4780,29 @@ function copiarPixCola() {
 
 let chavePixCache = null;
 
+async function garantirOpcaoPixCorreta() {
+  const opcaoPix = document.querySelector('#ped-pagamento option[value="Pix"]');
+  if (!opcaoPix || !restPublico) return;
+  if (chavePixCache === null) {
+    try {
+      const resp = await fetch('/api/consultar-pontos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'buscar_pix', restauranteId: restPublico.id })
+      });
+      const data = await resp.json();
+      chavePixCache = data.chavePix || false;
+    } catch (e) {
+      chavePixCache = false;
+    }
+  }
+  opcaoPix.style.display = chavePixCache ? '' : 'none';
+  opcaoPix.disabled = !chavePixCache;
+  if (!chavePixCache && document.getElementById('ped-pagamento').value === 'Pix') {
+    document.getElementById('ped-pagamento').value = 'Dinheiro';
+  }
+}
+
 async function alternarFormaPagamento() {
   const pagamento = document.getElementById('ped-pagamento').value;
   const campoPix = document.getElementById('campo-pix');
@@ -4867,6 +4890,7 @@ var comandaAtual = null;
 
 function abrirCarrinho() {
   atualizarTotalCarrinho();
+  garantirOpcaoPixCorreta();
   alternarFormaPagamento();
   renderListaCarrinho();
   abrirModal('modal-carrinho');
@@ -4984,7 +5008,7 @@ async function finalizarPedido() {
     restaurante_id: restPublico.id, cliente_id: clienteId,
     status: 'novo', endereco: enderecoCompleto, bairro,
     frete, subtotal: sub, total,
-    observacao: `Nome: ${nome}\nTelefone: ${telefone}\nModo: ${modoLabel}\nPagamento: ${pagamento}${troco ? ' (troco para R$ '+parseFloat(troco).toFixed(2)+')' : ''}${obs ? '\nObs: '+obs : ''}`
+    observacao: `Nome: ${nome}\nTelefone: ${telefone}\nModo: ${modoLabel}\nPagamento: ${pagamento}${troco ? ' (troco para R$ '+parseFloat(troco).toFixed(2)+')' : ''}${pagamento === 'Pix' ? '\n⚠️ CONFIRME o comprovante do Pix com o cliente antes de liberar o pedido!' : ''}${obs ? '\nObs: '+obs : ''}`
   });
   const pedido = erroPedido ? null : { id: novoIdPedido };
 
@@ -5041,6 +5065,7 @@ async function finalizarPedido() {
     (resgateAplicado ? `*Prêmio resgatado:* ${resgateAplicado.descricao} — grátis (valor de R$ ${resgateAplicado.valor.toFixed(2).replace('.',',')} aplicado como desconto de fidelidade)\n` : '') +
     `*Total:* R$ ${total.toFixed(2).replace('.',',')}\n` +
     `*Pagamento:* ${pagamento}${troco ? ' (troco para R$ '+parseFloat(troco).toFixed(2)+')' : ''}\n` +
+    (pagamento === 'Pix' ? `⚠️ *CONFIRME o comprovante do Pix com o cliente antes de liberar o pedido!*\n` : '') +
     (obs ? `*Obs:* ${obs}\n` : '') +
     (linkAcomp ? `\nAcompanhar pedido: ${linkAcomp}` : '') +
     (linkRecibo ? `\nRecibo: ${linkRecibo}` : '')
