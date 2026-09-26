@@ -4978,12 +4978,15 @@ async function finalizarPedido() {
   const mesaInformada = document.getElementById('ped-mesa')?.value?.trim();
   const modoLabel = {delivery:'Delivery', retirada:'Retirar no local', local: mesaInformada ? `Consumir no local — Mesa ${mesaInformada}` : 'Consumir no local'}[modoAtual];
 
-  const { data: pedido } = await db.from('pedidos').insert({
+  const novoIdPedido = crypto.randomUUID();
+  const { error: erroPedido } = await db.from('pedidos').insert({
+    id: novoIdPedido,
     restaurante_id: restPublico.id, cliente_id: clienteId,
     status: 'novo', endereco: enderecoCompleto, bairro,
     frete, subtotal: sub, total,
     observacao: `Nome: ${nome}\nTelefone: ${telefone}\nModo: ${modoLabel}\nPagamento: ${pagamento}${troco ? ' (troco para R$ '+parseFloat(troco).toFixed(2)+')' : ''}${obs ? '\nObs: '+obs : ''}`
-  }).select().single();
+  });
+  const pedido = erroPedido ? null : { id: novoIdPedido };
 
   if (pedido) {
     const { error: erroItens } = await db.from('pedido_itens').insert(carrinho.map(i => ({
