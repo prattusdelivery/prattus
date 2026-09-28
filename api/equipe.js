@@ -36,7 +36,7 @@ export default async function handler(req, res) {
     }
 
     if (acao === 'criar') {
-      const { nome, usuario, senha, funcao } = req.body || {};
+      const { nome, usuario, senha, funcao, nivel } = req.body || {};
       if (!nome || !usuario || !senha) return res.status(400).json({ error: 'Preencha nome, usuário e senha do funcionário.' });
       if (senha.length < 6) return res.status(400).json({ error: 'A senha precisa ter pelo menos 6 caracteres.' });
 
@@ -67,7 +67,7 @@ export default async function handler(req, res) {
       const vinculoResp = await fetch(`${SUPABASE_URL}/rest/v1/usuarios_restaurante`, {
         method: 'POST',
         headers: { ...svcHeaders, 'Prefer': 'return=minimal' },
-        body: JSON.stringify({ restaurante_id: restauranteId, user_id: criaData.id, nome, papel: 'funcionario', usuario: usuarioLimpo, funcao: funcao || null })
+        body: JSON.stringify({ restaurante_id: restauranteId, user_id: criaData.id, nome, papel: 'funcionario', usuario: usuarioLimpo, funcao: funcao || null, nivel: nivel === 'garcom' ? 'garcom' : 'gerente' })
       });
       if (!vinculoResp.ok) {
         const errText = await vinculoResp.text();
