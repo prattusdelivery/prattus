@@ -4944,7 +4944,23 @@ function mudarQtd(idx, delta) {
   abrirCarrinho();
 }
 
+var pedidoEmAndamento = false;
 async function finalizarPedido() {
+  if (pedidoEmAndamento) return;
+  pedidoEmAndamento = true;
+  const btnEnvio = document.getElementById('btn-finalizar-pedido');
+  const textoOriginalBtn = btnEnvio ? btnEnvio.textContent : '';
+  if (btnEnvio) { btnEnvio.disabled = true; btnEnvio.textContent = 'Enviando pedido...'; }
+  try {
+    await finalizarPedidoInterno();
+  } finally {
+    pedidoEmAndamento = false;
+    if (btnEnvio) { btnEnvio.disabled = false; btnEnvio.textContent = textoOriginalBtn; }
+  }
+}
+
+async function finalizarPedidoInterno() {
+  if (!carrinho.length) { toast('Seu carrinho está vazio.', 'erro'); return; }
   if (restPublico?.pausado_manual) {
     toast('Este restaurante pausou os pedidos no momento. Tente novamente mais tarde.', 'erro');
     return;
