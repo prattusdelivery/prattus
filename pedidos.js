@@ -62,7 +62,7 @@ async function carregarModoComanda(comandaId) {
   const infoBar = document.getElementById('pub-info-bar');
   if (infoBar) infoBar.innerHTML = `
     <button onclick="sairModoComanda()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;padding:5px 12px;border-radius:20px;font-size:12px;cursor:pointer;">← Voltar pro painel</button>
-    <button onclick="abrirFechamentoComanda()" style="background:var(--laranja);border:none;color:#fff;padding:5px 12px;border-radius:20px;font-size:12px;cursor:pointer;font-weight:600;">💰 Fechar conta</button>
+    ${meuPapel === 'garcom' ? '' : `<button onclick="abrirFechamentoComanda()" style="background:var(--laranja);border:none;color:#fff;padding:5px 12px;border-radius:20px;font-size:12px;cursor:pointer;font-weight:600;">💰 Fechar conta</button>`}
   `;
   const fechado = document.getElementById('pub-fechado');
   if (fechado) fechado.style.display = 'none';
@@ -82,7 +82,22 @@ async function carregarModoComanda(comandaId) {
   toast(`Comanda aberta — Mesa ${codigo.mesa}`, 'ok');
 }
 
+var comandaEmAndamento = false;
 async function finalizarComanda() {
+  if (comandaEmAndamento) return;
+  comandaEmAndamento = true;
+  const btnEnvio = document.getElementById('btn-finalizar-pedido');
+  const textoOriginalBtn = btnEnvio ? btnEnvio.textContent : '';
+  if (btnEnvio) { btnEnvio.disabled = true; btnEnvio.textContent = 'Enviando...'; }
+  try {
+    await finalizarComandaInterno();
+  } finally {
+    comandaEmAndamento = false;
+    if (btnEnvio) { btnEnvio.disabled = false; btnEnvio.textContent = textoOriginalBtn; }
+  }
+}
+
+async function finalizarComandaInterno() {
   if (carrinho.length === 0) { toast('Adicione itens antes de enviar.', 'erro'); return; }
 
   const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
@@ -126,10 +141,11 @@ function sairModoComanda() {
   url.searchParams.delete('comanda');
   window.history.replaceState({}, '', url.pathname);
   mostrarTela('painel');
-  irPara(meuPapel === 'dono' ? 'dashboard' : 'pedidos');
+  irPara(paginaInicialDoPapel());
 }
 
 async function abrirFechamentoComanda() {
+  if (meuPapel === 'garcom') { toast('Só o gerente/caixa fecha a conta.', 'erro'); return; }
   if (!comandaAtual) return;
   document.getElementById('fechar-comanda-mesa').textContent = `Mesa ${comandaAtual.mesa}`;
   document.getElementById('fechar-comanda-lista').innerHTML = 'Carregando...';
@@ -171,6 +187,7 @@ async function abrirFechamentoComanda() {
 }
 
 async function confirmarFechamentoComanda() {
+  if (meuPapel === 'garcom') { toast('Só o gerente/caixa fecha a conta.', 'erro'); return; }
   if (!comandaAtual) return;
   if (!confirm('Confirma o pagamento e libera essa mesa pra um novo cliente?')) return;
 
@@ -283,6 +300,7 @@ async function renderDashboard() {
 
 // ===== PEDIDOS =====
 async function buscarComandaPorCodigo() {
+  if (meuPapel === 'garcom') { toast('Só o gerente/caixa fecha a conta.', 'erro'); return; }
   const campo = document.getElementById('busca-codigo-barras');
   const codigo = campo.value.trim();
   if (!codigo) return;
@@ -403,11 +421,11 @@ async function renderComandas() {
   });
 
   document.getElementById('conteudo').innerHTML = `
-    <div class="card" style="margin-bottom:20px;">
+    ${meuPapel === 'garcom' ? '' : `<div class="card" style="margin-bottom:20px;">
       <div class="card-titulo">🔍 Fechar conta pelo código de barras</div>
       <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Passe o leitor no código de barras da comanda (ou digite o número e aperte Enter).</div>
       <input type="text" id="busca-codigo-barras" placeholder="Escaneie ou digite o código de 6 dígitos" style="font-size:16px;letter-spacing:2px;" onkeypress="if(event.key==='Enter')buscarComandaPorCodigo()" autocomplete="off">
-    </div>
+    </div>`}
     ${mesasComTotal.length > 0 ? `
     <div class="card" style="margin-bottom:20px;background:var(--laranja-light);border:1.5px dashed var(--laranja);">
       <div class="card-titulo">🍽️ Mesas abertas agora</div>
@@ -418,7 +436,7 @@ async function renderComandas() {
             <div style="font-size:12px;color:var(--texto-muted);">${m.qtdPedidos} pedido(s) · aberta desde ${dataDoBanco(m.aberta_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
           </div>
           <div style="font-size:15px;font-weight:700;color:var(--laranja);margin-right:12px;">R$ ${m.total.toFixed(2).replace('.',',')}</div>
-          <a href="?comanda=${m.id}" class="btn-sm" style="text-decoration:none;">Ver / Fechar conta</a>
+          <a href="?comanda=${m.id}" class="btn-sm" style="text-decoration:none;">${meuPapel === 'garcom' ? 'Lançar itens' : 'Ver / Fechar conta'}</a>
         </div>
       `).join('')}
     </div>
@@ -538,6 +556,7 @@ function tempoDecorridoTexto(dataIso) {
 }
 
 function montaBotoesStatus(p, telefone) {
+  if (meuPapel === 'garcom') return '';
   const nomeMatch = (p.observacao||'').match(/Nome:\s*([^\n]+)/);
   const nomeCliente = nomeMatch ? nomeMatch[1].trim() : 'Cliente';
   const ehComanda = !!p.codigo_comanda_id;
