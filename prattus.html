@@ -2103,6 +2103,22 @@ function renderGruposSA(filtro) {
 
 let meuPapel = 'dono';
 
+function paginaInicialDoPapel() {
+  if (meuPapel === 'dono') return 'dashboard';
+  if (meuPapel === 'garcom') return 'comandas';
+  return 'pedidos';
+}
+
+function aplicarRestricoesGarcom() {
+  const ehGarcom = meuPapel === 'garcom';
+  document.querySelectorAll('.sidebar-scroll .nav-item').forEach(el => {
+    const ehComandas = (el.getAttribute('onclick') || '').includes("'comandas'");
+    const escondeDono = el.classList.contains('nav-somente-dono') && meuPapel !== 'dono';
+    el.style.display = (ehGarcom && !ehComandas) || escondeDono ? 'none' : '';
+  });
+  document.querySelectorAll('.sidebar-scroll .nav-section').forEach(el => { el.style.display = ehGarcom ? 'none' : ''; });
+}
+
 async function carregarRestaurante() {
   document.body.classList.remove('dark-mode');
   document.body.style.removeProperty('--laranja');
@@ -2115,10 +2131,16 @@ async function carregarRestaurante() {
 
   if (!data) {
     // Não é dono de nenhum restaurante — talvez seja funcionário de algum
-    const { data: vinculo } = await db.from('usuarios_restaurante')
-      .select('restaurante_id').eq('user_id', usuarioAtual.id).maybeSingle();
+    let vinculoResp = await db.from('usuarios_restaurante')
+      .select('restaurante_id,nivel').eq('user_id', usuarioAtual.id).maybeSingle();
+    if (vinculoResp.error) {
+      // Coluna "nivel" ainda não existe — tenta sem ela pra ninguém ficar sem acesso
+      vinculoResp = await db.from('usuarios_restaurante')
+        .select('restaurante_id').eq('user_id', usuarioAtual.id).maybeSingle();
+    }
+    const vinculo = vinculoResp.data;
     if (vinculo) {
-      meuPapel = 'funcionario';
+      meuPapel = vinculo.nivel === 'garcom' ? 'garcom' : 'funcionario';
       const resp = await db.from('restaurantes').select('*').eq('id', vinculo.restaurante_id).maybeSingle();
       data = resp.data;
     }
@@ -2130,6 +2152,7 @@ async function carregarRestaurante() {
     document.getElementById('topbar-rest').textContent = data.nome;
     document.getElementById('topbar-avatar').textContent = data.nome.charAt(0).toUpperCase();
     document.querySelectorAll('.nav-somente-dono').forEach(el => el.style.display = meuPapel === 'dono' ? '' : 'none');
+    aplicarRestricoesGarcom();
 
     const st = statusTrial(data);
     if (st.bloqueado) {
@@ -2138,7 +2161,7 @@ async function carregarRestaurante() {
     }
 
     mostrarTela('painel');
-    irPara(meuPapel === 'dono' ? 'dashboard' : 'pedidos');
+    irPara(paginaInicialDoPapel());
     iniciarAutoRefresh();
     atualizarBotaoPausa();
     atualizarBotaoNotificacao();
@@ -2245,6 +2268,7 @@ function alternarSomSistema(ligado) {
 function atualizarBotaoPausa() {
   const btn = document.getElementById('btn-pausar-loja');
   if (!restauranteAtual) return;
+  if (meuPapel === 'garcom') { btn.style.display = 'none'; return; }
   btn.style.display = 'inline-block';
   if (restauranteAtual.pausado_manual) {
     btn.textContent = '🔴 Pedidos pausados · Reabrir';
@@ -2588,6 +2612,10 @@ function fecharSidebar() {
 
 // ===== NAVEGACAO =====
 function irPara(pagina) {
+  if (meuPapel === 'garcom' && pagina !== 'comandas') {
+    toast('Seu acesso é só para as comandas.', 'erro');
+    return;
+  }
   const paginasSomenteDono = ['dashboard', 'relatorios', 'equipe', 'avaliacoes'];
   if (paginasSomenteDono.includes(pagina) && meuPapel !== 'dono') {
     toast('Só o dono do restaurante tem acesso a essa área.', 'erro');
@@ -2950,11 +2978,17 @@ async function renderEquipe() {
   document.getElementById('conteudo').innerHTML = `
     <div class="card" style="max-width:680px;margin-bottom:20px;">
       <div class="card-titulo">Adicionar funcionário</div>
-      <div style="font-size:12px;color:var(--texto-muted);margin-bottom:14px;">Crie um acesso separado pra quem te ajuda no balcão, sem precisar compartilhar sua própria senha. O funcionário vê e mexe no mesmo painel que você.</div>
+      <div style="font-size:12px;color:var(--texto-muted);margin-bottom:14px;">Crie um acesso separado pra quem te ajuda no balcão, sem precisar compartilhar sua própria senha. Gerente/Caixa usa o painel (menos as áreas do dono). Garçom vê só as comandas.</div>
       <div class="form-group"><label>Nome</label><input type="text" id="eq-nome" placeholder="Ex: Maria"></div>
       <div class="form-group"><label>Usuário (login dele)</label><input type="text" id="eq-usuario" placeholder="Ex: maria" autocomplete="off"></div>
       <div class="form-group"><label>Senha</label><input type="text" id="eq-senha" placeholder="Mínimo 6 caracteres"></div>
       <div class="form-group"><label>Função</label><input type="text" id="eq-funcao" placeholder="Ex: Garçom, Caixa, Cozinha"></div>
+      <div class="form-group"><label>Nível de acesso</label>
+        <select id="eq-nivel">
+          <option value="gerente">Gerente / Caixa — usa o painel (sem as áreas do dono)</option>
+          <option value="garcom">Garçom — só comandas (lança os pedidos da mesa)</option>
+        </select>
+      </div>
       <button class="btn btn-laranja" onclick="criarFuncionario()">+ Adicionar funcionário</button>
       <div id="eq-msg" style="font-size:12px;margin-top:8px;"></div>
     </div>
@@ -2965,7 +2999,7 @@ async function renderEquipe() {
         (equipe||[]).map(f => `
           <div class="frete-row">
             <div style="flex:1;">
-              <div style="font-size:14px;font-weight:700;">${esc(f.nome)}${f.funcao ? ` <span style="font-weight:400;color:var(--texto-muted);">— ${esc(f.funcao)}</span>` : ''}</div>
+              <div style="font-size:14px;font-weight:700;">${esc(f.nome)}${f.funcao ? ` <span style="font-weight:400;color:var(--texto-muted);">— ${esc(f.funcao)}</span>` : ''}${f.nivel === 'garcom' ? ' <span style="font-size:11px;background:var(--laranja-light);color:var(--laranja-dark);padding:2px 8px;border-radius:10px;">🍽️ só comandas</span>' : ''}</div>
               <div style="font-size:12px;color:var(--texto-muted);">Usuário: ${esc(f.usuario||'—')} · Adicionado em ${dataDoBanco(f.criado_em).toLocaleDateString('pt-BR')}</div>
             </div>
             <button class="btn-sm perigo" onclick="removerFuncionario('${f.id}')">Remover acesso</button>
@@ -2981,6 +3015,7 @@ async function criarFuncionario() {
   const usuario = document.getElementById('eq-usuario').value.trim();
   const senha = document.getElementById('eq-senha').value;
   const funcao = document.getElementById('eq-funcao').value.trim();
+  const nivel = document.getElementById('eq-nivel').value;
   const msgEl = document.getElementById('eq-msg');
   msgEl.style.color = 'var(--texto-muted)';
   msgEl.textContent = '';
@@ -3004,7 +3039,7 @@ async function criarFuncionario() {
     const resp = await fetch('/api/equipe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'criar', restauranteId: restauranteAtual.id, nome, usuario, senha, funcao, tokenDono })
+      body: JSON.stringify({ acao: 'criar', restauranteId: restauranteAtual.id, nome, usuario, senha, funcao, nivel, tokenDono })
     });
     const data = await resp.json();
     if (!resp.ok) {
