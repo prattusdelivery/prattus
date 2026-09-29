@@ -339,7 +339,7 @@ async function renderPedidos() {
 
   function montaCard(p) {
     const telefone = extrairTelefone(p);
-    const itensTxt = (p.pedido_itens||[]).map(i => `${i.quantidade}x ${esc(i.nome)}${i.observacao?' ('+esc(i.observacao)+')':''}`).join(' · ');
+    const itensTxt = (p.pedido_itens||[]).map(i => `${i.quantidade}x ${esc(i.nome)}${i.observacao?' ('+esc(i.observacao)+')':''}`).join('<br>');
     const mesaMatch = (p.observacao||'').match(/Mesa\s+(\S+)/);
     return `
       <div class="kanban-card">
@@ -390,13 +390,14 @@ async function renderComandas() {
 
   const ehComanda = p => !!p.codigo_comanda_id || (p.observacao||'').includes('Modo: Consumir no local');
   const lista = (pedidos || []).filter(ehComanda);
+  pedidosCache = lista;
   const novos = lista.filter(p => p.status === 'novo');
   const preparando = lista.filter(p => p.status === 'preparando');
   const finalizados = lista.filter(p => p.status === 'entrega' || p.status === 'entregue');
 
   function montaCard(p) {
     const telefone = extrairTelefone(p);
-    const itensTxt = (p.pedido_itens||[]).map(i => `${i.quantidade}x ${esc(i.nome)}${i.observacao?' ('+esc(i.observacao)+')':''}`).join(' · ');
+    const itensTxt = (p.pedido_itens||[]).map(i => `${i.quantidade}x ${esc(i.nome)}${i.observacao?' ('+esc(i.observacao)+')':''}`).join('<br>');
     const mesaMatch = (p.observacao||'').match(/Mesa\s+(\S+)/);
     return `
       <div class="kanban-card">
