@@ -246,10 +246,10 @@ async function renderDashboard() {
 
   const { data: pedHoje } = await db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).gte('criado_em', inicioDoDiaLocal());
   const { data: pedMes } = await db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).gte('criado_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
-  const { data: comandaHoje } = await db.from('comandas_historico').select('id').eq('restaurante_id', rid).gte('aberta_em', inicioDoDiaLocal());
-  const { data: comandaMes } = await db.from('comandas_historico').select('id').eq('restaurante_id', rid).gte('aberta_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
-  const { data: comandaFatHoje } = await db.from('comandas_historico').select('total').eq('restaurante_id', rid).not('fechada_em', 'is', null).gte('fechada_em', inicioDoDiaLocal());
-  const { data: comandaFatMes } = await db.from('comandas_historico').select('total').eq('restaurante_id', rid).not('fechada_em', 'is', null).gte('fechada_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
+  const { data: comandaHoje } = await db.from('pedidos').select('id').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).not('codigo_comanda_id', 'is', null).gte('criado_em', inicioDoDiaLocal());
+  const { data: comandaMes } = await db.from('pedidos').select('id').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).not('codigo_comanda_id', 'is', null).gte('criado_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
+  const { data: comandaFatHoje } = await db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).not('codigo_comanda_id', 'is', null).gte('criado_em', inicioDoDiaLocal());
+  const { data: comandaFatMes } = await db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).not('codigo_comanda_id', 'is', null).gte('criado_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
   const { data: clientes } = await db.from('clientes').select('id').eq('restaurante_id', rid);
   const { data: pedidosDelivery } = await db.from('pedidos').select('*,clientes(nome),pedido_itens(nome,quantidade,preco)').eq('restaurante_id', rid).is('codigo_comanda_id', null).order('criado_em', {ascending:false}).limit(5);
   const { data: pedidosComanda } = await db.from('pedidos').select('*,clientes(nome),pedido_itens(nome,quantidade,preco)').eq('restaurante_id', rid).not('codigo_comanda_id', 'is', null).order('criado_em', {ascending:false}).limit(5);
