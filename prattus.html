@@ -24,8 +24,9 @@
 *{box-sizing:border-box;margin:0;padding:0;}
 #print-cardapio{display:none;}
 @media print{
+  @page{margin:8mm;}
   body > *:not(#print-cardapio):not(#comanda-print){display:none!important;}
-  #print-cardapio{display:block!important;}
+  #print-cardapio{display:block!important;page-break-after:avoid;}
   .pc-cat{page-break-inside:avoid;margin-bottom:18px;}
 }
 .pc-header{text-align:center;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #231914;}
@@ -5242,7 +5243,7 @@ const fidelidadeParam = params.get('fidelidade');
 const refParam = params.get('ref');
 if (refParam) localStorage.setItem('sd_origem_ref', refParam);
 const pathSlug = window.location.pathname.replace(/^\/+|\/+$/g, '');
-const pathIgnorado = ['', 'prattus.html', 'index.html', 'painel'].includes(pathSlug.toLowerCase());
+const pathIgnorado = ['', 'prattus.html', 'index.html', 'painel', 'mesa'].includes(pathSlug.toLowerCase());
 
 if (reciboParam) {
   mostrarRecibo(reciboParam);
