@@ -144,6 +144,14 @@ function sairModoComanda() {
 async function abrirFechamentoComanda() {
   if (meuPapel === 'garcom') { toast('Só o gerente/caixa fecha a conta.', 'erro'); return; }
   if (!comandaAtual) return;
+
+  // Se tiver item ainda no carrinho (adicionado mas não enviado), manda pra mesa
+  // automaticamente antes de mostrar o resumo — evita item "esquecido" e cobrado errado.
+  if (carrinho.length > 0) {
+    toast('Enviando itens pendentes pra mesa antes de fechar...', 'ok');
+    await finalizarComandaInterno();
+  }
+
   document.getElementById('fechar-comanda-mesa').textContent = `Mesa ${comandaAtual.mesa}`;
   document.getElementById('fechar-comanda-lista').innerHTML = 'Carregando...';
   document.getElementById('fechar-comanda-total').textContent = 'R$ 0,00';
