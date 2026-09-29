@@ -447,6 +447,7 @@ async function renderComandas() {
       `).join('')}
     </div>
     ` : ''}
+    ${meuPapel === 'garcom' ? (mesasComTotal.length === 0 ? '<div class="empty"><div class="empty-ico">🍽️</div><div class="empty-txt">Nenhuma mesa aberta no momento. Escaneie o QR de uma mesa pra começar.</div></div>' : '') : `
     <div style="font-size:14px;color:var(--texto-muted);margin-bottom:16px;">${lista.length} comanda(s) no total</div>
     <div class="kanban">
       <div class="kanban-col col-novo">
@@ -463,6 +464,7 @@ async function renderComandas() {
         ${finalizados.length > 3 ? `<div style="text-align:center;font-size:11px;color:var(--texto-muted);padding:8px 0;">Mostrando os 3 mais recentes de ${finalizados.length}</div>` : ''}
       </div>
     </div>
+    `}
   `;
   document.getElementById('busca-codigo-barras')?.focus();
 }
