@@ -3279,17 +3279,7 @@ async function renderConfig() {
 
       <div class="form-group" style="margin-top:24px;">
         <label style="font-size:14px;font-weight:700;">Comandas</label>
-        <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Configurações específicas de quem atende mesa/comanda.</div>
-      </div>
-      <div class="form-group" style="display:flex;justify-content:space-between;align-items:center;background:var(--creme);border-radius:10px;padding:14px;">
-        <div>
-          <label style="font-weight:700;">Enviar pedido da comanda direto pra cozinha</label>
-          <div style="font-size:12px;color:var(--texto-muted);margin-top:2px;">Ligado, o pedido do garçom pula "Aguardando Confirmação" e cai direto em "Em Preparo" — sem precisar aceitar.</div>
-        </div>
-        <label class="toggle-switch" style="flex-shrink:0;margin-left:14px;">
-          <input type="checkbox" id="cfg-comanda-direto-cozinha" ${r.comanda_direto_cozinha === true ? 'checked' : ''}>
-          <span class="toggle-slider"></span>
-        </label>
+        <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Todo pedido de mesa passa por "Aguardando Confirmação" antes do preparo — garante que alguém sempre veja e avise a cozinha.</div>
       </div>
 
       <div class="form-group" style="margin-top:24px;">
@@ -3502,7 +3492,6 @@ async function salvarConfig() {
     endereco_estado: document.getElementById('cfg-end-estado').value || null,
     endereco_cep: document.getElementById('cfg-end-cep').value || null,
     retirada_disponivel: document.getElementById('cfg-retirada-disponivel').checked,
-    comanda_direto_cozinha: document.getElementById('cfg-comanda-direto-cozinha').checked,
     tema: document.getElementById('cfg-tema').value,
     som_notificacao: document.getElementById('cfg-som').value,
     fidelidade_ativa: document.getElementById('cfg-fidelidade').checked,
