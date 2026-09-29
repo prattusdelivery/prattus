@@ -97,7 +97,7 @@ async function finalizarComanda() {
   }
 }
 
-async function finalizarComandaInterno() {
+async function finalizarComandaInterno(jaConfirmado) {
   if (carrinho.length === 0) { toast('Adicione itens antes de enviar.', 'erro'); return; }
 
   const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
@@ -105,13 +105,14 @@ async function finalizarComandaInterno() {
 
   const dadosPedido = {
     restaurante_id: restauranteAtual.id,
-    status: 'novo',
+    status: jaConfirmado ? 'preparando' : 'novo',
     endereco: `Mesa ${comandaAtual.mesa}`,
     bairro: 'Salão',
     frete: 0, subtotal: sub, total: sub,
     codigo_comanda_id: comandaAtual.id,
     observacao: `Comanda — Mesa ${comandaAtual.mesa}${obsGeral ? '\nObs: '+obsGeral : ''}`
   };
+  if (jaConfirmado) dadosPedido.aceito_em = new Date().toISOString();
 
   const { data: pedido, error } = await db.from('pedidos').insert(dadosPedido).select().single();
 
@@ -149,7 +150,7 @@ async function abrirFechamentoComanda() {
   // automaticamente antes de mostrar o resumo — evita item "esquecido" e cobrado errado.
   if (carrinho.length > 0) {
     toast('Enviando itens pendentes pra mesa antes de fechar...', 'ok');
-    await finalizarComandaInterno();
+    await finalizarComandaInterno(true);
   }
 
   document.getElementById('fechar-comanda-mesa').textContent = `Mesa ${comandaAtual.mesa}`;
