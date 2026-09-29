@@ -758,6 +758,7 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
     <div class="nav-item" onclick="irPara('comandas')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v7c0 1.1.9 2 2 2h1v11h2V4H3z"/><path d="M17 2v7a2 2 0 002 2v11"/><path d="M19 2v20"/></svg>
       Comandas
+      <span id="badge-comandas-pendentes" style="display:none;margin-left:auto;background:#E85D3D;color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;"></span>
     </div>
     <div class="nav-item" onclick="irPara('cardapio')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/><path d="M12 6v6l4 2"/></svg>
@@ -1542,7 +1543,9 @@ function tocarSom(tipoForcado) {
 // ===== AUTO-REFRESH =====
 function iniciarAutoRefresh() {
   pararAutoRefresh();
+  atualizarBadgeComandasPendentes();
   autoRefreshTimer = setInterval(async () => {
+    if (restauranteAtual) atualizarBadgeComandasPendentes();
     if ((paginaAtual === 'pedidos' || paginaAtual === 'comandas') && restauranteAtual) {
       const { data } = await db.from('pedidos')
         .select('id,status')
@@ -1569,6 +1572,23 @@ function iniciarAutoRefresh() {
 
 function pararAutoRefresh() {
   if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
+}
+
+async function atualizarBadgeComandasPendentes() {
+  const badge = document.getElementById('badge-comandas-pendentes');
+  if (!badge || !restauranteAtual) return;
+  const { count } = await db.from('pedidos')
+    .select('id', { count: 'exact', head: true })
+    .eq('restaurante_id', restauranteAtual.id)
+    .eq('status', 'novo')
+    .not('codigo_comanda_id', 'is', null);
+  const qtd = count ?? 0;
+  if (qtd > 0) {
+    badge.textContent = qtd;
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
 }
 
 // ===== INIT =====
