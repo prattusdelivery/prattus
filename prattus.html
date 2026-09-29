@@ -2166,10 +2166,12 @@ async function carregarRestaurante() {
     atualizarBotaoPausa();
     atualizarBotaoNotificacao();
 
-    if (st.trial) mostrarBannerTrial(st.diasRestantes);
-    else if (data.proxima_cobranca) {
-      const diasParaCobranca = Math.ceil((new Date(data.proxima_cobranca) - new Date()) / 86400000);
-      if (diasParaCobranca >= 0 && diasParaCobranca <= 5) mostrarBannerCobranca(diasParaCobranca);
+    if (meuPapel === 'dono') {
+      if (st.trial) mostrarBannerTrial(st.diasRestantes);
+      else if (data.proxima_cobranca) {
+        const diasParaCobranca = Math.ceil((new Date(data.proxima_cobranca) - new Date()) / 86400000);
+        if (diasParaCobranca >= 0 && diasParaCobranca <= 5) mostrarBannerCobranca(diasParaCobranca);
+      }
     }
   } else {
     mostrarTela('painel');
