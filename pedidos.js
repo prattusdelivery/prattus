@@ -158,14 +158,25 @@ async function abrirFechamentoComanda() {
   document.getElementById('fechar-comanda-total').textContent = 'R$ 0,00';
   abrirModal('modal-fechar-comanda');
 
-  const { data: codigo } = await db.from('codigos_comanda').select('aberta_em').eq('id', comandaAtual.id).single();
-  const abertaEm = codigo?.aberta_em;
+  const comTimeout = (promessa) => Promise.race([
+    promessa,
+    new Promise((_, rej) => setTimeout(() => rej(new Error('demorou_demais')), 15000))
+  ]);
 
-  const { data: pedidos } = await db.from('pedidos')
-    .select('id,total,criado_em,pedido_itens(nome,quantidade,preco)')
-    .eq('codigo_comanda_id', comandaAtual.id)
-    .gte('criado_em', abertaEm)
-    .order('criado_em');
+  let codigo, pedidos;
+  try {
+    const r1 = await comTimeout(db.from('codigos_comanda').select('aberta_em').eq('id', comandaAtual.id).single());
+    codigo = r1.data;
+    const r2 = await comTimeout(db.from('pedidos')
+      .select('id,total,criado_em,pedido_itens(nome,quantidade,preco)')
+      .eq('codigo_comanda_id', comandaAtual.id)
+      .gte('criado_em', codigo?.aberta_em)
+      .order('criado_em'));
+    pedidos = r2.data;
+  } catch (e) {
+    document.getElementById('fechar-comanda-lista').innerHTML = '<div class="empty"><div class="empty-txt">Demorou demais pra carregar. Feche essa janela e tente de novo — se continuar acontecendo, avise o suporte.</div></div>';
+    return;
+  }
 
   const lista = document.getElementById('fechar-comanda-lista');
   if (!pedidos || pedidos.length === 0) {
