@@ -305,7 +305,7 @@ async function gerarCodigosComanda() {
   const grid = document.getElementById('comandas-qr-grid');
   let html = '';
   data.forEach((c, i) => {
-    const url = `https://servidelivery.com.br/prattus.html?comanda=${c.id}`;
+    const url = `https://servidelivery.com.br/mesa?comanda=${c.id}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(url)}`;
     const barrasUrl = `https://barcodeapi.org/api/128/${c.codigo_curto}`;
     html += `
@@ -329,7 +329,7 @@ let comandasGeradasCache = [];
 function imprimirComandasGeradas() {
   if (!comandasGeradasCache.length) return;
   const html = comandasGeradasCache.map((c, i) => {
-    const url = `https://servidelivery.com.br/prattus.html?comanda=${c.id}`;
+    const url = `https://servidelivery.com.br/mesa?comanda=${c.id}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
     const barrasUrl = `https://barcodeapi.org/api/128/${c.codigo_curto}`;
     return `
