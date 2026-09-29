@@ -1566,7 +1566,9 @@ function iniciarAutoRefresh() {
         toast('🛵 Novo pedido chegou!', 'ok');
       }
       ultimosPedidosIds = novosIds;
-      if (paginaAtual === 'pedidos') renderPedidos(); else renderComandas();
+      const posicaoScroll = window.scrollY;
+      if (paginaAtual === 'pedidos') await renderPedidos(); else await renderComandas();
+      window.scrollTo(0, posicaoScroll);
     }
   }, 8000);
 }
