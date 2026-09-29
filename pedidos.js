@@ -244,8 +244,8 @@ async function renderDashboard() {
   if (!restauranteAtual) return;
   const rid = restauranteAtual.id;
 
-  const { data: pedHoje } = await db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).gte('criado_em', inicioDoDiaLocal());
-  const { data: pedMes } = await db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).gte('criado_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
+  const { data: pedHoje } = await db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).is('codigo_comanda_id', null).gte('criado_em', inicioDoDiaLocal());
+  const { data: pedMes } = await db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).is('codigo_comanda_id', null).gte('criado_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
   const { data: comandaHoje } = await db.from('pedidos').select('id').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).not('codigo_comanda_id', 'is', null).gte('criado_em', inicioDoDiaLocal());
   const { data: comandaMes } = await db.from('pedidos').select('id').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).not('codigo_comanda_id', 'is', null).gte('criado_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
   const { data: comandaFatHoje } = await db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).not('codigo_comanda_id', 'is', null).gte('criado_em', inicioDoDiaLocal());
@@ -259,24 +259,40 @@ async function renderDashboard() {
   const fatComandaHoje = (comandaFatHoje||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
   const fatComandaMes = (comandaFatMes||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
   const ticketMedio = pedHoje && pedHoje.length ? (fatHoje / pedHoje.length) : 0;
+  const ticketMedioComanda = comandaHoje && comandaHoje.length ? (fatComandaHoje / comandaHoje.length) : 0;
+  const fatTotalHoje = fatHoje + fatComandaHoje;
+  const fatTotalMes = fatMes + fatComandaMes;
 
   document.getElementById('conteudo').innerHTML = `
+    <div style="font-size:13px;font-weight:700;color:var(--texto-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">🛵 Delivery</div>
     <div class="metricas">
       <div class="metrica"><div class="metrica-label">Pedidos hoje</div><div class="metrica-val">${(pedHoje||[]).length}</div></div>
       <div class="metrica"><div class="metrica-label">Faturamento hoje</div><div class="metrica-val laranja">R$ ${fatHoje.toFixed(2).replace('.',',')}</div></div>
       <div class="metrica"><div class="metrica-label">Ticket médio</div><div class="metrica-val">R$ ${ticketMedio.toFixed(2).replace('.',',')}</div></div>
       <div class="metrica"><div class="metrica-label">Faturamento do mês</div><div class="metrica-val">R$ ${fatMes.toFixed(2).replace('.',',')}</div></div>
+    </div>
+
+    <div style="font-size:13px;font-weight:700;color:var(--texto-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">🍽️ Comandas</div>
+    <div class="metricas">
+      <div class="metrica"><div class="metrica-label">Comandas hoje</div><div class="metrica-val">${(comandaHoje||[]).length}</div></div>
+      <div class="metrica"><div class="metrica-label">Faturamento comandas hoje</div><div class="metrica-val laranja">R$ ${fatComandaHoje.toFixed(2).replace('.',',')}</div></div>
+      <div class="metrica"><div class="metrica-label">Ticket médio comandas</div><div class="metrica-val">R$ ${ticketMedioComanda.toFixed(2).replace('.',',')}</div></div>
+      <div class="metrica"><div class="metrica-label">Faturamento comandas no mês</div><div class="metrica-val">R$ ${fatComandaMes.toFixed(2).replace('.',',')}</div></div>
+    </div>
+
+    <div style="font-size:13px;font-weight:700;color:var(--texto-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">💰 Total geral (delivery + comandas)</div>
+    <div class="metricas">
+      <div class="metrica"><div class="metrica-label">Faturamento total hoje</div><div class="metrica-val laranja">R$ ${fatTotalHoje.toFixed(2).replace('.',',')}</div></div>
+      <div class="metrica"><div class="metrica-label">Faturamento total do mês</div><div class="metrica-val laranja">R$ ${fatTotalMes.toFixed(2).replace('.',',')}</div></div>
+    </div>
+
+    <div style="font-size:13px;font-weight:700;color:var(--texto-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">👥 Clientes</div>
+    <div class="metricas" style="margin-bottom:24px;">
       <div class="metrica">
-        <div class="metrica-label">Clientes</div>
+        <div class="metrica-label">Clientes cadastrados</div>
         <div class="metrica-val">${(clientes||[]).length}</div>
         <button class="btn-sm" style="margin-top:6px;" onclick="resetarFormCliente();abrirModal('modal-cadastro-cliente')">+ Cadastrar cliente</button>
       </div>
-    </div>
-    <div class="metricas">
-      <div class="metrica"><div class="metrica-label">🍽️ Comandas hoje</div><div class="metrica-val">${(comandaHoje||[]).length}</div></div>
-      <div class="metrica"><div class="metrica-label">🍽️ Faturamento comandas hoje</div><div class="metrica-val laranja">R$ ${fatComandaHoje.toFixed(2).replace('.',',')}</div></div>
-      <div class="metrica"><div class="metrica-label">🍽️ Comandas no mês</div><div class="metrica-val">${(comandaMes||[]).length}</div></div>
-      <div class="metrica"><div class="metrica-label">🍽️ Faturamento comandas no mês</div><div class="metrica-val">R$ ${fatComandaMes.toFixed(2).replace('.',',')}</div></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
     <div class="card">
