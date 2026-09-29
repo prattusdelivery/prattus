@@ -102,18 +102,16 @@ async function finalizarComandaInterno() {
 
   const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
   const obsGeral = document.getElementById('ped-obs')?.value || '';
-  const direto = !!restauranteAtual.comanda_direto_cozinha;
 
   const dadosPedido = {
     restaurante_id: restauranteAtual.id,
-    status: direto ? 'preparando' : 'novo',
+    status: 'novo',
     endereco: `Mesa ${comandaAtual.mesa}`,
     bairro: 'Salão',
     frete: 0, subtotal: sub, total: sub,
     codigo_comanda_id: comandaAtual.id,
     observacao: `Comanda — Mesa ${comandaAtual.mesa}${obsGeral ? '\nObs: '+obsGeral : ''}`
   };
-  if (direto) dadosPedido.aceito_em = new Date().toISOString();
 
   const { data: pedido, error } = await db.from('pedidos').insert(dadosPedido).select().single();
 
@@ -129,8 +127,7 @@ async function finalizarComandaInterno() {
   atualizarCarrinho();
   fecharModal('modal-carrinho');
   if (document.getElementById('ped-obs')) document.getElementById('ped-obs').value = '';
-  if (direto) imprimirComandaPorId(pedido.id);
-  toast(direto ? `Pedido enviado direto pra cozinha — Mesa ${comandaAtual.mesa}! 🍽️` : `Pedido enviado pra cozinha — Mesa ${comandaAtual.mesa}! 🍽️`, 'ok');
+  toast(`Pedido enviado pra cozinha — Mesa ${comandaAtual.mesa}! 🍽️`, 'ok');
 }
 
 function sairModoComanda() {
