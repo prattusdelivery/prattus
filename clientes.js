@@ -4,6 +4,17 @@
 // esc, toast, abrirModal, fecharModal, gerarCSV, baixarArquivoTexto).
 
 let clienteEditandoId = null;
+let cuponsCache = [];
+
+function preencherMensagemComCupom() {
+  const id = document.getElementById('promo-cupom-select').value;
+  if (!id) return;
+  const c = cuponsCache.find(x => x.id === id);
+  if (!c) return;
+  const desconto = c.desconto_percent ? `${c.desconto_percent}% de desconto` : `R$ ${parseFloat(c.desconto_fixo).toFixed(2).replace('.',',')} de desconto`;
+  const link = `https://servidelivery.com.br/${restauranteAtual.slug}`;
+  document.getElementById('promo-mensagem').value = `🎉 Cupom especial pra você!\n\nUse o código ${c.codigo} no seu próximo pedido e ganhe ${desconto}.\n\nPeça aqui: ${link}`;
+}
 
 function editarCliente(id) {
   const c = clientesCache.find(x => x.id === id);
@@ -75,6 +86,14 @@ async function resetarSenhaCliente(clienteId, nome) {
   renderClientes();
 }
 
+async function excluirCliente(clienteId, nome) {
+  if (!confirm(`Excluir o cadastro de ${nome}? Os pedidos que ele já fez continuam no histórico, só o cadastro dele é removido.`)) return;
+  const { error } = await db.from('clientes').delete().eq('id', clienteId);
+  if (error) { toast('Erro ao excluir. Tente de novo.', 'erro'); return; }
+  toast('Cliente excluído!', 'ok');
+  renderClientes();
+}
+
 function estaAniversarioProximo(dataNasc, diasJanela) {
   if (!dataNasc) return false;
   const nasc = new Date(dataNasc + 'T00:00:00');
@@ -107,6 +126,8 @@ async function renderClientes() {
   const cashbackPct = parseFloat(restauranteAtual.cashback_percentual || 0);
   const clientesComSaldo = (clientes || []).filter(c => parseFloat(c.saldo_cashback || 0) > 0)
     .sort((a,b) => parseFloat(b.saldo_cashback) - parseFloat(a.saldo_cashback));
+  const { data: cuponsAtivos } = await db.from('cupons').select('*').eq('restaurante_id', restauranteAtual.id).eq('ativo', true);
+  cuponsCache = cuponsAtivos || [];
 
   // Clientes sumindo: 2+ pedidos, sem comprar há 15 dias ou mais
   const { data: pedidosRecentes } = await db.from('pedidos').select('cliente_id,criado_em')
@@ -181,6 +202,12 @@ async function renderClientes() {
     <div class="card" style="margin-bottom:20px;">
       <div class="card-titulo">📣 Enviar promoção</div>
       <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Escreva a mensagem uma vez, e clique em "Enviar" ao lado de cada cliente pra abrir o WhatsApp já com o texto pronto.</div>
+      ${(cuponsAtivos||[]).length > 0 ? `
+      <select id="promo-cupom-select" onchange="preencherMensagemComCupom()" style="margin-bottom:8px;">
+        <option value="">Ou escolha um cupom pra preencher a mensagem...</option>
+        ${cuponsAtivos.map(c => `<option value="${c.id}">${esc(c.codigo)} — ${c.desconto_percent ? c.desconto_percent+'%' : 'R$ '+parseFloat(c.desconto_fixo||0).toFixed(2).replace('.',',')}</option>`).join('')}
+      </select>
+      ` : ''}
       <textarea id="promo-mensagem" rows="2" placeholder="Ex: Hoje é dia de pizza! 20% off até às 22h 🍕" style="width:100%;padding:10px;border:1px solid var(--creme-borda);border-radius:8px;font-size:13px;font-family:inherit;"></textarea>
     </div>
 
@@ -238,11 +265,12 @@ function renderClienteLista(lista) {
             </div>
             <div style="text-align:right;">
               <div style="font-size:13px;font-weight:700;color:var(--laranja)">R$ ${parseFloat(c.total_gasto||0).toFixed(2).replace('.',',')}</div>
-              <div style="font-size:11px;color:var(--texto-muted)">${c.total_pedidos} pedidos · ${c.pontos} pts</div>
+              <div style="font-size:11px;color:var(--texto-muted)">${c.total_pedidos} pedidos${parseFloat(c.saldo_cashback||0) > 0 ? ' · R$ '+parseFloat(c.saldo_cashback).toFixed(2).replace('.',',')+' cashback' : ''}</div>
             </div>
             <button class="btn-sm" onclick="editarCliente('${c.id}')" style="margin-left:10px;">✏️ Editar</button>
             <button class="btn-sm" onclick="enviarPromocao('${c.telefone}')" style="margin-left:6px;">📣 Enviar</button>
             ${c.senha_hash ? `<button class="btn-sm" onclick="resetarSenhaCliente('${c.id}','${esc(c.nome).replace(/'/g,"\\'")}')" style="margin-left:6px;" title="Cliente esqueceu a senha de fidelidade">🔑 Resetar senha</button>` : ''}
+            <button class="btn-sm perigo" onclick="excluirCliente('${c.id}','${esc(c.nome).replace(/'/g,"\\'")}')" style="margin-left:6px;">🗑️ Excluir</button>
           </div>
     `).join('');
 }
