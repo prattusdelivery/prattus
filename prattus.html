@@ -5271,7 +5271,33 @@ if (reciboParam) {
   mostrarTela('cliente');
   carregarPublicoPorSlug(pathSlug);
 } else {
-  init();
+  initComTimeout();
+}
+
+async function initComTimeout() {
+  let resolveu = false;
+  const timeoutId = setTimeout(() => {
+    if (!resolveu) mostrarErroCarregamentoInicial();
+  }, 12000);
+  try {
+    await init();
+  } catch (e) {
+    mostrarErroCarregamentoInicial();
+  } finally {
+    resolveu = true;
+    clearTimeout(timeoutId);
+  }
+}
+
+function mostrarErroCarregamentoInicial() {
+  document.body.innerHTML = `
+    <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;text-align:center;padding:20px;font-family:system-ui,sans-serif;">
+      <div style="font-size:40px;">⚠️</div>
+      <div style="font-size:16px;font-weight:600;color:#333;">Demorou demais pra carregar</div>
+      <div style="font-size:13px;color:#777;max-width:320px;">Pode ter sido uma instabilidade rápida de conexão. Toque no botão abaixo pra tentar de novo.</div>
+      <button onclick="window.location.reload()" style="background:#E86339;color:#fff;border:none;padding:13px 28px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">Tentar de novo</button>
+    </div>
+  `;
 }
 
 async function mostrarFidelidade(restId) {
