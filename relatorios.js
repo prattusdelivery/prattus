@@ -155,7 +155,7 @@ async function renderRelatorios(dataInicio = null, dataFim = null, filtroTipo = 
         ${contagemHora.map((qtd, h) => `
           <div class="barra-wrap">
             ${qtd > 0 ? `<div style="font-size:9px;color:var(--texto-muted);text-align:center;margin-bottom:2px;">${qtd}</div>` : ''}
-            <div class="barra" style="height:${qtd > 0 ? Math.max(3, (qtd/maxPedidosHora)*60) : 0}px;${h===horaPico?'background:var(--laranja-dark);':''}" title="${String(h).padStart(2,'0')}h — ${qtd} pedido(s)"></div>
+            <div class="barra" style="height:${qtd > 0 ? Math.max(18, (qtd/maxPedidosHora)*60) : 0}px;${h===horaPico?'background:var(--laranja-dark);':''}" title="${String(h).padStart(2,'0')}h — ${qtd} pedido(s)"></div>
             <div class="barra-label" style="font-size:9px;">${h%3===0?String(h).padStart(2,'0'):''}</div>
           </div>
         `).join('')}
