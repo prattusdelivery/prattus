@@ -2868,6 +2868,7 @@ async function renderCupons() {
     </div>
     <div class="card">
       <div class="card-titulo">Cupons ativos</div>
+      <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">"Copiar texto" serve pra divulgar em qualquer lugar (Instagram, Status). Pra mandar direto pra um cliente específico no WhatsApp, use a tela de <a href="#" onclick="irPara('clientes');return false;" style="color:var(--laranja);">Clientes</a>.</div>
       ${(cupons||[]).length === 0 ? '<div class="empty"><div class="empty-ico">🎟️</div><div class="empty-txt">Nenhum cupom criado</div></div>' :
         (cupons||[]).map(c => `
           <div class="frete-row">
@@ -2877,7 +2878,6 @@ async function renderCupons() {
             </div>
             <span style="font-size:11px;padding:3px 8px;border-radius:10px;background:${c.ativo?'#E1F5EE':'#F1EFE8'};color:${c.ativo?'#0F6E56':'#5F5E5A'}">${c.ativo?'Ativo':'Inativo'}</span>
             <button class="btn-sm" onclick="copiarTextoCupom('${esc(c.codigo)}',${c.desconto_percent||'null'},${c.desconto_fixo||'null'})">📋 Copiar texto</button>
-            <button class="btn-sm" onclick="enviarCupomWhatsapp('${esc(c.codigo)}',${c.desconto_percent||'null'},${c.desconto_fixo||'null'})">📱 WhatsApp</button>
             <button class="btn-sm perigo" onclick="excluirCupom('${c.id}')">Excluir</button>
           </div>
         `).join('')
@@ -2899,11 +2899,6 @@ function copiarTextoCupom(codigo, percent, fixo) {
   }).catch(() => {
     toast('Não consegui copiar. Tenta de novo.', 'erro');
   });
-}
-
-function enviarCupomWhatsapp(codigo, percent, fixo) {
-  const texto = montarTextoDivulgacaoCupom(codigo, percent, fixo);
-  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
 }
 
 async function renderHistorico() {
