@@ -997,8 +997,8 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
     </div>
 
     <!-- DADOS PESSOAIS -->
+    <div class="form-group"><label>Nome completo</label><input type="text" id="ped-nome" placeholder="Seu nome"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      <div class="form-group"><label>Nome completo</label><input type="text" id="ped-nome" placeholder="Seu nome"></div>
       <div class="form-group"><label>Telefone (com DDD)</label><input type="text" id="ped-telefone" placeholder="55999999999" onblur="tentarLoginSalvo()"></div>
       <div class="form-group"><label>Data de nascimento (opcional)</label><input type="date" id="ped-nascimento"></div>
     </div>
@@ -2796,19 +2796,21 @@ async function cardapioEmergencia() {
 
   let msg = `🍽️ *Cardápio — ${restauranteAtual.nome}*\n\n`;
 
-  (cats||[]).forEach(cat => {
+  (cats||[]).forEach((cat, indiceCat) => {
     const itensCat = (itens||[]).filter(i => i.categoria_id === cat.id);
     if (!itensCat.length) return;
     msg += `*${cat.nome.toUpperCase()}*\n`;
-    itensCat.forEach(item => {
-      msg += `• ${item.nome} — R$ ${parseFloat(item.preco).toFixed(2).replace('.',',')}`;
+    const centena = (indiceCat + 1) * 100;
+    itensCat.forEach((item, indiceItem) => {
+      const codigo = centena + indiceItem + 1;
+      msg += `• ${codigo} ${item.nome} — R$ ${parseFloat(item.preco).toFixed(2).replace('.',',')}`;
       if (item.descricao) msg += ` _(${item.descricao})_`;
       msg += '\n';
     });
     msg += '\n';
   });
 
-  msg += `📲 Para pedir, responda com os itens, seu nome e endereço.`;
+  msg += `📲 Para pedir, me manda o código e a quantidade de cada item (ex: 2x 101), seu nome e endereço.`;
 
   window.open(`https://wa.me/${restauranteAtual.whatsapp}?text=${encodeURIComponent(msg)}`, 'wa_servidelivery');
   toast('Cardápio de emergência aberto!', 'ok');
