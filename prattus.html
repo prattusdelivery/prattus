@@ -2876,12 +2876,34 @@ async function renderCupons() {
               <div style="font-size:12px;color:var(--texto-muted);">${c.desconto_percent ? c.desconto_percent+'% de desconto' : 'R$ '+parseFloat(c.desconto_fixo||0).toFixed(2)+' de desconto'}</div>
             </div>
             <span style="font-size:11px;padding:3px 8px;border-radius:10px;background:${c.ativo?'#E1F5EE':'#F1EFE8'};color:${c.ativo?'#0F6E56':'#5F5E5A'}">${c.ativo?'Ativo':'Inativo'}</span>
+            <button class="btn-sm" onclick="copiarTextoCupom('${esc(c.codigo)}',${c.desconto_percent||'null'},${c.desconto_fixo||'null'})">📋 Copiar texto</button>
+            <button class="btn-sm" onclick="enviarCupomWhatsapp('${esc(c.codigo)}',${c.desconto_percent||'null'},${c.desconto_fixo||'null'})">📱 WhatsApp</button>
             <button class="btn-sm perigo" onclick="excluirCupom('${c.id}')">Excluir</button>
           </div>
         `).join('')
       }
     </div>
   `;
+}
+
+function montarTextoDivulgacaoCupom(codigo, percent, fixo) {
+  const descricaoDesconto = percent ? `${percent}% de desconto` : `R$ ${parseFloat(fixo).toFixed(2).replace('.',',')} de desconto`;
+  const link = `https://servidelivery.com.br/${restauranteAtual.slug}`;
+  return `🎉 Cupom especial pra você!\n\nUse o código *${codigo}* no seu próximo pedido e ganhe ${descricaoDesconto}.\n\nPeça aqui: ${link}`;
+}
+
+function copiarTextoCupom(codigo, percent, fixo) {
+  const texto = montarTextoDivulgacaoCupom(codigo, percent, fixo);
+  navigator.clipboard.writeText(texto).then(() => {
+    toast('Texto copiado! Já pode colar onde quiser.', 'ok');
+  }).catch(() => {
+    toast('Não consegui copiar. Tenta de novo.', 'erro');
+  });
+}
+
+function enviarCupomWhatsapp(codigo, percent, fixo) {
+  const texto = montarTextoDivulgacaoCupom(codigo, percent, fixo);
+  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
 }
 
 async function renderHistorico() {
