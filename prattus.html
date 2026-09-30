@@ -974,6 +974,9 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
     <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--verde);margin-bottom:4px;display:none;" id="carr-desconto-row">
       <span>Cupom</span><span id="carr-desconto-val">- R$ 0,00</span>
     </div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--verde);margin-bottom:4px;display:none;" id="carr-cashback-row">
+      <span>Cashback usado</span><span id="carr-cashback-val">- R$ 0,00</span>
+    </div>
     <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:700;margin-bottom:14px;padding-top:8px;border-top:1px solid var(--creme-borda);">
       <span>Total</span><span id="carr-total-val" style="color:var(--laranja)">R$ 0,00</span>
     </div>
@@ -1035,14 +1038,14 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
       <div id="cupom-msg" style="font-size:12px;margin-top:4px;"></div>
     </div>
 
-    <!-- PONTOS DE FIDELIDADE -->
+    <!-- CASHBACK -->
     <div class="form-group" id="bloco-fidelidade">
-      <label>Pontos de fidelidade (opcional)</label>
-      <button type="button" class="btn-sm" style="width:100%;padding:10px;" onclick="consultarPontos()">⭐ Consultar meus pontos</button>
+      <label>Cashback (opcional)</label>
+      <button type="button" class="btn-sm" style="width:100%;padding:10px;" onclick="consultarCashback()">💰 Consultar meu saldo</button>
       <div id="pontos-info" style="font-size:12px;margin-top:6px;"></div>
       <div id="pontos-senha-wrap" style="display:none;margin-top:8px;">
-        <input type="password" id="pontos-senha" inputmode="numeric" maxlength="8" placeholder="Sua senha de fidelidade" style="width:100%;padding:9px 10px;border:1px solid var(--creme-borda);border-radius:8px;font-size:13px;margin-bottom:6px;">
-        <button type="button" class="btn-sm" style="width:100%;" onclick="consultarPontos()">Confirmar</button>
+        <input type="password" id="pontos-senha" inputmode="numeric" maxlength="8" placeholder="Sua senha de cashback" style="width:100%;padding:9px 10px;border:1px solid var(--creme-borda);border-radius:8px;font-size:13px;margin-bottom:6px;">
+        <button type="button" class="btn-sm" style="width:100%;" onclick="consultarCashback()">Confirmar</button>
       </div>
       <div id="pontos-recompensas"></div>
     </div>
@@ -3175,11 +3178,9 @@ async function renderConfig() {
         ${meuPapel!=='dono' ? '<div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Só o dono pode alterar a chave Pix.</div>' : ''}
       </div>
       <div class="form-group">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <input type="checkbox" id="cfg-fidelidade" ${r.fidelidade_ativa !== false ? 'checked' : ''} style="width:auto;">
-          Programa de fidelidade ativo (cliente acumula e resgata pontos)
-        </label>
-        <div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Desligado, o cliente não acumula nem vê a opção de resgatar pontos no checkout.</div>
+        <label>Cashback pro cliente (%)</label>
+        <input type="number" id="cfg-cashback" value="${r.cashback_percentual || ''}" placeholder="Ex: 5" min="0" max="100" step="0.1">
+        <div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">A cada pedido, o cliente ganha esse % de volta em cashback, creditado no dia seguinte. Ele pode usar como desconto no próximo pedido. Deixe vazio ou 0 pra desativar.</div>
       </div>
       <div class="form-group" style="margin-top:24px;">
         <label style="font-size:14px;font-weight:700;">Mensagens WhatsApp</label>
@@ -3497,7 +3498,7 @@ async function salvarConfig() {
     retirada_disponivel: document.getElementById('cfg-retirada-disponivel').checked,
     tema: document.getElementById('cfg-tema').value,
     som_notificacao: document.getElementById('cfg-som').value,
-    fidelidade_ativa: document.getElementById('cfg-fidelidade').checked,
+    cashback_percentual: parseFloat(document.getElementById('cfg-cashback').value) || 0,
     avisos_whatsapp: {
       preparando: { ativo: document.getElementById('cfg-aviso-preparando-ativo').checked, texto: document.getElementById('cfg-aviso-preparando-texto').value.trim() || null },
       entrega: { ativo: document.getElementById('cfg-aviso-entrega-ativo').checked, texto: document.getElementById('cfg-aviso-entrega-texto').value.trim() || null }
@@ -3723,7 +3724,7 @@ async function carregarPublico(restId) {
   }
 
   const blocoFid = document.getElementById('bloco-fidelidade');
-  if (blocoFid) blocoFid.style.display = rest.fidelidade_ativa === false ? 'none' : 'block';
+  if (blocoFid) blocoFid.style.display = parseFloat(rest.cashback_percentual || 0) > 0 ? 'block' : 'none';
 
   mostrarBotaoPedirNovo();
   verificarAvaliacaoPendente();
@@ -4629,7 +4630,8 @@ function selecionarModo(modo) {
   }
 }
 
-let resgateAplicado = null;
+let cashbackDisponivel = 0;
+let cashbackUsarValor = 0;
 let descontoResgate = 0;
 
 function chaveLoginFidelidade() {
@@ -4644,12 +4646,12 @@ function tentarLoginSalvo() {
   try {
     const { telefone, senha } = JSON.parse(salvo);
     if (telefone === telefoneDigitado && senha) {
-      consultarPontos(senha);
+      consultarCashback(senha);
     }
   } catch (e) {}
 }
 
-async function consultarPontos(senhaAutomatica) {
+async function consultarCashback(senhaAutomatica) {
   const telefone = document.getElementById('ped-telefone').value.replace(/\D/g, '');
   const info = document.getElementById('pontos-info');
   const lista = document.getElementById('pontos-recompensas');
@@ -4677,14 +4679,14 @@ async function consultarPontos(senhaAutomatica) {
     if (data.precisaCriarSenha) {
       senhaWrap.style.display = 'block';
       info.style.color = 'var(--laranja)';
-      info.textContent = 'Primeira vez por aqui! Crie uma senha de 4 números pra proteger seus pontos, e clique em Confirmar.';
+      info.textContent = 'Primeira vez por aqui! Crie uma senha de 4 números pra proteger seu cashback, e clique em Confirmar.';
       return;
     }
 
     if (data.precisaSenha) {
       senhaWrap.style.display = 'block';
       info.style.color = 'var(--laranja)';
-      info.textContent = 'Digite sua senha de fidelidade pra ver seus pontos.';
+      info.textContent = 'Digite sua senha de cashback pra ver seu saldo.';
       return;
     }
 
@@ -4694,38 +4696,30 @@ async function consultarPontos(senhaAutomatica) {
     }
 
     senhaWrap.style.display = 'none';
-    const pontos = data.pontos || 0;
+    cashbackDisponivel = parseFloat(data.saldoCashback || 0);
     info.style.color = 'var(--texto-muted)';
-    info.textContent = `Você tem ${pontos} pontos.`;
+    info.textContent = `Você tem R$ ${cashbackDisponivel.toFixed(2).replace('.',',')} de cashback.`;
 
-    const { data: recompensas } = await db.from('recompensas').select('*')
-      .eq('restaurante_id', restPublico.id).eq('ativo', true).order('pontos_necessarios');
-    const elegiveis = (recompensas || []).filter(r => pontos >= r.pontos_necessarios);
-
-    if (elegiveis.length === 0) {
-      lista.innerHTML = '<div style="font-size:12px;color:var(--texto-muted);margin-top:4px;">Ainda não dá pra resgatar nenhum prêmio com esses pontos.</div>';
+    if (cashbackDisponivel <= 0) {
+      lista.innerHTML = '<div style="font-size:12px;color:var(--texto-muted);margin-top:4px;">Você ainda não tem saldo de cashback.</div>';
     } else {
-      lista.innerHTML = elegiveis.map(r => `
-        <label style="display:flex;align-items:center;justify-content:space-between;padding:9px 10px;border:1px solid var(--creme-borda);border-radius:8px;margin-top:6px;cursor:pointer;font-size:13px;">
-          <span>${esc(r.descricao)} <span style="color:var(--texto-muted);">(${r.pontos_necessarios} pts)</span></span>
-          <input type="radio" name="resgate-radio" onchange="usarResgate('${r.id}',${parseFloat(r.desconto_valor)},${parseInt(r.pontos_necessarios)},'${esc(r.descricao).replace(/'/g,"\\'")}')">
+      lista.innerHTML = `
+        <label style="display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid var(--creme-borda);border-radius:8px;margin-top:6px;cursor:pointer;font-size:13px;">
+          <input type="checkbox" id="cashback-usar-check" onchange="alternarUsoCashback()">
+          Usar meu saldo nesse pedido
         </label>
-      `).join('');
+      `;
     }
   } catch (e) {
     info.style.color = 'var(--vermelho)'; info.textContent = 'Erro ao consultar. Tente de novo.';
   }
 }
 
-function usarResgate(id, valor, pontosNecessarios, descricao) {
-  // Só pode ter 1 resgate por pedido — remove qualquer resgate anterior
-  carrinho = carrinho.filter(c => !c.resgate);
-  carrinho.push({ id: 'resgate-'+id, nome: descricao, preco: 0, qtd: 1, obs: '', resgate: true, foto: '', valorOriginal: valor });
-  resgateAplicado = { id, valor, pontosNecessarios, descricao };
-  toast('Prêmio adicionado ao carrinho: ' + descricao, 'ok');
-  renderListaCarrinho();
+function alternarUsoCashback() {
+  const marcado = document.getElementById('cashback-usar-check')?.checked;
+  const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
+  cashbackUsarValor = marcado ? Math.max(0, Math.min(cashbackDisponivel, sub + fretesSelecionado - descontoAtual)) : 0;
   atualizarTotalCarrinho();
-  atualizarCarrinho();
 }
 
 async function aplicarCupom() {
@@ -4749,7 +4743,9 @@ async function aplicarCupom() {
 
 function atualizarTotalCarrinho() {
   const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
-  const total = Math.max(0, sub + fretesSelecionado - descontoAtual);
+  const maxCashbackUsavel = Math.max(0, Math.min(cashbackDisponivel, sub + fretesSelecionado - descontoAtual));
+  if (cashbackUsarValor > maxCashbackUsavel) cashbackUsarValor = maxCashbackUsavel;
+  const total = Math.max(0, sub + fretesSelecionado - descontoAtual - cashbackUsarValor);
   const subEl = document.getElementById('carr-sub');
   const freteEl = document.getElementById('carr-frete-val');
   const totalEl = document.getElementById('carr-total-val');
@@ -4771,6 +4767,10 @@ function atualizarTotalCarrinho() {
   if (totalEl) totalEl.textContent = 'R$ ' + total.toFixed(2).replace('.',',');
   if (descRow) descRow.style.display = descontoAtual > 0 ? 'flex' : 'none';
   if (descVal) descVal.textContent = '- R$ ' + descontoAtual.toFixed(2).replace('.',',');
+  const cashRow = document.getElementById('carr-cashback-row');
+  const cashVal = document.getElementById('carr-cashback-val');
+  if (cashRow) cashRow.style.display = cashbackUsarValor > 0 ? 'flex' : 'none';
+  if (cashVal) cashVal.textContent = '- R$ ' + cashbackUsarValor.toFixed(2).replace('.',',');
   if (document.getElementById('ped-pagamento')?.value === 'Pix') alternarFormaPagamento();
 }
 
@@ -5045,7 +5045,10 @@ async function finalizarPedidoInterno() {
   const endereco = modoAtual === 'delivery' ? `${rua}, ${numero}${complemento ? ', '+complemento : ''}` : '';
   const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
   const frete = modoAtual === 'delivery' ? fretesSelecionado : 0;
-  const total = Math.max(0, sub + frete - descontoAtual);
+  const cashbackUsadoNessePedido = Math.max(0, Math.min(cashbackUsarValor, sub + frete - descontoAtual));
+  const total = Math.max(0, sub + frete - descontoAtual - cashbackUsadoNessePedido);
+  const pctCashback = parseFloat(restPublico.cashback_percentual || 0);
+  const cashbackACreditar = pctCashback > 0 ? total * (pctCashback / 100) : 0;
 
   // Busca/atualiza cliente (fidelidade) via função no servidor, sem expor dados publicamente
   let clienteId = null;
@@ -5053,7 +5056,7 @@ async function finalizarPedidoInterno() {
     const respCliente = await fetch('/api/registrar-cliente', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ restauranteId: restPublico.id, nome, telefone, totalPedido: total, pontosResgatados: resgateAplicado ? resgateAplicado.pontosNecessarios : 0, fidelidadeAtiva: restPublico.fidelidade_ativa !== false, dataNascimento: document.getElementById('ped-nascimento')?.value || null })
+      body: JSON.stringify({ restauranteId: restPublico.id, nome, telefone, totalPedido: total, cashbackUsado: cashbackUsadoNessePedido, dataNascimento: document.getElementById('ped-nascimento')?.value || null })
     });
     const dataCliente = await respCliente.json();
     if (dataCliente.ok) clienteId = dataCliente.clienteId;
@@ -5073,9 +5076,15 @@ async function finalizarPedidoInterno() {
     restaurante_id: restPublico.id, cliente_id: clienteId,
     status: 'novo', endereco: enderecoCompleto, bairro,
     frete, subtotal: sub, total,
+    cashback_usado: cashbackUsadoNessePedido, cashback_a_creditar: cashbackACreditar || null, cashback_creditado: false,
     observacao: `Nome: ${nome}\nTelefone: ${telefone}\nModo: ${modoLabel}\nPagamento: ${pagamento}${troco ? ' (troco para R$ '+parseFloat(troco).toFixed(2)+')' : ''}${pagamento === 'Pix' ? '\n⚠️ CONFIRME o comprovante do Pix com o cliente antes de liberar o pedido!' : ''}${obs ? '\nObs: '+obs : ''}`
   });
   const pedido = erroPedido ? null : { id: novoIdPedido };
+
+  if (pedido) {
+    cashbackDisponivel = Math.max(0, cashbackDisponivel - cashbackUsadoNessePedido);
+    cashbackUsarValor = 0;
+  }
 
   if (pedido) {
     const { error: erroItens } = await db.from('pedido_itens').insert(carrinho.map(i => ({
@@ -5274,11 +5283,11 @@ async function mostrarFidelidade(restId) {
       <div style="background:${cor};padding:32px 20px 48px;text-align:center;">
         ${rest.logo_url ? `<img src="${rest.logo_url}" style="width:64px;height:64px;border-radius:50%;margin-bottom:12px;border:3px solid rgba(255,255,255,0.3);">` : ''}
         <div style="font-family:var(--font-display);font-size:22px;font-weight:600;color:#fff;">${rest.nome}</div>
-        <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-top:4px;">Programa de Fidelidade</div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-top:4px;">Cashback</div>
       </div>
       <div style="background:#fff;border-radius:22px 22px 0 0;margin-top:-24px;padding:24px 20px;min-height:60vh;">
         <div id="fid-conteudo">
-          <div style="font-size:15px;font-weight:600;margin-bottom:14px;">Consultar meus pontos</div>
+          <div style="font-size:15px;font-weight:600;margin-bottom:14px;">Consultar meu saldo</div>
           <div class="form-group">
             <label>Seu telefone (com DDD)</label>
             <input type="text" id="fid-tel" placeholder="55999999999" style="width:100%;padding:11px 14px;border:1px solid var(--creme-borda);border-radius:8px;font-size:14px;outline:none;">
@@ -5291,50 +5300,45 @@ async function mostrarFidelidade(restId) {
   `;
 }
 
-async function consultarFidelidade(restId) {
-  const tel = document.getElementById('fid-tel').value.trim();
+async function consultarFidelidade(restId, senha) {
+  const tel = document.getElementById('fid-tel').value.replace(/\D/g, '');
   if (!tel) { document.getElementById('fid-resultado').innerHTML = '<div style="color:var(--vermelho);font-size:13px;">Digite seu telefone.</div>'; return; }
 
-  const { data: cliente } = await db.from('clientes').select('*').eq('restaurante_id', restId).eq('telefone', tel).maybeSingle();
   const res = document.getElementById('fid-resultado');
+  res.innerHTML = '<div style="text-align:center;padding:20px;color:var(--texto-muted);font-size:14px;">Consultando...</div>';
 
-  if (!cliente) {
-    res.innerHTML = '<div style="text-align:center;padding:20px;color:var(--texto-muted);font-size:14px;">Telefone não encontrado. Faça seu primeiro pedido para começar a acumular pontos!</div>';
-    return;
+  try {
+    const resp = await fetch('/api/consultar-pontos', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ restauranteId: restId, telefone: tel, senha: senha || undefined })
+    });
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      res.innerHTML = `<div style="color:var(--vermelho);font-size:13px;text-align:center;padding:20px;">${esc(data.error || 'Erro ao consultar.')}</div>`;
+      return;
+    }
+
+    if (data.precisaCriarSenha || data.precisaSenha) {
+      res.innerHTML = `
+        <div style="font-size:13px;margin-bottom:8px;">${data.precisaCriarSenha ? 'Primeira vez por aqui! Crie uma senha de 4 números pra proteger seu cashback:' : 'Digite sua senha de cashback:'}</div>
+        <input type="password" id="fid-senha" inputmode="numeric" maxlength="8" placeholder="Senha" style="width:100%;padding:11px 14px;border:1px solid var(--creme-borda);border-radius:8px;font-size:14px;outline:none;margin-bottom:8px;">
+        <button onclick="consultarFidelidade('${restId}', document.getElementById('fid-senha').value.trim())" style="width:100%;background:var(--laranja);color:#fff;border:none;padding:13px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">Confirmar</button>
+      `;
+      return;
+    }
+
+    const saldo = parseFloat(data.saldoCashback || 0);
+    res.innerHTML = `
+      <div style="background:var(--creme);border-radius:14px;padding:20px;text-align:center;">
+        <div style="font-size:13px;color:var(--texto-muted);margin-bottom:4px;">Seu saldo de cashback</div>
+        <div style="font-family:var(--font-display);font-size:36px;font-weight:600;color:var(--laranja);">R$ ${saldo.toFixed(2).replace('.',',')}</div>
+        <div style="font-size:12px;color:var(--texto-muted);margin-top:8px;">Use no seu próximo pedido — é só informar esse mesmo telefone no checkout.</div>
+      </div>
+    `;
+  } catch (e) {
+    res.innerHTML = '<div style="color:var(--vermelho);font-size:13px;text-align:center;padding:20px;">Erro ao consultar. Tente de novo.</div>';
   }
-
-  const nivel = cliente.pontos >= 500 ? '🥇 Ouro' : cliente.pontos >= 200 ? '🥈 Prata' : '🥉 Bronze';
-  const proxNivel = cliente.pontos >= 500 ? null : cliente.pontos >= 200 ? 500 : 200;
-  const pct = proxNivel ? Math.min(100, (cliente.pontos / proxNivel) * 100) : 100;
-
-  res.innerHTML = `
-    <div style="background:var(--creme);border-radius:14px;padding:20px;text-align:center;margin-bottom:16px;">
-      <div style="font-size:32px;margin-bottom:8px;">${nivel}</div>
-      <div style="font-size:13px;color:var(--texto-muted);margin-bottom:4px;">Olá, ${cliente.nome}!</div>
-      <div style="font-family:var(--font-display);font-size:36px;font-weight:600;color:var(--laranja);">${cliente.pontos}</div>
-      <div style="font-size:13px;color:var(--texto-muted);">pontos acumulados</div>
-      ${proxNivel ? `
-        <div style="margin-top:14px;">
-          <div style="font-size:12px;color:var(--texto-muted);margin-bottom:6px;">Progresso para o próximo nível (${proxNivel} pts)</div>
-          <div style="background:#e0e0e0;border-radius:10px;height:8px;overflow:hidden;">
-            <div style="height:100%;background:var(--laranja);border-radius:10px;width:${pct}%;"></div>
-          </div>
-          <div style="font-size:12px;color:var(--texto-muted);margin-top:4px;">${proxNivel - cliente.pontos} pontos para o próximo nível</div>
-        </div>
-      ` : '<div style="font-size:12px;color:var(--verde);margin-top:8px;">🏆 Você atingiu o nível máximo!</div>'}
-    </div>
-    <div style="background:#fff;border-radius:14px;padding:16px;border:1px solid var(--creme-borda);">
-      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--creme-borda);font-size:14px;">
-        <span style="color:var(--texto-muted);">Total de pedidos</span>
-        <span style="font-weight:600;">${cliente.total_pedidos}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;">
-        <span style="color:var(--texto-muted);">Total gasto</span>
-        <span style="font-weight:600;color:var(--laranja);">R$ ${parseFloat(cliente.total_gasto||0).toFixed(2).replace('.',',')}</span>
-      </div>
-    </div>
-    <div style="font-size:12px;color:var(--texto-muted);text-align:center;margin-top:12px;">1 ponto por R$ 1 gasto · Bronze: 0+ pts · Prata: 200+ pts · Ouro: 500+ pts</div>
-  `;
 }
 
 // Adiciona user_id na tabela restaurantes se não existir

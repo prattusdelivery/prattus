@@ -104,10 +104,9 @@ async function renderClientes() {
   const { data: clientes } = await db.from('clientes').select('*')
     .eq('restaurante_id', restauranteAtual.id).order('total_gasto', {ascending: false});
   clientesCache = clientes || [];
-  const { data: recompensas } = await db.from('recompensas').select('*')
-    .eq('restaurante_id', restauranteAtual.id).order('pontos_necessarios');
-  const { data: itensCardapio } = await db.from('itens').select('id,nome,preco').is('excluido_em', null)
-    .eq('restaurante_id', restauranteAtual.id).order('nome');
+  const cashbackPct = parseFloat(restauranteAtual.cashback_percentual || 0);
+  const clientesComSaldo = (clientes || []).filter(c => parseFloat(c.saldo_cashback || 0) > 0)
+    .sort((a,b) => parseFloat(b.saldo_cashback) - parseFloat(a.saldo_cashback));
 
   // Clientes sumindo: 2+ pedidos, sem comprar há 15 dias ou mais
   const { data: pedidosRecentes } = await db.from('pedidos').select('cliente_id,criado_em')
@@ -165,27 +164,15 @@ async function renderClientes() {
     ` : ''}
 
     <div class="card" style="margin-bottom:20px;">
-      <div class="card-titulo">🎁 Recompensas de fidelidade</div>
-      <div style="font-size:12px;color:var(--texto-muted);margin-bottom:14px;">O cliente acumula 1 ponto por real gasto. Escolha um produto e quantos pontos são necessários — o resgate sempre dá o produto 100% grátis, sem meio-termo.</div>
-      <div style="display:grid;grid-template-columns:2fr 1fr auto;gap:8px;margin-bottom:6px;">
-        <select id="rec-item" onchange="atualizarPreviaRecompensa()">
-          <option value="">Escolha um produto do cardápio...</option>
-          ${(itensCardapio||[]).map(i => `<option value="${i.id}" data-preco="${i.preco}">${esc(i.nome)}</option>`).join('')}
-        </select>
-        <input type="number" id="rec-pontos" placeholder="Pontos necessários" oninput="atualizarPreviaRecompensa()">
-        <button class="btn-sm" onclick="criarRecompensa()">+ Criar</button>
-      </div>
-      <div id="rec-previa" style="font-size:12px;color:var(--texto-muted);margin-bottom:14px;min-height:16px;"></div>
-      ${(recompensas||[]).length === 0 ? '<div style="font-size:13px;color:var(--texto-muted);">Nenhuma recompensa criada ainda.</div>' :
-        (recompensas||[]).map(r => `
+      <div class="card-titulo">💰 Cashback</div>
+      <div style="font-size:12px;color:var(--texto-muted);margin-bottom:14px;">${cashbackPct > 0 ? `Seus clientes ganham ${cashbackPct}% de volta em cashback a cada pedido, creditado no dia seguinte. Eles usam como desconto no próximo pedido.` : 'Cashback ainda não está ativado.'} Pra ajustar a porcentagem, vá em <a href="#" onclick="irPara('config');return false;" style="color:var(--laranja);">Configurações</a>.</div>
+      ${clientesComSaldo.length === 0 ? '<div style="font-size:13px;color:var(--texto-muted);">Nenhum cliente com saldo de cashback ainda.</div>' :
+        clientesComSaldo.map(c => `
           <div class="frete-row">
             <div style="flex:1;">
-              <div style="font-size:14px;font-weight:600;">${esc(r.descricao)}</div>
-              <div style="font-size:12px;color:var(--texto-muted);">${r.pontos_necessarios} pontos → R$ ${parseFloat(r.desconto_valor).toFixed(2).replace('.',',')} de desconto</div>
+              <div style="font-size:14px;font-weight:600;">${esc(c.nome)}</div>
             </div>
-            <span style="font-size:11px;padding:3px 8px;border-radius:10px;background:${r.ativo?'#E1F5EE':'#F1EFE8'};color:${r.ativo?'#0F6E56':'#5F5E5A'}">${r.ativo?'Ativa':'Inativa'}</span>
-            <button class="btn-sm" onclick="toggleRecompensa('${r.id}',${!r.ativo})">${r.ativo?'Desativar':'Ativar'}</button>
-            <button class="btn-sm perigo" onclick="excluirRecompensa('${r.id}')">Excluir</button>
+            <span style="font-size:13px;font-weight:700;color:var(--laranja);">R$ ${parseFloat(c.saldo_cashback).toFixed(2).replace('.',',')}</span>
           </div>
         `).join('')
       }
