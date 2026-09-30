@@ -79,7 +79,7 @@ export default async function handler(req, res) {
     }
 
     const resp = await fetch(
-      `${SUPABASE_URL}/rest/v1/clientes?restaurante_id=eq.${restauranteId}&telefone=eq.${encodeURIComponent(telefone)}&select=id,pontos,senha_hash`,
+      `${SUPABASE_URL}/rest/v1/clientes?restaurante_id=eq.${restauranteId}&telefone=eq.${encodeURIComponent(telefone)}&select=id,saldo_cashback,senha_hash`,
       { headers }
     );
     const data = await resp.json();
@@ -87,11 +87,11 @@ export default async function handler(req, res) {
 
     if (!cliente) {
       // Ninguém com esse telefone ainda — nada pra proteger
-      return res.status(200).json({ pontos: 0 });
+      return res.status(200).json({ saldoCashback: 0 });
     }
 
     if (!cliente.senha_hash) {
-      // Primeira vez: precisa criar uma senha antes de ver os pontos
+      // Primeira vez: precisa criar uma senha antes de ver o saldo
       if (!senha) {
         return res.status(200).json({ precisaCriarSenha: true });
       }
@@ -104,7 +104,8 @@ export default async function handler(req, res) {
         headers: { ...headers, 'Prefer': 'return=minimal' },
         body: JSON.stringify({ senha_hash: novoHash })
       });
-      return res.status(200).json({ pontos: cliente.pontos || 0 });
+      const saldoAtualizado = await creditarCashbackPendente(cliente.id, cliente.saldo_cashback || 0, headers);
+      return res.status(200).json({ saldoCashback: saldoAtualizado });
     }
 
     // Já tem senha cadastrada: precisa bater
@@ -115,9 +116,40 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Senha incorreta.' });
     }
 
-    return res.status(200).json({ pontos: cliente.pontos || 0 });
+    const saldoAtualizado = await creditarCashbackPendente(cliente.id, cliente.saldo_cashback || 0, headers);
+    return res.status(200).json({ saldoCashback: saldoAtualizado });
   } catch (e) {
     await reportarErro(e, 'consultar-pontos');
     return res.status(500).json({ error: 'Erro interno', detalhe: e.message });
   }
+}
+
+// Credita cashback de pedidos com 24h+ de idade que ainda não foram creditados,
+// e devolve o saldo já atualizado.
+async function creditarCashbackPendente(clienteId, saldoAtual, headers) {
+  const ontemLimite = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const resp = await fetch(
+    `${SUPABASE_URL}/rest/v1/pedidos?cliente_id=eq.${clienteId}&cashback_creditado=eq.false&criado_em=lte.${ontemLimite}&cashback_a_creditar=not.is.null&select=id,cashback_a_creditar`,
+    { headers }
+  );
+  const pendentes = await resp.json();
+  if (!Array.isArray(pendentes) || pendentes.length === 0) return saldoAtual;
+
+  const somaPendente = pendentes.reduce((s, p) => s + parseFloat(p.cashback_a_creditar || 0), 0);
+  const novoSaldo = parseFloat(saldoAtual || 0) + somaPendente;
+
+  await fetch(`${SUPABASE_URL}/rest/v1/clientes?id=eq.${clienteId}`, {
+    method: 'PATCH',
+    headers: { ...headers, 'Prefer': 'return=minimal' },
+    body: JSON.stringify({ saldo_cashback: novoSaldo })
+  });
+
+  const idsPendentes = pendentes.map(p => p.id).join(',');
+  await fetch(`${SUPABASE_URL}/rest/v1/pedidos?id=in.(${idsPendentes})`, {
+    method: 'PATCH',
+    headers: { ...headers, 'Prefer': 'return=minimal' },
+    body: JSON.stringify({ cashback_creditado: true })
+  });
+
+  return novoSaldo;
 }
