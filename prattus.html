@@ -3435,18 +3435,11 @@ async function renderConfig() {
           </div>
           <button type="button" onclick="navigator.clipboard.writeText('https://servidelivery.com.br/${r.slug||''}');toast('Link copiado!','ok')" style="padding:0 14px;border-radius:8px;border:1px solid var(--creme-borda);background:none;cursor:pointer;white-space:nowrap;">📋 Copiar</button>
         </div>
-        <div style="font-size:13px;color:var(--texto-muted);margin-bottom:6px;">💰 Link de cashback (saldo dos clientes):</div>
-        <div style="background:var(--creme);padding:10px 14px;border-radius:8px;font-size:13px;font-family:monospace;word-break:break-all;margin-bottom:12px;">
-          ${window.location.href.split('?')[0]}?fidelidade=${r.id}
-        </div>
         <div style="font-size:13px;color:var(--texto-muted);margin-bottom:6px;">📱 Mensagem automática para WhatsApp Business:</div>
         <div style="background:var(--creme);padding:10px 14px;border-radius:8px;font-size:13px;white-space:pre-wrap;word-break:break-all;">Olá! 👋 Obrigado por entrar em contato com ${r.nome}.
 
 Faça seu pedido pelo nosso cardápio digital:
 https://servidelivery.com.br/${r.slug||''}
-
-Consulte seu saldo de cashback:
-${window.location.href.split('?')[0]}?fidelidade=${r.id}
 
 Não atendemos pedidos por aqui. Use o link acima 😊</div>
         <div style="font-size:11px;color:var(--texto-muted);margin-top:6px;">Cole essa mensagem como resposta automática no WhatsApp Business.</div>
@@ -5319,7 +5312,6 @@ const params = new URLSearchParams(window.location.search);
 const restParam = params.get('rest');
 const reciboParam = params.get('recibo');
 const acompParam = params.get('acompanhar');
-const fidelidadeParam = params.get('fidelidade');
 const refParam = params.get('ref');
 if (refParam) localStorage.setItem('sd_origem_ref', refParam);
 const pathSlug = window.location.pathname.replace(/^\/+|\/+$/g, '');
@@ -5329,8 +5321,6 @@ if (reciboParam) {
   mostrarRecibo(reciboParam);
 } else if (acompParam) {
   mostrarAcompanhamento(acompParam);
-} else if (fidelidadeParam) {
-  mostrarFidelidade(fidelidadeParam);
 } else if (restParam) {
   mostrarTela('cliente');
   carregarPublico(restParam);
@@ -5367,74 +5357,6 @@ function mostrarErroCarregamentoInicial() {
   `;
 }
 
-async function mostrarFidelidade(restId) {
-  const { data: rest } = await db.from('restaurantes').select('nome,logo_url,cor_primaria').eq('id', restId).single();
-  if (!rest) { document.body.innerHTML = '<div style="text-align:center;padding:60px;color:#999;">Restaurante não encontrado.</div>'; return; }
-
-  const cor = rest.cor_primaria || '#E86339';
-
-  document.body.innerHTML = `
-    <div style="max-width:440px;margin:0 auto;padding:0;font-family:var(--font-body);">
-      <div style="background:${cor};padding:32px 20px 48px;text-align:center;">
-        ${rest.logo_url ? `<img src="${rest.logo_url}" style="width:64px;height:64px;border-radius:50%;margin-bottom:12px;border:3px solid rgba(255,255,255,0.3);">` : ''}
-        <div style="font-family:var(--font-display);font-size:22px;font-weight:600;color:#fff;">${rest.nome}</div>
-        <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-top:4px;">Cashback</div>
-      </div>
-      <div style="background:#fff;border-radius:22px 22px 0 0;margin-top:-24px;padding:24px 20px;min-height:60vh;">
-        <div id="fid-conteudo">
-          <div style="font-size:15px;font-weight:600;margin-bottom:14px;">Consultar meu saldo</div>
-          <div class="form-group">
-            <label>Seu telefone (com DDD)</label>
-            <input type="text" id="fid-tel" placeholder="55999999999" style="width:100%;padding:11px 14px;border:1px solid var(--creme-borda);border-radius:8px;font-size:14px;outline:none;">
-          </div>
-          <button onclick="consultarFidelidade('${restId}')" style="width:100%;background:${cor};color:#fff;border:none;padding:13px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-top:4px;">Consultar pontos</button>
-          <div id="fid-resultado" style="margin-top:20px;"></div>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-async function consultarFidelidade(restId, senha) {
-  const tel = document.getElementById('fid-tel').value.replace(/\D/g, '');
-  if (!tel) { document.getElementById('fid-resultado').innerHTML = '<div style="color:var(--vermelho);font-size:13px;">Digite seu telefone.</div>'; return; }
-
-  const res = document.getElementById('fid-resultado');
-  res.innerHTML = '<div style="text-align:center;padding:20px;color:var(--texto-muted);font-size:14px;">Consultando...</div>';
-
-  try {
-    const resp = await fetch('/api/consultar-pontos', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ restauranteId: restId, telefone: tel, senha: senha || undefined })
-    });
-    const data = await resp.json();
-
-    if (!resp.ok) {
-      res.innerHTML = `<div style="color:var(--vermelho);font-size:13px;text-align:center;padding:20px;">${esc(data.error || 'Erro ao consultar.')}</div>`;
-      return;
-    }
-
-    if (data.precisaCriarSenha || data.precisaSenha) {
-      res.innerHTML = `
-        <div style="font-size:13px;margin-bottom:8px;">${data.precisaCriarSenha ? 'Primeira vez por aqui! Crie uma senha de 4 números pra proteger seu cashback:' : 'Digite sua senha de cashback:'}</div>
-        <input type="password" id="fid-senha" inputmode="numeric" maxlength="8" placeholder="Senha" style="width:100%;padding:11px 14px;border:1px solid var(--creme-borda);border-radius:8px;font-size:14px;outline:none;margin-bottom:8px;">
-        <button onclick="consultarFidelidade('${restId}', document.getElementById('fid-senha').value.trim())" style="width:100%;background:var(--laranja);color:#fff;border:none;padding:13px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">Confirmar</button>
-      `;
-      return;
-    }
-
-    const saldo = parseFloat(data.saldoCashback || 0);
-    res.innerHTML = `
-      <div style="background:var(--creme);border-radius:14px;padding:20px;text-align:center;">
-        <div style="font-size:13px;color:var(--texto-muted);margin-bottom:4px;">Seu saldo de cashback</div>
-        <div style="font-family:var(--font-display);font-size:36px;font-weight:600;color:var(--laranja);">R$ ${saldo.toFixed(2).replace('.',',')}</div>
-        <div style="font-size:12px;color:var(--texto-muted);margin-top:8px;">Use no seu próximo pedido — é só informar esse mesmo telefone no checkout.</div>
-      </div>
-    `;
-  } catch (e) {
-    res.innerHTML = '<div style="color:var(--vermelho);font-size:13px;text-align:center;padding:20px;">Erro ao consultar. Tente de novo.</div>';
-  }
-}
 
 // Adiciona user_id na tabela restaurantes se não existir
 async function garantirUserIdRestaurante() {
