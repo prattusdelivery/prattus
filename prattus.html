@@ -2909,9 +2909,11 @@ async function renderHistorico() {
     <div class="card" style="margin-bottom:20px;">
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
         <label style="font-size:13px;font-weight:600;">De:</label>
-        <input type="text" id="historico-data-inicio" value="${ad}/${am}/${ay}" placeholder="dd/mm/aaaa" maxlength="10" oninput="mascaraData(this)" onchange="carregarHistoricoPeriodo()" style="width:110px;">
+        <input type="text" id="historico-data-inicio" value="${ad}/${am}/${ay}" placeholder="dd/mm/aaaa" maxlength="10" oninput="mascaraData(this)" onchange="carregarHistoricoPeriodo()" style="width:100px;">
+        <button class="btn-sm" onclick="abrirCalendario('historico-data-inicio')" title="Escolher no calendário" style="padding:6px 9px;">📅</button>
         <label style="font-size:13px;font-weight:600;">Até:</label>
-        <input type="text" id="historico-data-fim" value="${ad}/${am}/${ay}" placeholder="dd/mm/aaaa" maxlength="10" oninput="mascaraData(this)" onchange="carregarHistoricoPeriodo()" style="width:110px;">
+        <input type="text" id="historico-data-fim" value="${ad}/${am}/${ay}" placeholder="dd/mm/aaaa" maxlength="10" oninput="mascaraData(this)" onchange="carregarHistoricoPeriodo()" style="width:100px;">
+        <button class="btn-sm" onclick="abrirCalendario('historico-data-fim')" title="Escolher no calendário" style="padding:6px 9px;">📅</button>
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn-sm ativo" id="hist-tab-delivery" onclick="trocarAbaHistorico('delivery')">🛵 Delivery</button>
@@ -2929,6 +2931,26 @@ function mascaraData(el) {
   if (v.length > 4) v = v.replace(/(\d{2})(\d{2})(\d{0,4})/, '$1/$2/$3');
   else if (v.length > 2) v = v.replace(/(\d{2})(\d{0,2})/, '$1/$2');
   el.value = v;
+}
+
+function abrirCalendario(idCampo) {
+  const campoTexto = document.getElementById(idCampo);
+  let campoOculto = document.getElementById(idCampo + '-oculto');
+  if (!campoOculto) {
+    campoOculto = document.createElement('input');
+    campoOculto.type = 'date';
+    campoOculto.id = idCampo + '-oculto';
+    campoOculto.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;';
+    campoTexto.insertAdjacentElement('afterend', campoOculto);
+    campoOculto.addEventListener('change', () => {
+      if (!campoOculto.value) return;
+      campoTexto.value = campoOculto.value.split('-').reverse().join('/');
+      campoTexto.dispatchEvent(new Event('change'));
+    });
+  }
+  const atual = dataBrParaISO(campoTexto.value);
+  if (atual) campoOculto.value = atual;
+  if (campoOculto.showPicker) campoOculto.showPicker();
 }
 
 function dataBrParaISO(dataBr) {
