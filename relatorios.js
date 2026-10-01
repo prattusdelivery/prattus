@@ -84,11 +84,17 @@ async function renderRelatorios(dataInicio = null, dataFim = null, filtroTipo = 
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
         <div class="form-group" style="margin:0;flex:1;min-width:140px;">
           <label style="font-size:12px;">Data inicial</label>
-          <input type="text" id="rel-inicio" placeholder="dd/mm/aaaa" maxlength="10" value="${dataInicio ? dataInicio.split('-').reverse().join('/') : ''}" oninput="mascaraData(this)" style="padding:8px 10px;border:1px solid var(--creme-borda);border-radius:8px;font-size:13px;width:100%;">
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input type="text" id="rel-inicio" placeholder="dd/mm/aaaa" maxlength="10" value="${dataInicio ? dataInicio.split('-').reverse().join('/') : ''}" oninput="mascaraData(this)" style="padding:8px 10px;border:1px solid var(--creme-borda);border-radius:8px;font-size:13px;width:100%;">
+            <button class="btn-sm" onclick="abrirCalendario('rel-inicio')" title="Escolher no calendário" style="padding:6px 9px;flex-shrink:0;">📅</button>
+          </div>
         </div>
         <div class="form-group" style="margin:0;flex:1;min-width:140px;">
           <label style="font-size:12px;">Data final</label>
-          <input type="text" id="rel-fim" placeholder="dd/mm/aaaa" maxlength="10" value="${dataFim ? dataFim.split('-').reverse().join('/') : ''}" oninput="mascaraData(this)" style="padding:8px 10px;border:1px solid var(--creme-borda);border-radius:8px;font-size:13px;width:100%;">
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input type="text" id="rel-fim" placeholder="dd/mm/aaaa" maxlength="10" value="${dataFim ? dataFim.split('-').reverse().join('/') : ''}" oninput="mascaraData(this)" style="padding:8px 10px;border:1px solid var(--creme-borda);border-radius:8px;font-size:13px;width:100%;">
+            <button class="btn-sm" onclick="abrirCalendario('rel-fim')" title="Escolher no calendário" style="padding:6px 9px;flex-shrink:0;">📅</button>
+          </div>
         </div>
         <button class="btn btn-laranja" style="width:auto;padding:10px 20px;" onclick="filtrarRelatorio()">Filtrar</button>
         <button class="btn btn-outline" style="width:auto;padding:10px 20px;" onclick="relatorioEsteMes()">Este mês</button>
