@@ -75,7 +75,8 @@ async function renderRelatorios(dataInicio = null, dataFim = null, filtroTipo = 
   const maxPedidosHora = Math.max(...contagemHora, 1);
   const horaPico = contagemHora.indexOf(Math.max(...contagemHora));
 
-  const labelPeriodo = dataInicio ? `${dataInicio} a ${dataFim||'hoje'}` : 'Este mês';
+  const formatarBr = (iso) => iso ? iso.split('-').reverse().join('/') : iso;
+  const labelPeriodo = dataInicio ? `${formatarBr(dataInicio)} a ${dataFim ? formatarBr(dataFim) : 'hoje'}` : 'Este mês';
 
   document.getElementById('conteudo').innerHTML = `
     <div class="card" style="margin-bottom:20px;">
