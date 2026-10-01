@@ -2904,30 +2904,58 @@ function copiarTextoCupom(codigo, percent, fixo) {
 async function renderHistorico() {
   if (!restauranteAtual) return;
   const hoje = dataLocalHoje();
+  const [ay,am,ad] = hoje.split('-');
   document.getElementById('conteudo').innerHTML = `
     <div class="card" style="margin-bottom:20px;">
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
         <label style="font-size:13px;font-weight:600;">De:</label>
-        <input type="date" id="historico-data-inicio" value="${hoje}" max="${hoje}" onchange="carregarHistoricoPeriodo()" style="width:auto;">
+        <input type="text" id="historico-data-inicio" value="${ad}/${am}/${ay}" placeholder="dd/mm/aaaa" maxlength="10" oninput="mascaraData(this)" onchange="carregarHistoricoPeriodo()" style="width:110px;">
         <label style="font-size:13px;font-weight:600;">Até:</label>
-        <input type="date" id="historico-data-fim" value="${hoje}" max="${hoje}" onchange="carregarHistoricoPeriodo()" style="width:auto;">
+        <input type="text" id="historico-data-fim" value="${ad}/${am}/${ay}" placeholder="dd/mm/aaaa" maxlength="10" oninput="mascaraData(this)" onchange="carregarHistoricoPeriodo()" style="width:110px;">
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-sm ativo" id="hist-tab-delivery" onclick="trocarAbaHistorico('delivery')">🛵 Delivery</button>
+        <button class="btn-sm" id="hist-tab-comanda" onclick="trocarAbaHistorico('comanda')">🍽️ Comandas</button>
       </div>
     </div>
     <div id="historico-resultado">Carregando...</div>
   `;
+  abaHistoricoAtual = 'delivery';
+  carregarHistoricoPeriodo();
+}
+
+function mascaraData(el) {
+  let v = el.value.replace(/\D/g, '').slice(0, 8);
+  if (v.length > 4) v = v.replace(/(\d{2})(\d{2})(\d{0,4})/, '$1/$2/$3');
+  else if (v.length > 2) v = v.replace(/(\d{2})(\d{0,2})/, '$1/$2');
+  el.value = v;
+}
+
+function dataBrParaISO(dataBr) {
+  const partes = (dataBr || '').split('/');
+  if (partes.length !== 3 || partes[2].length !== 4) return null;
+  return `${partes[2]}-${partes[1]}-${partes[0]}`;
+}
+
+let abaHistoricoAtual = 'delivery';
+function trocarAbaHistorico(aba) {
+  abaHistoricoAtual = aba;
+  document.getElementById('hist-tab-delivery').classList.toggle('ativo', aba === 'delivery');
+  document.getElementById('hist-tab-comanda').classList.toggle('ativo', aba === 'comanda');
   carregarHistoricoPeriodo();
 }
 
 async function carregarHistoricoPeriodo() {
-  const dataInicioStr = document.getElementById('historico-data-inicio').value;
-  const dataFimStr = document.getElementById('historico-data-fim').value;
+  const dataInicioStr = dataBrParaISO(document.getElementById('historico-data-inicio').value);
+  const dataFimStr = dataBrParaISO(document.getElementById('historico-data-fim').value);
   const resultado = document.getElementById('historico-resultado');
+  if (!dataInicioStr || !dataFimStr) { resultado.innerHTML = `<div class="empty"><div class="empty-txt">Digite as duas datas completas (dd/mm/aaaa).</div></div>`; return; }
   resultado.innerHTML = 'Carregando...';
 
   const inicio = new Date(dataInicioStr + 'T00:00:00');
   const fim = new Date(new Date(dataFimStr + 'T00:00:00').getTime() + 24*60*60*1000);
 
-  const { data: pedidos } = await db.from('pedidos')
+  const { data: pedidosTodos } = await db.from('pedidos')
     .select('*,pedido_itens(nome,quantidade,preco,observacao)')
     .eq('restaurante_id', restauranteAtual.id)
     .in('status', ['preparando','entrega','entregue'])
@@ -2935,7 +2963,7 @@ async function carregarHistoricoPeriodo() {
     .lt('criado_em', fim.toISOString())
     .order('criado_em', {ascending: false});
 
-  const lista = pedidos || [];
+  const lista = (pedidosTodos || []).filter(p => abaHistoricoAtual === 'comanda' ? !!p.codigo_comanda_id : !p.codigo_comanda_id);
   const total = lista.reduce((s,p) => s + parseFloat(p.total||0), 0);
   const mesmodia = dataInicioStr === dataFimStr;
   const periodoFormatado = mesmodia
@@ -2943,7 +2971,7 @@ async function carregarHistoricoPeriodo() {
     : `${inicio.toLocaleDateString('pt-BR', {day:'2-digit', month:'short'})} a ${new Date(dataFimStr + 'T00:00:00').toLocaleDateString('pt-BR', {day:'2-digit', month:'short'})}`;
 
   if (lista.length === 0) {
-    resultado.innerHTML = `<div class="empty"><div class="empty-ico">📋</div><div class="empty-txt">Nenhum pedido finalizado nesse período.</div></div>`;
+    resultado.innerHTML = `<div class="empty"><div class="empty-ico">📋</div><div class="empty-txt">Nenhum pedido ${abaHistoricoAtual === 'comanda' ? 'de comanda' : 'de delivery'} finalizado nesse período.</div></div>`;
     return;
   }
 
@@ -2958,14 +2986,14 @@ async function carregarHistoricoPeriodo() {
     ${lista.map(p => {
       const itensTxt = (p.pedido_itens||[]).map(i => `${i.quantidade}x ${esc(i.nome)}`).join(' · ');
       const nomeMatch = (p.observacao||'').match(/Nome:\s*([^\n]+)/);
-      const nome = nomeMatch ? nomeMatch[1].trim() : 'Cliente';
+      const nome = p.codigo_comanda_id ? (p.endereco||'Mesa') : (nomeMatch ? nomeMatch[1].trim() : 'Cliente');
       return `
         <div class="kanban-card" style="margin-bottom:10px;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">
             <div class="pedido-num">#${p.id.slice(-4).toUpperCase()} — ${esc(nome)}</div>
             <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
           </div>
-          <div style="font-size:12px;color:var(--texto-muted);margin-bottom:4px;">${dataDoBanco(p.criado_em).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})} ${dataDoBanco(p.criado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})} · ${esc(p.endereco||p.bairro||'')}</div>
+          <div style="font-size:12px;color:var(--texto-muted);margin-bottom:4px;">${dataDoBanco(p.criado_em).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})} ${dataDoBanco(p.criado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}${p.codigo_comanda_id ? '' : ' · '+esc(p.endereco||p.bairro||'')}</div>
           <div style="font-size:13px;">${itensTxt}</div>
         </div>
       `;
