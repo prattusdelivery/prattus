@@ -357,6 +357,8 @@ function imprimirComandasGeradas() {
     `;
   }).join('');
   document.getElementById('print-cardapio').innerHTML = `<div style="text-align:center;">${html}</div>`;
+  const comandaPrint = document.getElementById('comanda-print');
+  if (comandaPrint) comandaPrint.innerHTML = '';
   setTimeout(() => window.print(), 300);
 }
 
