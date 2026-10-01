@@ -83,11 +83,11 @@ async function renderRelatorios(dataInicio = null, dataFim = null, filtroTipo = 
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
         <div class="form-group" style="margin:0;flex:1;min-width:140px;">
           <label style="font-size:12px;">Data inicial</label>
-          <input type="date" id="rel-inicio" value="${dataInicio||''}" style="padding:8px 10px;border:1px solid var(--creme-borda);border-radius:8px;font-size:13px;width:100%;">
+          <input type="text" id="rel-inicio" placeholder="dd/mm/aaaa" maxlength="10" value="${dataInicio ? dataInicio.split('-').reverse().join('/') : ''}" oninput="mascaraData(this)" style="padding:8px 10px;border:1px solid var(--creme-borda);border-radius:8px;font-size:13px;width:100%;">
         </div>
         <div class="form-group" style="margin:0;flex:1;min-width:140px;">
           <label style="font-size:12px;">Data final</label>
-          <input type="date" id="rel-fim" value="${dataFim||''}" style="padding:8px 10px;border:1px solid var(--creme-borda);border-radius:8px;font-size:13px;width:100%;">
+          <input type="text" id="rel-fim" placeholder="dd/mm/aaaa" maxlength="10" value="${dataFim ? dataFim.split('-').reverse().join('/') : ''}" oninput="mascaraData(this)" style="padding:8px 10px;border:1px solid var(--creme-borda);border-radius:8px;font-size:13px;width:100%;">
         </div>
         <button class="btn btn-laranja" style="width:auto;padding:10px 20px;" onclick="filtrarRelatorio()">Filtrar</button>
         <button class="btn btn-outline" style="width:auto;padding:10px 20px;" onclick="relatorioEsteMes()">Este mês</button>
@@ -167,9 +167,9 @@ async function renderRelatorios(dataInicio = null, dataFim = null, filtroTipo = 
 let relEstado = { inicio: null, fim: null, tipo: 'todos' };
 
 function filtrarRelatorio() {
-  const inicio = document.getElementById('rel-inicio').value;
-  const fim = document.getElementById('rel-fim').value;
-  if (!inicio) { toast('Selecione a data inicial!', 'erro'); return; }
+  const inicio = dataBrParaISO(document.getElementById('rel-inicio').value);
+  const fim = dataBrParaISO(document.getElementById('rel-fim').value);
+  if (!inicio) { toast('Digite a data inicial completa (dd/mm/aaaa)!', 'erro'); return; }
   relEstado.inicio = inicio; relEstado.fim = fim || inicio;
   renderRelatorios(relEstado.inicio, relEstado.fim, relEstado.tipo);
 }
