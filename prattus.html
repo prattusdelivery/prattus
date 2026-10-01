@@ -916,7 +916,7 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
     <div class="modal-titulo">🔒 Meus dados</div>
     <button class="modal-fechar" onclick="fecharModal('modal-privacidade')">×</button>
   </div>
-  <div style="font-size:13px;color:var(--texto-muted);margin-bottom:16px;">Digite o telefone que você usa pra pedir nesse restaurante. Você pode solicitar a exclusão do seu perfil (nome, pontos de fidelidade e histórico salvo aqui).</div>
+  <div style="font-size:13px;color:var(--texto-muted);margin-bottom:16px;">Digite o telefone que você usa pra pedir nesse restaurante. Você pode solicitar a exclusão do seu perfil (nome, saldo de cashback e histórico salvo aqui).</div>
   <div class="form-group">
     <label>Telefone (com DDD)</label>
     <input type="text" id="priv-telefone" placeholder="55999999999">
@@ -3435,7 +3435,7 @@ async function renderConfig() {
           </div>
           <button type="button" onclick="navigator.clipboard.writeText('https://servidelivery.com.br/${r.slug||''}');toast('Link copiado!','ok')" style="padding:0 14px;border-radius:8px;border:1px solid var(--creme-borda);background:none;cursor:pointer;white-space:nowrap;">📋 Copiar</button>
         </div>
-        <div style="font-size:13px;color:var(--texto-muted);margin-bottom:6px;">⭐ Link de fidelidade (pontos dos clientes):</div>
+        <div style="font-size:13px;color:var(--texto-muted);margin-bottom:6px;">💰 Link de cashback (saldo dos clientes):</div>
         <div style="background:var(--creme);padding:10px 14px;border-radius:8px;font-size:13px;font-family:monospace;word-break:break-all;margin-bottom:12px;">
           ${window.location.href.split('?')[0]}?fidelidade=${r.id}
         </div>
@@ -3445,7 +3445,7 @@ async function renderConfig() {
 Faça seu pedido pelo nosso cardápio digital:
 https://servidelivery.com.br/${r.slug||''}
 
-Consulte seus pontos de fidelidade:
+Consulte seu saldo de cashback:
 ${window.location.href.split('?')[0]}?fidelidade=${r.id}
 
 Não atendemos pedidos por aqui. Use o link acima 😊</div>
