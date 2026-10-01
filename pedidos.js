@@ -550,6 +550,9 @@ function imprimirComandaPorId(id) {
 }
 
 function imprimirComanda(p) {
+  const printCardapio = document.getElementById('print-cardapio');
+  if (printCardapio) printCardapio.innerHTML = '';
+
   const obs = p.observacao || '';
   const nome = (obs.match(/Nome:\s*([^\n]+)/) || [])[1]?.trim() || 'Cliente';
   const telefone = (obs.match(/Telefone:\s*([^\n]+)/) || [])[1]?.trim() || '';
