@@ -102,7 +102,7 @@ export default async function handler(req, res) {
           webpush.setVapidDetails('mailto:contato@servidelivery.com.br', process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
           const inscResp = await fetch(`${SUPABASE_URL}/rest/v1/admin_push_subscriptions?select=id,subscription`, { headers: svcHeaders });
           const inscricoes = await inscResp.json();
-          const payload = JSON.stringify({ titulo: '⚠️ Assinante cancelou', corpo: `${nomeLoja} deixou de ser assinante (${tipo}).`, url: '/prattus.html' });
+          const payload = JSON.stringify({ titulo: '⚠️ Assinante cancelou', corpo: `${nomeLoja} deixou de ser assinante (${tipo}).`, url: '/painel' });
           for (const insc of (Array.isArray(inscricoes) ? inscricoes : [])) {
             webpush.sendNotification(insc.subscription, payload).catch(() => {});
           }

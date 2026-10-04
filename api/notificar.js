@@ -80,7 +80,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, enviados: 0, aviso: 'Nenhum aparelho inscrito' });
     }
 
-    const payload = JSON.stringify({ titulo, corpo: corpo || '', url: '/prattus.html' });
+    const payload = JSON.stringify({ titulo, corpo: corpo || '', url: '/painel' });
     const tabela = tipo === 'admin' ? 'admin_push_subscriptions' : 'push_subscriptions';
 
     let enviados = 0;

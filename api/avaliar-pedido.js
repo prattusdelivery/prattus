@@ -48,7 +48,7 @@ export default async function handler(req, res) {
         const payload = JSON.stringify({
           titulo: '⚠️ Avaliação baixa recebida',
           corpo: `Um cliente avaliou o pedido #${pedidoId.slice(-6).toUpperCase()} com ${notaNum} estrela${notaNum>1?'s':''}. Vale a pena entrar em contato.`,
-          url: '/prattus.html'
+          url: '/painel'
         });
         for (const insc of (Array.isArray(inscricoes) ? inscricoes : [])) {
           webpush.sendNotification(insc.subscription, payload).catch(() => {});
