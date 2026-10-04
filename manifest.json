@@ -2,7 +2,7 @@
   "name": "ServiDelivery",
   "short_name": "ServiDelivery",
   "description": "Painel de pedidos para restaurantes",
-  "start_url": "/prattus.html",
+  "start_url": "/painel",
   "display": "standalone",
   "background_color": "#FAF6F0",
   "theme_color": "#E86339",

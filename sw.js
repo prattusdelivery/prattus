@@ -14,7 +14,7 @@ self.addEventListener('push', (event) => {
     vibrate: [200, 100, 200, 100, 200],
     tag: dados.tag || ('notif-' + Date.now()),
     renotify: true,
-    data: { url: dados.url || '/prattus.html' }
+    data: { url: dados.url || '/painel' }
   };
 
   event.waitUntil(self.registration.showNotification(titulo, opcoes));
@@ -22,11 +22,11 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || '/prattus.html';
+  const url = event.notification.data?.url || '/painel';
   event.waitUntil(
     self.clients.matchAll({ type: 'window' }).then((clientList) => {
       for (const client of clientList) {
-        if (client.url.includes('prattus.html') && 'focus' in client) return client.focus();
+        if (client.url.includes('/painel') && 'focus' in client) return client.focus();
       }
       if (self.clients.openWindow) return self.clients.openWindow(url);
     })
