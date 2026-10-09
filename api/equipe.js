@@ -1,5 +1,5 @@
 import { reportarErro } from './_sentry.js';
-// Cria ou remove o acesso de um funcionário ao restaurante, só se quem chamar for o dono de verdade.
+// Cria, remove ou redefine a senha de um funcionário do restaurante, só se quem chamar for o dono de verdade.
 const SUPABASE_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
 
 export default async function handler(req, res) {
@@ -82,6 +82,27 @@ export default async function handler(req, res) {
       await fetch(`${SUPABASE_URL}/rest/v1/usuarios_restaurante?id=eq.${vinculoId}&restaurante_id=eq.${restauranteId}`, {
         method: 'DELETE', headers: svcHeaders
       });
+      return res.status(200).json({ ok: true });
+    }
+
+    if (acao === 'redefinir_senha') {
+      const { vinculoId, novaSenha } = req.body || {};
+      if (!vinculoId || !novaSenha) return res.status(400).json({ error: 'Dados incompletos' });
+      if (String(novaSenha).length < 6) return res.status(400).json({ error: 'A senha precisa ter pelo menos 6 caracteres.' });
+
+      // Só mexe em funcionário que pertence a ESTE restaurante (o dono já foi confirmado acima)
+      const vResp = await fetch(`${SUPABASE_URL}/rest/v1/usuarios_restaurante?id=eq.${encodeURIComponent(vinculoId)}&restaurante_id=eq.${encodeURIComponent(restauranteId)}&select=user_id`, { headers: svcHeaders });
+      const vData = await vResp.json();
+      const alvoId = Array.isArray(vData) && vData[0] ? vData[0].user_id : null;
+      if (!alvoId) return res.status(404).json({ error: 'Funcionário não encontrado.' });
+
+      const upResp = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${alvoId}`, {
+        method: 'PUT', headers: svcHeaders, body: JSON.stringify({ password: String(novaSenha) })
+      });
+      if (!upResp.ok) {
+        const t = await upResp.json().catch(() => ({}));
+        return res.status(400).json({ error: t?.msg || t?.message || 'Não foi possível trocar a senha.' });
+      }
       return res.status(200).json({ ok: true });
     }
 
