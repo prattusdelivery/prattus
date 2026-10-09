@@ -648,6 +648,9 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
       </div>
       <button class="btn btn-laranja" onclick="fazerLogin()">Entrar</button>
       <div id="login-msg"></div>
+      <div style="text-align:center;margin-top:14px;">
+        <a href="#" onclick="abrirEsqueciSenha();return false;" style="font-size:13px;color:var(--texto-muted);text-decoration:underline;">Esqueci minha senha</a>
+      </div>
     </div>
 
     <!-- CADASTRO -->
@@ -827,6 +830,7 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
           <div class="topbar-avatar" id="topbar-avatar" onclick="document.getElementById('topbar-avatar-menu').classList.toggle('aberto')">A</div>
           <div class="topbar-avatar-menu" id="topbar-avatar-menu">
             <button onclick="irPara('config');document.getElementById('topbar-avatar-menu').classList.remove('aberto')">⚙️ Configurações</button>
+            <button onclick="document.getElementById('topbar-avatar-menu').classList.remove('aberto');abrirAlterarSenha()">🔑 Alterar minha senha</button>
             <button class="perigo" onclick="sair()">🚪 Sair da conta</button>
           </div>
         </div>
@@ -1321,6 +1325,10 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
 // ===== SUPABASE =====
 const SUPA_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
 const SUPA_KEY = 'sb_publishable_OLV3lcqI6SV9j65Q3k3w-Q_GHALYvfF';
+// Detecta se a pessoa chegou pelo link do e-mail "esqueci minha senha" (precisa ler antes do Supabase limpar o endereço)
+const HASH_ORIGINAL = window.location.hash || '';
+const RECUPERANDO_SENHA = /type=recovery/.test(HASH_ORIGINAL);
+const LINK_SENHA_EXPIRADO = /error_code=otp_expired|error=access_denied/.test(HASH_ORIGINAL);
 const { createClient } = supabase;
 var db = createClient(SUPA_URL, SUPA_KEY);
 
@@ -1601,6 +1609,7 @@ async function atualizarBadgeComandasPendentes() {
 const ADMIN_EMAIL = 'alessandro.reval@hotmail.com';
 
 async function init() {
+  if (RECUPERANDO_SENHA) { await mostrarTelaNovaSenha(); return; }
   const { data: { session } } = await db.auth.getSession();
   const comandaParam = new URLSearchParams(window.location.search).get('comanda');
   if (session) {
@@ -1617,6 +1626,10 @@ async function init() {
     }
   } else {
     mostrarTela('auth');
+    if (LINK_SENHA_EXPIRADO) {
+      const m = document.getElementById('login-msg');
+      if (m) { m.className = 'auth-msg erro'; m.textContent = 'Esse link de recuperação venceu ou já foi usado. Clique em "Esqueci minha senha" pra receber outro.'; }
+    }
     if (comandaParam) {
       localStorage.setItem('comanda_pendente', comandaParam);
     }
@@ -1855,6 +1868,7 @@ async function carregarSuperAdmin() {
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
           <button id="sa-btn-notif" onclick="ativarNotificacoesAdmin()" style="background:none;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.6);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;"></button>
           <button onclick="exportarAssinantesCSV()" style="background:none;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.6);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;">📊 Exportar CSV</button>
+          <button onclick="abrirAlterarSenha()" style="background:none;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.6);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;">🔑 Alterar senha</button>
           <button onclick="db.auth.signOut().then(()=>location.reload())" style="background:none;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.5);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:13px;">Sair</button>
         </div>
       </div>
@@ -3071,6 +3085,7 @@ async function renderEquipe() {
   }
 
   const { data: equipe } = await db.from('usuarios_restaurante').select('*').eq('restaurante_id', restauranteAtual.id).order('criado_em', {ascending:false});
+  equipeCache = equipe || [];
 
   document.getElementById('conteudo').innerHTML = `
     <div class="card" style="max-width:680px;margin-bottom:20px;">
@@ -3099,6 +3114,7 @@ async function renderEquipe() {
               <div style="font-size:14px;font-weight:700;">${esc(f.nome)}${f.funcao ? ` <span style="font-weight:400;color:var(--texto-muted);">— ${esc(f.funcao)}</span>` : ''}${f.nivel === 'garcom' ? ' <span style="font-size:11px;background:var(--laranja-light);color:var(--laranja-dark);padding:2px 8px;border-radius:10px;">🍽️ só comandas</span>' : ''}</div>
               <div style="font-size:12px;color:var(--texto-muted);">Usuário: ${esc(f.usuario||'—')} · Adicionado em ${dataDoBanco(f.criado_em).toLocaleDateString('pt-BR')}</div>
             </div>
+            <button class="btn-sm" onclick="redefinirSenhaFuncionario('${f.id}')">🔑 Redefinir senha</button>
             <button class="btn-sm perigo" onclick="removerFuncionario('${f.id}')">Remover acesso</button>
           </div>
         `).join('')
@@ -5273,6 +5289,177 @@ function mostrarRecibo(pedidoId) {
       <button onclick="window.print()" style="width:100%;background:#E86339;color:#fff;border:none;padding:12px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">Imprimir recibo</button>
     </div>
   `;
+}
+
+// ===== SENHA: recuperar, alterar e redefinir =====
+var equipeCache = [];
+
+function traduzErroSenha(erro) {
+  const txt = ((erro && erro.code) || '') + ' ' + ((erro && erro.message) || '');
+  if (/same_password|different from the old password/i.test(txt)) return 'A senha nova precisa ser diferente da senha atual.';
+  if (/weak_password|weak|easy to guess|pwned/i.test(txt)) return 'Essa senha é fraca demais. Use mais caracteres, misturando letras e números.';
+  if (/over_email_send_rate_limit|rate limit|too many/i.test(txt)) return 'Muitas tentativas seguidas. Espere alguns minutos e tente de novo.';
+  if (/session|jwt|expired|not authenticated/i.test(txt)) return 'Sua sessão venceu. Peça um novo link em "Esqueci minha senha".';
+  return 'Não foi possível salvar. Tente de novo em instantes.';
+}
+
+function fecharCaixaDialogo() {
+  const el = document.getElementById('caixa-dialogo');
+  if (el) el.remove();
+}
+
+// Caixinha de diálogo genérica (funciona em qualquer tela, inclusive no Super Admin)
+function abrirCaixaDialogo({ titulo, descricao, campos, textoBotao, aoConfirmar }) {
+  fecharCaixaDialogo();
+  const fundo = document.createElement('div');
+  fundo.id = 'caixa-dialogo';
+  fundo.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:5000;display:flex;align-items:center;justify-content:center;padding:20px;font-family:var(--font-body,system-ui,sans-serif);';
+  const estiloInput = 'width:100%;padding:11px 14px;border:1px solid #E8DFD3;border-radius:8px;font-size:14px;color:#231914;background:#fff;outline:none;';
+  fundo.innerHTML = `
+    <div style="background:#fff;color:#231914;border-radius:16px;padding:24px;width:100%;max-width:400px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px -16px rgba(0,0,0,0.5);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <div style="font-size:17px;font-weight:700;">${esc(titulo)}</div>
+        <button type="button" id="cd-fechar" style="width:30px;height:30px;border-radius:50%;border:none;background:#FAF6F0;cursor:pointer;font-size:18px;line-height:1;flex-shrink:0;">×</button>
+      </div>
+      ${descricao ? `<div style="font-size:13px;color:#8A7B6C;margin-bottom:14px;line-height:1.5;">${esc(descricao)}</div>` : ''}
+      ${campos.map((c, i) => `
+        <div style="margin-bottom:12px;">
+          <label for="cd-campo-${i}" style="display:block;font-size:13px;font-weight:500;color:#8A7B6C;margin-bottom:6px;">${esc(c.label)}</label>
+          <input id="cd-campo-${i}" type="${c.tipo || 'text'}" autocomplete="${c.auto || 'off'}" value="${esc(c.valor || '')}" style="${estiloInput}">
+        </div>`).join('')}
+      <div id="cd-msg" style="font-size:13px;min-height:18px;margin-bottom:10px;line-height:1.4;"></div>
+      <button type="button" id="cd-confirmar" style="width:100%;padding:12px;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;background:#E86339;color:#fff;">${esc(textoBotao)}</button>
+    </div>`;
+  document.body.appendChild(fundo);
+
+  const msgEl = fundo.querySelector('#cd-msg');
+  const btn = fundo.querySelector('#cd-confirmar');
+  const mostrarMsg = (texto, tipo) => { msgEl.textContent = texto; msgEl.style.color = tipo === 'ok' ? '#0F6E56' : '#C0392B'; };
+  const confirmar = async () => {
+    const valores = campos.map((_, i) => fundo.querySelector('#cd-campo-' + i).value);
+    btn.disabled = true; btn.style.opacity = '0.6'; mostrarMsg('', 'ok');
+    try { await aoConfirmar(valores, mostrarMsg); }
+    catch (e) { mostrarMsg('Algo deu errado. Tente de novo.', 'erro'); }
+    btn.disabled = false; btn.style.opacity = '1';
+  };
+  btn.addEventListener('click', confirmar);
+  fundo.querySelector('#cd-fechar').addEventListener('click', fecharCaixaDialogo);
+  fundo.addEventListener('click', (e) => { if (e.target === fundo) fecharCaixaDialogo(); });
+  fundo.querySelectorAll('input').forEach(inp => inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') confirmar(); }));
+  const primeiro = fundo.querySelector('input');
+  if (primeiro) primeiro.focus();
+}
+
+// 1) "Esqueci minha senha" — na tela de login
+function abrirEsqueciSenha() {
+  const digitado = (document.getElementById('login-email')?.value || '').trim();
+  abrirCaixaDialogo({
+    titulo: 'Recuperar senha',
+    descricao: 'Digite o e-mail da sua conta. Se ele existir, enviamos um link pra você criar uma senha nova.',
+    campos: [{ label: 'E-mail', tipo: 'email', auto: 'email', valor: digitado.includes('@') ? digitado : '' }],
+    textoBotao: 'Enviar link',
+    aoConfirmar: async ([email], msg) => {
+      const e = (email || '').trim();
+      if (!e || !e.includes('@')) {
+        msg('Digite o e-mail da sua conta. Funcionário não tem e-mail: peça pro dono do restaurante redefinir a sua senha na tela Equipe.', 'erro');
+        return;
+      }
+      const { error } = await db.auth.resetPasswordForEmail(e, { redirectTo: 'https://www.servidelivery.com.br/painel' });
+      if (error && /rate|limit|too many/i.test((error.message || '') + ' ' + (error.code || ''))) {
+        msg('Muitas tentativas. Espere alguns minutos e tente de novo.', 'erro');
+        return;
+      }
+      // Mesma resposta exista ou não a conta, pra ninguém descobrir quem é cliente
+      msg('Pronto! Se existir uma conta com esse e-mail, o link já está a caminho. Confira também a caixa de spam.', 'ok');
+    }
+  });
+}
+
+// 2) Tela que abre quando a pessoa clica no link do e-mail
+async function mostrarTelaNovaSenha() {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) {
+    mostrarTela('auth');
+    const m = document.getElementById('login-msg');
+    if (m) { m.className = 'auth-msg erro'; m.textContent = 'Esse link de recuperação venceu ou já foi usado. Clique em "Esqueci minha senha" pra receber outro.'; }
+    return;
+  }
+  document.body.innerHTML = `
+    <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--preto);font-family:var(--font-body);">
+      <div style="background:#fff;border-radius:20px;padding:32px;width:100%;max-width:400px;box-shadow:0 24px 60px -16px rgba(35,25,20,0.45);">
+        <div style="font-family:var(--font-display);font-size:26px;font-weight:600;text-align:center;margin-bottom:6px;">Servi<span style="color:var(--laranja);font-style:italic;">Delivery</span></div>
+        <div style="text-align:center;font-size:14px;color:var(--texto-muted);margin-bottom:22px;">Crie a sua nova senha</div>
+        <div class="form-group"><label>Nova senha (mínimo 6 caracteres)</label><input type="password" id="ns-senha" autocomplete="new-password"></div>
+        <div class="form-group"><label>Repita a nova senha</label><input type="password" id="ns-senha2" autocomplete="new-password" onkeydown="if(event.key==='Enter')salvarNovaSenha()"></div>
+        <button class="btn btn-laranja" id="ns-btn" onclick="salvarNovaSenha()">Salvar nova senha</button>
+        <div id="ns-msg" class="auth-msg" style="display:none;"></div>
+      </div>
+    </div>`;
+}
+
+async function salvarNovaSenha() {
+  const s1 = document.getElementById('ns-senha').value;
+  const s2 = document.getElementById('ns-senha2').value;
+  const msg = document.getElementById('ns-msg');
+  const mostrar = (t, tipo) => { msg.style.display = 'block'; msg.className = 'auth-msg ' + tipo; msg.textContent = t; };
+  if (s1.length < 6) { mostrar('A senha precisa ter pelo menos 6 caracteres.', 'erro'); return; }
+  if (s1 !== s2) { mostrar('As duas senhas não são iguais.', 'erro'); return; }
+  const btn = document.getElementById('ns-btn');
+  btn.disabled = true;
+  const { error } = await db.auth.updateUser({ password: s1 });
+  if (error) { btn.disabled = false; mostrar(traduzErroSenha(error), 'erro'); return; }
+  mostrar('Senha alterada! Entrando no painel...', 'ok');
+  setTimeout(() => window.location.replace('/painel'), 1500);
+}
+
+// 3) "Alterar minha senha" — pra quem já está logado (dono, gerente, garçom e Super Admin)
+function abrirAlterarSenha() {
+  abrirCaixaDialogo({
+    titulo: 'Alterar minha senha',
+    descricao: 'Por segurança, digite a sua senha atual e depois a nova.',
+    campos: [
+      { label: 'Senha atual', tipo: 'password', auto: 'current-password' },
+      { label: 'Nova senha (mínimo 6 caracteres)', tipo: 'password', auto: 'new-password' },
+      { label: 'Repita a nova senha', tipo: 'password', auto: 'new-password' }
+    ],
+    textoBotao: 'Salvar nova senha',
+    aoConfirmar: async ([atual, nova, repete], msg) => {
+      if (!atual) { msg('Digite a sua senha atual.', 'erro'); return; }
+      if (!nova || nova.length < 6) { msg('A nova senha precisa ter pelo menos 6 caracteres.', 'erro'); return; }
+      if (nova !== repete) { msg('As duas senhas novas não são iguais.', 'erro'); return; }
+      if (nova === atual) { msg('A senha nova precisa ser diferente da atual.', 'erro'); return; }
+      const { error: erroAtual } = await db.auth.signInWithPassword({ email: usuarioAtual.email, password: atual });
+      if (erroAtual) { msg('A senha atual está incorreta.', 'erro'); return; }
+      const { error } = await db.auth.updateUser({ password: nova });
+      if (error) { msg(traduzErroSenha(error), 'erro'); return; }
+      msg('Senha alterada com sucesso!', 'ok');
+      setTimeout(fecharCaixaDialogo, 1600);
+    }
+  });
+}
+
+// 4) O dono redefine a senha de um funcionário
+async function redefinirSenhaFuncionario(vinculoId) {
+  const f = (equipeCache || []).find(x => x.id === vinculoId);
+  abrirCaixaDialogo({
+    titulo: 'Redefinir senha' + (f ? ' — ' + f.nome : ''),
+    descricao: 'Digite a nova senha desse funcionário e avise ele pessoalmente. A senha antiga deixa de funcionar na hora.',
+    campos: [{ label: 'Nova senha (mínimo 6 caracteres)', tipo: 'text', auto: 'off' }],
+    textoBotao: 'Salvar nova senha',
+    aoConfirmar: async ([nova], msg) => {
+      if (!nova || nova.length < 6) { msg('A senha precisa ter pelo menos 6 caracteres.', 'erro'); return; }
+      const { data: sessao } = await db.auth.getSession();
+      const tokenDono = sessao?.session?.access_token;
+      const resp = await fetch('/api/equipe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'redefinir_senha', restauranteId: restauranteAtual.id, vinculoId, novaSenha: nova, tokenDono })
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) { msg(data.error || 'Erro ao redefinir a senha.', 'erro'); return; }
+      msg('Senha redefinida! Avise o funcionário.', 'ok');
+    }
+  });
 }
 
 // ===== UTILS =====
