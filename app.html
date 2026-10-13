@@ -1399,6 +1399,11 @@ function esc(str) {
 // ===== ESTADO =====
 let usuarioAtual = null;
 let restaurantesSA = [];
+
+function marcarNovosVistosSA() {
+  try { localStorage.setItem('sa_ultima_visita', new Date().toISOString()); } catch (e) {}
+  document.getElementById('sa-aviso-novos')?.remove();
+}
 let pedidosSA = [];
 var restauranteAtual = null;
 let paginaAtual = 'dashboard';
@@ -1861,6 +1866,27 @@ async function carregarSuperAdmin() {
   const totalComTeste = (restaurantes||[]).length;
   const taxaConversao = totalComTeste ? (ativos.length / totalComTeste * 100) : 0;
 
+  // Aviso de cadastros novos desde a última vez que o Super Admin marcou "visto" neste navegador
+  let ultimaVisitaSA = null;
+  try { ultimaVisitaSA = localStorage.getItem('sa_ultima_visita'); } catch (e) {}
+  const marcoSA = ultimaVisitaSA ? new Date(ultimaVisitaSA) : new Date(Date.now() - 7 * 86400000);
+  const novosSA = (restaurantes || []).filter(r => r.criado_em && dataDoBanco(r.criado_em) > marcoSA);
+  const fmtDH = (d) => d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const avisoNovosSA = novosSA.length ? `
+        <div id="sa-aviso-novos" style="background:rgba(232,99,57,0.12);border:1px solid rgba(232,99,57,0.45);border-radius:14px;padding:18px 20px;margin-bottom:24px;">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;">
+            <div style="font-size:16px;font-weight:700;color:var(--branco);">🆕 ${novosSA.length} ${novosSA.length === 1 ? 'cadastro novo' : 'cadastros novos'} ${ultimaVisitaSA ? 'desde sua última visita (' + fmtDH(marcoSA) + ')' : 'nos últimos 7 dias'}</div>
+            <button onclick="marcarNovosVistosSA()" style="background:var(--laranja);color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">✓ Marcar como visto</button>
+          </div>
+          <div style="display:grid;gap:8px;">
+            ${novosSA.map(r => `
+              <div style="background:rgba(0,0,0,0.25);border-radius:10px;padding:10px 14px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 14px;">
+                <div style="color:var(--branco);font-weight:600;font-size:14px;">${esc(r.nome)}</div>
+                <div style="color:rgba(255,255,255,0.6);font-size:12.5px;">${fmtDH(dataDoBanco(r.criado_em))}${r.whatsapp ? ' · WhatsApp: ' + esc(r.whatsapp) : ''}${r.origem_ref ? ' · veio por: ' + esc(r.origem_ref) : ''}</div>
+              </div>`).join('')}
+          </div>
+        </div>` : '';
+
   document.body.innerHTML = `
     <div style="min-height:100vh;background:var(--preto);font-family:var(--font-body);">
       <div style="background:#1a1a1a;padding:16px 20px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid rgba(255,255,255,0.08);">
@@ -1873,6 +1899,8 @@ async function carregarSuperAdmin() {
         </div>
       </div>
       <div style="padding:28px;max-width:1100px;margin:0 auto;">
+
+        ${avisoNovosSA}
 
         <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Assinatura (MRR)</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px;">
