@@ -640,7 +640,12 @@ async function avancarStatus(id, novoStatus, nomeCliente, telefone, numPedido) {
     };
     const modelo = textoCustom || padroes[novoStatus];
     if (modelo) {
-      const msg = modelo.replace(/%cliente%/g, nomeCliente).replace(/%pedido%/g, numPedido);
+      // Link para o cliente acompanhar o pedido (sempre vai junto, exceto ao marcar como entregue)
+      const linkAcomp = `${window.location.origin}/?acompanhar=${id}`;
+      let msg = modelo.replace(/%cliente%/g, nomeCliente).replace(/%pedido%/g, numPedido).replace(/%link%/g, linkAcomp);
+      if (novoStatus !== 'entregue' && !modelo.includes('%link%')) {
+        msg += `\n\nAcompanhe seu pedido: ${linkAcomp}`;
+      }
       const fone = telefone.replace(/\D/g, '');
       window.open(`https://wa.me/${fone}?text=${encodeURIComponent(msg)}`, 'wa_servidelivery');
     }
