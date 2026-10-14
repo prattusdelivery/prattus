@@ -810,6 +810,11 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
       Configurações
     </div>
+    <div class="nav-section">Ajuda</div>
+    <div class="nav-item" onclick="abrirTutoriais()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+      Tutoriais
+    </div>
     <div class="sidebar-footer">
       <button class="btn-sair" onclick="sair()">Sair da conta</button>
     </div>
@@ -902,6 +907,22 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
 </div>
 
 <!-- MODAL: FECHAR CONTA (COMANDA) -->
+<!-- MODAL: BOAS-VINDAS APÓS CADASTRO -->
+<div class="modal-overlay" id="modal-boas-vindas">
+<div class="modal" style="max-width:440px;text-align:center;">
+  <div style="font-size:44px;line-height:1;margin-bottom:10px;">🎉</div>
+  <div class="modal-titulo" style="font-size:20px;margin-bottom:8px;">Conta criada com sucesso!</div>
+  <p style="font-size:14px;color:var(--texto-muted,#8A7B6C);line-height:1.6;margin-bottom:6px;">
+    Enviamos um e-mail de boas-vindas para<br><strong id="bv-email" style="color:var(--texto,#231914);word-break:break-all;"></strong>
+  </p>
+  <p style="font-size:14px;color:var(--texto-muted,#8A7B6C);line-height:1.6;margin-bottom:18px;">
+    Nele tem o link dos vídeos que ensinam a usar o ServiDelivery, passo a passo. Se não encontrar, olhe também na caixa de <strong>spam</strong> (lixo eletrônico).
+  </p>
+  <button class="btn btn-laranja" onclick="abrirTutoriais()" style="margin-bottom:10px;">▶ Assistir agora</button>
+  <button class="btn btn-outline" onclick="fecharBoasVindas()">Começar a usar</button>
+</div>
+</div>
+
 <div class="modal-overlay" id="modal-fechar-comanda">
 <div class="modal" style="max-width:480px;">
   <div class="modal-header">
@@ -2554,6 +2575,15 @@ function validarCpfCnpj(valor) {
   return false;
 }
 
+const TUTORIAIS_URL = 'https://www.youtube.com/playlist?list=PLCHgD-U_TEo4';
+function abrirTutoriais() { window.open(TUTORIAIS_URL, '_blank', 'noopener'); }
+function abrirBoasVindas(email) {
+  const el = document.getElementById('bv-email');
+  if (el) el.textContent = email || '';
+  document.getElementById('modal-boas-vindas')?.classList.add('aberto');
+}
+function fecharBoasVindas() { document.getElementById('modal-boas-vindas')?.classList.remove('aberto'); }
+
 async function fazerCadastro() {
   const tipo = document.getElementById('cad-tipo').value;
   const nome = document.getElementById('cad-nome').value;
@@ -2658,6 +2688,7 @@ async function fazerCadastro() {
     }).catch(() => {});
     await criarCardapioExemplo(novoRest.id);
     await carregarRestaurante();
+    abrirBoasVindas(email);
   } else {
     msg.className = 'auth-msg ok';
     msg.textContent = 'Conta criada com sucesso!';
