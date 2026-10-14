@@ -170,6 +170,46 @@ footer{padding:40px 0 32px;border-top:1px solid var(--creme-borda);margin-top:20
 
 .reveal{opacity:0;transform:translateY(16px);transition:opacity .6s ease, transform .6s ease;}
 .reveal.in{opacity:1;transform:translateY(0);}
+
+/* ===== Veja por dentro ===== */
+.vpd-grid{display:grid;grid-template-columns:0.8fr 1.2fr;gap:48px;align-items:center;}
+@media(max-width:900px){.vpd-grid{grid-template-columns:1fr;gap:40px;}}
+.vpd-phone-wrap{display:flex;justify-content:center;}
+.vpd-phone{width:290px;background:var(--preto-forte);border-radius:38px;padding:10px;box-shadow:0 40px 80px -24px rgba(21,16,13,0.5);position:relative;}
+.vpd-screen{background:var(--creme);border-radius:30px;overflow:hidden;height:600px;position:relative;}
+.vpd-notch{position:absolute;top:8px;left:50%;transform:translateX(-50%);width:80px;height:20px;background:var(--preto-forte);border-radius:20px;z-index:3;}
+.vpd-top{background:var(--preto);color:#fff;padding:34px 16px 14px;}
+.vpd-top .n{font-family:var(--font-display);font-size:17px;font-weight:600;}
+.vpd-top .s{font-size:11px;color:rgba(255,255,255,.6);margin-top:2px;}
+.vpd-chips{display:flex;gap:6px;padding:10px 12px;overflow:hidden;background:var(--branco);border-bottom:1px solid var(--creme-borda);}
+.vpd-chip{font-size:11px;font-weight:600;padding:5px 10px;border-radius:100px;background:var(--creme-2);color:var(--texto);white-space:nowrap;}
+.vpd-chip.on{background:var(--laranja);color:#fff;}
+.vpd-list{padding:10px 12px;display:flex;flex-direction:column;gap:9px;}
+.vpd-item{display:flex;gap:10px;background:var(--branco);border-radius:12px;padding:8px;box-shadow:0 6px 16px -12px rgba(35,25,20,.35);position:relative;}
+.vpd-item img{width:68px;height:68px;border-radius:9px;object-fit:cover;flex-shrink:0;}
+.vpd-item .t{font-size:13px;font-weight:700;line-height:1.2;}
+.vpd-item .d{font-size:10.5px;color:var(--texto-muted);margin-top:2px;line-height:1.3;}
+.vpd-item .p{font-family:var(--font-mono);font-size:12.5px;font-weight:700;color:var(--laranja-dark);margin-top:5px;}
+.vpd-item .tag{position:absolute;bottom:8px;right:8px;font-size:9px;font-weight:700;background:var(--amarelo);color:var(--preto-forte);padding:2px 7px;border-radius:100px;}
+.vpd-cart{position:absolute;left:12px;right:12px;bottom:12px;background:var(--verde);color:#fff;border-radius:12px;padding:11px 14px;display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;}
+.vpd-side{display:flex;flex-direction:column;gap:22px;}
+.vpd-card{background:var(--branco);border-radius:16px;padding:24px;box-shadow:0 20px 50px -34px rgba(35,25,20,.3);}
+.vpd-card h3{font-family:var(--font-display);font-size:19px;font-weight:600;margin-bottom:6px;}
+.vpd-card p{color:var(--texto-muted);font-size:14px;line-height:1.6;}
+.vpd-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px;background:var(--preto-forte);border-radius:12px;padding:12px;}
+.vpd-col-l{font-family:var(--font-mono);font-size:9px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
+.vpd-oc{background:rgba(255,255,255,.07);border-left:3px solid var(--laranja);border-radius:6px;padding:7px 8px;margin-bottom:6px;}
+.vpd-oc.p{border-left-color:#E0B84A;}.vpd-oc.w{border-left-color:var(--verde);}
+.vpd-oc b{display:block;color:#fff;font-size:11px;}.vpd-oc span{color:rgba(255,255,255,.45);font-size:9.5px;}
+.vpd-bars{display:flex;align-items:flex-end;gap:7px;height:96px;margin-top:16px;padding:0 4px;border-bottom:1px dashed var(--creme-borda);}
+.vpd-bars i{flex:1;background:var(--laranja);border-radius:5px 5px 0 0;display:block;}
+.vpd-bars i.y{background:var(--amarelo);}
+.vpd-days{display:flex;gap:7px;padding:5px 4px 0;font-family:var(--font-mono);font-size:9.5px;color:var(--texto-muted);}
+.vpd-days span{flex:1;text-align:center;}
+.vpd-note{font-size:11.5px;color:var(--texto-muted);font-style:italic;margin-top:10px;}
+.vpd-list{padding-bottom:70px;}
+@media(max-width:600px){.vpd-cols{grid-template-columns:1fr 1fr;}}
+.vpd-cta{display:flex;gap:14px;flex-wrap:wrap;margin-top:34px;justify-content:center;}
 </style>
 </head>
 <body>
@@ -179,6 +219,7 @@ footer{padding:40px 0 32px;border-top:1px solid var(--creme-borda);margin-top:20
     <div class="logo">Servi<span class="d">Delivery</span></div>
     <div class="nav-links">
       <a href="#como-funciona">Como funciona</a>
+      <a href="#veja-por-dentro">Veja por dentro</a>
       <a href="#recursos">Recursos</a>
       <a href="#precos">Preços</a>
     </div>
@@ -286,6 +327,61 @@ footer{padding:40px 0 32px;border-top:1px solid var(--creme-borda);margin-top:20
       <div style="position:relative;padding-bottom:56.25%;height:0;border-radius:16px;overflow:hidden;box-shadow:0 20px 50px -20px rgba(35,25,20,0.25);">
         <iframe src="https://www.youtube.com/embed/SEU_VIDEO_AQUI" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;" allowfullscreen title="Como funciona o ServiDelivery"></iframe>
       </div>
+    </div>
+  </section>
+
+  <div class="perf" aria-hidden="true"></div>
+
+  <section id="veja-por-dentro">
+    <div class="section-head reveal">
+      <div class="section-eyebrow">Veja por dentro</div>
+      <h2>Assim fica o seu delivery funcionando.</h2>
+      <p class="section-sub">Um cardápio bonito para o seu cliente e um painel simples para você. Tudo isso já pronto no teste grátis.</p>
+    </div>
+    <div class="vpd-grid">
+      <div class="vpd-phone-wrap reveal">
+        <div class="vpd-phone">
+          <div class="vpd-screen">
+            <div class="vpd-notch"></div>
+            <div class="vpd-top"><div class="n">Seu Delivery</div><div class="s">Aberto agora · Peça pelo link</div></div>
+            <div class="vpd-chips"><span class="vpd-chip on">Destaques</span><span class="vpd-chip">Lanches</span><span class="vpd-chip">Pratos</span><span class="vpd-chip">Doces</span></div>
+            <div class="vpd-list">
+              <div class="vpd-item"><img src="/demo-combo.jpg" alt="Combo com hambúrguer e batata" loading="lazy"><div><div class="t">Combo Burger</div><div class="d">Hambúrguer, batata frita e refrigerante</div><div class="p">R$ 39,90</div></div><span class="tag">Mais pedido</span></div>
+              <div class="vpd-item"><img src="/demo-file.jpg" alt="Filé grelhado com arroz e fritas" loading="lazy"><div><div class="t">Filé Grelhado</div><div class="d">Acompanha arroz e fritas</div><div class="p">R$ 36,00</div></div></div>
+              <div class="vpd-item"><img src="/demo-hotdog.jpg" alt="Cachorro-quente completo" loading="lazy"><div><div class="t">Cachorro-quente Completo</div><div class="d">Salsicha, batata palha, milho e molhos</div><div class="p">R$ 18,90</div></div></div>
+              <div class="vpd-item"><img src="/demo-acai.jpg" alt="Açaí com acompanhamentos" loading="lazy"><div><div class="t">Açaí 300 ml</div><div class="d">Com banana, granola e leite condensado</div><div class="p">R$ 19,90</div></div></div>
+            </div>
+            <div class="vpd-cart"><span>Ver sacola · 2 itens</span><span>R$ 75,90</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="vpd-side">
+        <div class="vpd-card reveal">
+          <h3>Cardápio com fotos, no celular do cliente</h3>
+          <p>Seu cliente abre o link, escolhe, paga e acompanha o pedido. Sem baixar aplicativo e sem comissão por pedido.</p>
+        </div>
+        <div class="vpd-card reveal">
+          <h3>Painel de pedidos em tempo real</h3>
+          <p>O pedido chega com aviso sonoro e você move de uma etapa para outra com um clique.</p>
+          <div class="vpd-cols" aria-hidden="true">
+            <div><div class="vpd-col-l">Novos</div><div class="vpd-oc"><b>#0412 · Maria</b><span>2 itens · R$ 58,80</span></div><div class="vpd-oc"><b>#0413 · João</b><span>1 item · R$ 39,90</span></div></div>
+            <div><div class="vpd-col-l">Preparando</div><div class="vpd-oc p"><b>#0410 · Ana</b><span>3 itens · R$ 92,70</span></div></div>
+            <div><div class="vpd-col-l">A caminho</div><div class="vpd-oc w"><b>#0409 · Pedro</b><span>1 item · R$ 36,00</span></div></div>
+          </div>
+          <p class="vpd-note">Exemplo ilustrativo.</p>
+        </div>
+        <div class="vpd-card reveal">
+          <h3>Relatórios para saber o que vende</h3>
+          <p>Veja o faturamento da semana, os pratos mais pedidos e os dias de maior movimento.</p>
+          <div class="vpd-bars" aria-hidden="true"><i style="height:38%"></i><i style="height:52%"></i><i style="height:46%"></i><i style="height:64%"></i><i style="height:78%"></i><i class="y" style="height:100%"></i><i class="y" style="height:88%"></i></div>
+          <div class="vpd-days" aria-hidden="true"><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span><span>Dom</span></div>
+          <p class="vpd-note">Exemplo ilustrativo, não são dados reais.</p>
+        </div>
+      </div>
+    </div>
+    <div class="vpd-cta reveal">
+      <a class="btn-primary" href="https://servidelivery.com.br/servidelivery-demo" target="_blank" rel="noopener">Ver loja de demonstração</a>
+      <a class="btn-ghost" href="https://servidelivery.com.br/painel?cadastro=true">Começar teste grátis</a>
     </div>
   </section>
 
