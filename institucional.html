@@ -96,6 +96,50 @@ h1 .hl{color:var(--laranja);}
 .mock-comanda-row{display:flex;justify-content:space-between;color:var(--texto-muted);margin-bottom:4px;}
 .mock-comanda-total{display:flex;justify-content:space-between;font-weight:700;color:var(--texto);border-top:1px dashed var(--creme-borda);margin-top:8px;padding-top:8px;}
 
+
+/* ===== Imagens em destaque (topo, faixa, antes/depois) ===== */
+.lap{position:absolute;top:8px;left:0;width:96%;background:var(--preto-forte);border-radius:14px 14px 4px 4px;padding:9px 9px 0;box-shadow:0 40px 80px -20px rgba(21,16,13,0.45);z-index:2;}
+.lap img{width:100%;height:auto;border-radius:7px 7px 0 0;display:block;aspect-ratio:1464/880;object-fit:cover;object-position:top left;}
+.lap::after{content:'';display:block;height:11px;margin:0 -16px;background:linear-gradient(#d8d0c6,#a39a8f);border-radius:0 0 14px 14px;}
+.hv-fotos{position:absolute;left:-6px;bottom:6px;width:62%;height:230px;z-index:3;}
+.hv-fotos img{position:absolute;object-fit:cover;border-radius:16px;border:5px solid var(--creme);box-shadow:0 20px 40px -14px rgba(35,25,20,0.4);}
+.hv-fotos .a{width:165px;height:165px;left:0;bottom:0;transform:rotate(-5deg);}
+.hv-fotos .b{width:150px;height:150px;left:130px;bottom:34px;transform:rotate(4deg);z-index:2;}
+.hv-fotos .c{width:120px;height:120px;left:98px;bottom:-14px;transform:rotate(-2deg);z-index:3;border-radius:50%;}
+@media(max-width:900px){.hero-visual{height:470px;}.mock-comanda{width:170px;}.hv-fotos{width:70%;}}
+@media(max-width:480px){.hero-visual{height:430px;}.hv-fotos .a{width:130px;height:130px;}.hv-fotos .b{width:120px;height:120px;left:100px;}.hv-fotos .c{width:96px;height:96px;left:70px;}.mock-comanda{width:150px;font-size:10px;}}
+
+.faixa{overflow:hidden;margin:6px calc(50% - 50vw) 0;padding:18px 0 34px;position:relative;}
+.faixa::before,.faixa::after{content:'';position:absolute;top:0;bottom:0;width:70px;z-index:2;pointer-events:none;}
+.faixa::before{left:0;background:linear-gradient(90deg,var(--creme),transparent);}
+.faixa::after{right:0;background:linear-gradient(270deg,var(--creme),transparent);}
+.faixa-track{display:flex;gap:16px;width:max-content;animation:faixa-rolar 60s linear infinite;}
+.faixa:hover .faixa-track{animation-play-state:paused;}
+.faixa-track img{width:230px;height:230px;object-fit:cover;border-radius:18px;box-shadow:0 14px 30px -14px rgba(35,25,20,0.35);flex:none;}
+.faixa-track img:nth-child(even){margin-top:22px;}
+@keyframes faixa-rolar{from{transform:translateX(0);}to{transform:translateX(calc(-50% - 8px));}}
+.faixa-legenda{text-align:center;font-family:var(--font-mono);font-size:12px;letter-spacing:1px;color:var(--texto-muted);margin-top:18px;text-transform:uppercase;}
+@media(max-width:600px){.faixa-track img{width:170px;height:170px;}}
+
+.ad-grid{display:grid;grid-template-columns:1fr 1.25fr;gap:28px;align-items:stretch;}
+@media(max-width:900px){.ad-grid{grid-template-columns:1fr;}}
+.ad-card{border-radius:22px;padding:26px;position:relative;overflow:hidden;}
+.ad-antes{background:#E7E2DA;border:2px dashed #cfc6ba;}
+.ad-depois{background:var(--preto-forte);color:var(--branco);box-shadow:0 40px 80px -30px rgba(21,16,13,0.55);}
+.ad-tag{display:inline-block;font-family:var(--font-mono);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;padding:6px 12px;border-radius:100px;margin-bottom:18px;font-weight:700;}
+.ad-antes .ad-tag{background:#c9362b;color:#fff;}
+.ad-depois .ad-tag{background:var(--amarelo);color:var(--preto-forte);}
+.ad-card h3{font-family:var(--font-display);font-size:22px;line-height:1.2;margin-bottom:16px;}
+.chat{display:flex;flex-direction:column;gap:9px;}
+.bolha{max-width:82%;padding:9px 13px;border-radius:14px;font-size:14px;line-height:1.35;box-shadow:0 2px 4px rgba(0,0,0,.08);}
+.bolha.in{background:#fff;align-self:flex-start;border-top-left-radius:4px;}
+.bolha.out{background:#D9F3C4;align-self:flex-end;border-top-right-radius:4px;}
+.bolha small{display:block;color:#8a8a8a;font-size:11px;margin-top:2px;}
+.bolha.perdido{outline:2px solid #c9362b;}
+.ad-depois img{width:100%;height:auto;border-radius:12px;display:block;box-shadow:0 20px 50px -16px rgba(0,0,0,.6);}
+.ad-lista{list-style:none;margin-top:16px;display:grid;gap:8px;font-size:15px;}
+.ad-lista li::before{content:'✓ ';color:var(--amarelo);font-weight:800;}
+
 section{padding:88px 0;}
 .section-head{max-width:640px;margin-bottom:56px;}
 .section-eyebrow{font-family:var(--font-mono);font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--laranja-dark);margin-bottom:14px;}
@@ -243,45 +287,56 @@ footer{padding:40px 0 32px;border-top:1px solid var(--creme-borda);margin-top:20
       </div>
       <div class="hero-visual reveal">
         <div class="badge-impacto">🔥 Chega de perder pedido</div>
-        <div class="mock-kanban">
-          <div class="mock-topbar">
-            <span class="mock-title">PAINEL · PEDIDOS DE HOJE</span>
-            <span class="mock-live">AO VIVO</span>
-          </div>
-          <div class="mock-cols">
-            <div>
-              <div class="mock-col-label">Novos</div>
-              <div class="mock-card new">
-                <div class="mock-card-id">#0842</div>
-                <div class="mock-card-name">Combo X2 + Coca</div>
-                <div class="mock-card-sub">Delivery · Rua das Flores</div>
-              </div>
-            </div>
-            <div>
-              <div class="mock-col-label">Em preparo</div>
-              <div class="mock-card prep">
-                <div class="mock-card-id">#0839</div>
-                <div class="mock-card-name">Pizza Marguerita G</div>
-                <div class="mock-card-sub">Retirar · 18:40</div>
-              </div>
-            </div>
-            <div>
-              <div class="mock-col-label">A caminho</div>
-              <div class="mock-card way">
-                <div class="mock-card-id">#0835</div>
-                <div class="mock-card-name">Marmita Fit</div>
-                <div class="mock-card-sub">Delivery · Bairro Centro</div>
-              </div>
-            </div>
-          </div>
+        <div class="lap"><img src="/painel-pedidos-topo.png" width="1464" height="880" alt="Painel de pedidos do ServiDelivery com pedidos novos, em preparo e a caminho" fetchpriority="high"></div>
+        <div class="hv-fotos" aria-hidden="true">
+          <img class="a" src="/ft-burger.jpg" width="165" height="165" alt="">
+          <img class="b" src="/ft-pizza.jpg" width="150" height="150" alt="">
+          <img class="c" src="/ft-acai.jpg" width="120" height="120" alt="">
         </div>
-        <div class="mock-comanda">
+<div class="mock-comanda">
           <div class="mock-comanda-h">COMANDA #0842</div>
           <div class="mock-comanda-row"><span>1x Combo X2</span><span>32,00</span></div>
           <div class="mock-comanda-row"><span>1x Coca 600ml</span><span>7,00</span></div>
           <div class="mock-comanda-row"><span>Taxa entrega</span><span>6,00</span></div>
           <div class="mock-comanda-total"><span>TOTAL</span><span>R$45,00</span></div>
         </div>
+      </div>
+    </div>
+  </section>
+
+  
+  <div class="faixa" aria-label="Exemplos de pratos de cardápios feitos no ServiDelivery">
+    <div class="faixa-track"><img src="/ft-burger.jpg" width="230" height="230" alt="Hambúrguer com bacon" loading="lazy" decoding="async"><img src="/ft-pizza.jpg" width="230" height="230" alt="Pizza grande com três sabores" loading="lazy" decoding="async"><img src="/ft-combo.jpg" width="230" height="230" alt="Combo com hambúrguer e batata" loading="lazy" decoding="async"><img src="/ft-acai.jpg" width="230" height="230" alt="Açaí com granola e banana" loading="lazy" decoding="async"><img src="/ft-hotdog.jpg" width="230" height="230" alt="Cachorro-quente completo" loading="lazy" decoding="async"><img src="/ft-brownie.jpg" width="230" height="230" alt="Brownie com sorvete" loading="lazy" decoding="async"><img src="/ft-risoto.jpg" width="230" height="230" alt="Risoto de camarão" loading="lazy" decoding="async"><img src="/ft-file.jpg" width="230" height="230" alt="Filé grelhado com fritas" loading="lazy" decoding="async"><img src="/ft-suco.jpg" width="230" height="230" alt="Suco de laranja gelado" loading="lazy" decoding="async"><img src="/ft-assorted.jpg" width="230" height="230" alt="Pedido de delivery variado" loading="lazy" decoding="async"><img src="/ft-frango.jpg" width="230" height="230" alt="Frango frito crocante" loading="lazy" decoding="async"><img src="/ft-pizza2.jpg" width="230" height="230" alt="Pizza de muçarela" loading="lazy" decoding="async"><img src="/ft-burger.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-pizza.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-combo.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-acai.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-hotdog.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-brownie.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-risoto.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-file.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-suco.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-assorted.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-frango.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-pizza2.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"></div>
+    <div class="faixa-legenda">Seu cardápio, com a cara do seu delivery</div>
+  </div>
+
+  <section id="antes-depois" style="padding-top:56px;">
+    <div class="section-head">
+      <div class="section-eyebrow">Antes e depois</div>
+      <h2>Do grupo bagunçado ao pedido organizado.</h2>
+    </div>
+    <div class="ad-grid">
+      <div class="ad-card ad-antes">
+        <span class="ad-tag">Antes</span>
+        <h3>Pedido perdido no meio da conversa</h3>
+        <div class="chat">
+          <div class="bolha in">Oi, vcs tem X-Burguer? <small>19:02</small></div>
+          <div class="bolha out">Tem sim! Qual endereço?</div>
+          <div class="bolha in">Rua das Flores, 120. Manda 2 e uma coca <small>19:04</small></div>
+          <div class="bolha in">e o pix, qual é a chave?? <small>19:07</small></div>
+          <div class="bolha out">Já te passo…</div>
+          <div class="bolha in perdido">Cadê meu pedido?? Já faz 1 hora 😡 <small>20:11</small></div>
+        </div>
+      </div>
+      <div class="ad-card ad-depois">
+        <span class="ad-tag">Depois</span>
+        <h3>Cada pedido no lugar certo, na hora certa</h3>
+        <img src="/painel-pedidos.png" width="1728" height="880" alt="Painel do ServiDelivery com os pedidos separados por etapa" loading="lazy" decoding="async">
+        <ul class="ad-lista">
+          <li>Pedido novo aparece com som de aviso</li>
+          <li>Você avança de etapa com um clique</li>
+          <li>O cliente acompanha pelo link, sem perguntar</li>
+        </ul>
       </div>
     </div>
   </section>
