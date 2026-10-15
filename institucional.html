@@ -140,6 +140,20 @@ h1 .hl{color:var(--laranja);}
 .ad-lista{list-style:none;margin-top:16px;display:grid;gap:8px;font-size:15px;}
 .ad-lista li::before{content:'✓ ';color:var(--amarelo);font-weight:800;}
 
+
+/* ===== Banner final estilo anúncio ===== */
+.cta-final.banner{background:linear-gradient(90deg,rgba(21,16,13,.94) 0%,rgba(21,16,13,.86) 34%,rgba(21,16,13,.35) 68%,rgba(21,16,13,.05) 100%),url('/banner-fundo.jpg') center right/cover no-repeat,var(--preto-forte);text-align:left;padding:84px 56px;min-height:440px;display:flex;flex-direction:column;justify-content:center;}
+.cta-final.banner .banner-txt{max-width:520px;position:relative;z-index:2;}
+.cta-final.banner .section-sub2{margin:16px 0 28px;max-width:440px;color:rgba(255,255,255,.78);}
+.banner-selo{display:inline-block;background:var(--amarelo);color:var(--preto-forte);font-family:var(--font-mono);font-weight:800;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 14px;border-radius:100px;margin-bottom:20px;transform:rotate(-2deg);box-shadow:0 10px 24px -8px rgba(255,201,60,.55);}
+.banner-btns{display:flex;gap:14px;flex-wrap:wrap;align-items:center;}
+.btn-zap{background:#25D366;color:#06330f;padding:15px 26px;border-radius:9px;font-size:15px;font-weight:800;display:inline-block;transition:transform .15s,filter .15s;}
+.btn-zap:hover{transform:translateY(-1px);filter:brightness(1.06);}
+.banner-nota{margin-top:20px;font-family:var(--font-mono);font-size:12px;color:rgba(255,255,255,.6);}
+@media(max-width:760px){.cta-final.banner{padding:48px 24px 40px;min-height:0;background:linear-gradient(180deg,rgba(21,16,13,.55) 0%,rgba(21,16,13,.88) 55%,rgba(21,16,13,.96) 100%),url('/banner-fundo.jpg') 78% top/cover no-repeat,var(--preto-forte);}.cta-final.banner h2{font-size:28px;}.banner-btns a{width:100%;text-align:center;}}
+.faixa.rev .faixa-track{animation-direction:reverse;animation-duration:70s;}
+.faixa.rev{padding-top:34px;}
+
 section{padding:88px 0;}
 .section-head{max-width:640px;margin-bottom:56px;}
 .section-eyebrow{font-family:var(--font-mono);font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--laranja-dark);margin-bottom:14px;}
@@ -602,14 +616,24 @@ footer{padding:40px 0 32px;border-top:1px solid var(--creme-borda);margin-top:20
     </div>
   </section>
 
-  <section>
-    <div class="cta-final reveal">
-      <h2>Bora tirar o pedido do WhatsApp bagunçado?</h2>
-      <p class="section-sub2">Cria sua conta agora e testa grátis por 14 dias — sem cartão de crédito.</p>
-      <a class="btn-primary" href="https://servidelivery.com.br/painel?cadastro=true">Criar conta grátis</a>
-      <div style="margin-top:18px;"><a href="https://wa.me/5555997267239?text=Quero%20conhecer%20o%20ServiDelivery" style="color:rgba(255,255,255,0.55);font-size:13px;text-decoration:underline;">ou prefere conversar antes? Fala com a gente no WhatsApp</a></div>
+  <section style="padding-bottom:36px;">
+    <div class="cta-final banner reveal">
+      <div class="banner-txt">
+        <span class="banner-selo">🔥 Teste grátis · 14 dias</span>
+        <h2>Bora tirar o pedido do WhatsApp bagunçado?</h2>
+        <p class="section-sub2">Cria sua conta agora e testa grátis por 14 dias — sem cartão de crédito.</p>
+        <div class="banner-btns">
+          <a class="btn-primary" href="https://servidelivery.com.br/painel?cadastro=true">Criar conta grátis</a>
+          <a class="btn-zap" href="https://wa.me/5555997267239?text=Quero%20conhecer%20o%20ServiDelivery" target="_blank" rel="noopener">Falar no WhatsApp</a>
+        </div>
+        <div class="banner-nota">Sem compromisso: teste e veja funcionando no seu delivery.</div>
+      </div>
     </div>
   </section>
+
+  <div class="faixa rev" aria-hidden="true" style="margin-bottom:10px;">
+    <div class="faixa-track"><img src="/ft-pizza2.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-file.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-suco.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-hotdog.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-risoto.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-combo.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-brownie.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-assorted.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-acai.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-burger.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-frango.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-pizza.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-pizza2.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-file.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-suco.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-hotdog.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-risoto.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-combo.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-brownie.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-assorted.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-acai.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-burger.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-frango.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"><img src="/ft-pizza.jpg" width="230" height="230" alt="" aria-hidden="true" loading="lazy" decoding="async"></div>
+  </div>
 
 </main>
 
