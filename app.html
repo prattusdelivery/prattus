@@ -1083,11 +1083,14 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
     <!-- PAGAMENTO -->
     <div class="form-group">
       <label>Forma de pagamento</label>
-      <select id="ped-pagamento" onchange="alternarFormaPagamento()">
+      <select id="ped-pagamento" style="display:none" onchange="alternarFormaPagamento()">
+        <option value="">Selecione</option>
+        <option value="Pix online">Pix</option>
+        <option value="Cartão online">Cartão de crédito</option>
         <option value="Dinheiro">Dinheiro</option>
         <option value="Cartão na entrega">Cartão na entrega</option>
-        <option value="Pix">Pix</option>
       </select>
+      <div id="lista-pagamento"></div>
     </div>
     <div class="form-group" id="campo-troco" style="display:none;">
       <label>Troco pra quanto? (opcional)</label>
@@ -3290,6 +3293,52 @@ async function excluirCupom(id) {
   renderCupons();
 }
 
+async function alternarSoOnline(ligado) {
+  const { error } = await db.from('restaurantes').update({ so_online: !!ligado }).eq('id', restauranteAtual.id);
+  if (error) { toast('Não consegui salvar: ' + error.message, 'erro'); renderConfig(); return; }
+  restauranteAtual.so_online = !!ligado;
+  toast(ligado ? 'Agora só pagamento online (sem maquininha).' : 'Maquininha na entrega liberada de novo.', 'ok');
+}
+
+async function conectarMercadoPago() {
+  const token = (document.getElementById('cfg-mp-token')?.value || '').trim();
+  if (!token) { toast('Cole o código do Mercado Pago primeiro.', 'erro'); return; }
+  const { data: sessao } = await db.auth.getSession();
+  const tokenDono = sessao?.session?.access_token;
+  try {
+    const resp = await fetch('/api/consultar-pontos', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acao: 'mp_conectar', restauranteId: restauranteAtual.id, tokenDono, accessToken: token })
+    });
+    const data = await resp.json();
+    if (!data.ok) { toast(data.error || 'Não consegui ligar. Confira o código.', 'erro'); return; }
+    restauranteAtual.pix_online_ativo = true;
+    toast('Pix automático ligado!', 'ok');
+    renderConfig();
+  } catch (e) {
+    toast('Erro de conexão. Tente de novo.', 'erro');
+  }
+}
+
+async function desconectarMercadoPago() {
+  if (!confirm('Desligar o Pix automático? Seus clientes deixam de ver essa opção no cardápio.')) return;
+  const { data: sessao } = await db.auth.getSession();
+  const tokenDono = sessao?.session?.access_token;
+  try {
+    const resp = await fetch('/api/consultar-pontos', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acao: 'mp_desconectar', restauranteId: restauranteAtual.id, tokenDono })
+    });
+    const data = await resp.json();
+    if (!data.ok) { toast(data.error || 'Não consegui desligar.', 'erro'); return; }
+    restauranteAtual.pix_online_ativo = false;
+    toast('Pix automático desligado.', 'ok');
+    renderConfig();
+  } catch (e) {
+    toast('Erro de conexão. Tente de novo.', 'erro');
+  }
+}
+
 // ===== CONFIG =====
 async function renderConfig() {
   if (!restauranteAtual) return;
@@ -3324,14 +3373,28 @@ async function renderConfig() {
         <div class="form-group"><label>Instagram (link completo, opcional)</label><input type="text" id="cfg-insta" value="${r.instagram_url||''}" placeholder="https://instagram.com/..."></div>
         <div class="form-group"><label>Facebook (link completo, opcional)</label><input type="text" id="cfg-face" value="${r.facebook_url||''}" placeholder="https://facebook.com/..."></div>
       </div>
-      <div class="form-group">
-        <label>Chave Pix (opcional)</label>
-        <div style="display:flex;gap:8px;">
-          <input type="text" id="cfg-pix" value="${esc(chavePixAtual)}" placeholder="CPF, e-mail, telefone ou chave aleatória" ${meuPapel!=='dono'?'readonly style="background:var(--creme);"':''}>
-          ${meuPapel!=='dono' ? `<button type="button" onclick="navigator.clipboard.writeText(document.getElementById('cfg-pix').value);toast('Chave Pix copiada!','ok')" style="padding:0 14px;border-radius:8px;border:1px solid var(--creme-borda);background:none;cursor:pointer;white-space:nowrap;">📋 Copiar</button>` : ''}
-        </div>
-        ${meuPapel!=='dono' ? '<div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Só o dono pode alterar a chave Pix.</div>' : ''}
-      </div>
+      <input type="hidden" id="cfg-pix" value="${esc(chavePixAtual)}">
+      ${meuPapel==='dono' ? `
+      <div class="form-group" style="background:var(--creme);border-radius:10px;padding:14px;">
+        <label style="font-size:14px;font-weight:700;">⚡ Receber Pix automático (Mercado Pago)</label>
+        <div style="font-size:12px;color:var(--texto-muted);margin:4px 0 10px;">O cliente paga o Pix na hora de pedir e o pedido entra aqui no painel já como <b>pago</b>, sem precisar conferir comprovante. O dinheiro cai direto na sua conta do Mercado Pago.</div>
+        ${r.pix_online_ativo ? `
+          <div style="font-size:13px;font-weight:700;color:#0F6E56;margin-bottom:8px;">✅ Conectado. Seus clientes pagam o Pix na hora e o pedido já chega pago.</div>
+          <label style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin-bottom:10px;cursor:pointer;font-size:13px;">
+            <input type="checkbox" ${r.so_online ? 'checked' : ''} onchange="alternarSoOnline(this.checked)" style="width:18px;height:18px;">
+            <span><b>Receber só pagamento online hoje</b><br><span style="font-size:11px;color:var(--texto-muted);">Esconde a opção de cartão na maquininha. Pix, cartão online e dinheiro continuam.</span></span>
+          </label>
+          <button type="button" class="btn-sm" onclick="document.getElementById('bloco-trocar-mp').style.display='block';this.style.display='none'">Trocar conta do Mercado Pago</button>
+          <div id="bloco-trocar-mp" style="display:none;margin-top:8px;">
+            <input type="password" id="cfg-mp-token" placeholder="Cole aqui o novo código (Access Token)" autocomplete="off" style="width:100%;margin-bottom:8px;">
+            <button type="button" class="btn-sm" style="width:100%;" onclick="conectarMercadoPago()">Salvar nova conta</button>
+          </div>
+        ` : `
+          <div style="font-size:12px;color:#B26A00;margin-bottom:8px;">Ainda não conectado. Enquanto isso, seus clientes só veem "Pagar na entrega".</div>
+          <input type="password" id="cfg-mp-token" placeholder="Cole aqui o código (Access Token) do Mercado Pago" autocomplete="off" style="width:100%;margin-bottom:8px;">
+          <button type="button" class="btn-sm" style="width:100%;" onclick="conectarMercadoPago()">Conectar Mercado Pago</button>
+        `}
+      </div>` : ''}
       <div class="form-group">
         <label>Cashback pro cliente (%)</label>
         <input type="number" id="cfg-cashback" value="${r.cashback_percentual || ''}" placeholder="Ex: 5" min="0" max="100" step="0.1">
@@ -3882,6 +3945,8 @@ async function carregarPublico(restId) {
   // Se veio de um QR Code de mesa, já seleciona "consumir no local" com a mesa preenchida
   const mesaParam = new URLSearchParams(window.location.search).get('mesa');
   const consultaParam = new URLSearchParams(window.location.search).get('consulta');
+  const retornoCartaoParam = new URLSearchParams(window.location.search).get('mp_retorno');
+  if (retornoCartaoParam && /^[0-9a-f-]{36}$/i.test(retornoCartaoParam)) setTimeout(() => retornoPagamentoCartao(retornoCartaoParam), 300);
 
   if (consultaParam === '1') {
     modoConsultaAtivo = true;
@@ -4920,7 +4985,6 @@ function atualizarTotalCarrinho() {
   const cashVal = document.getElementById('carr-cashback-val');
   if (cashRow) cashRow.style.display = cashbackUsarValor > 0 ? 'flex' : 'none';
   if (cashVal) cashVal.textContent = '- R$ ' + cashbackUsarValor.toFixed(2).replace('.',',');
-  if (document.getElementById('ped-pagamento')?.value === 'Pix') alternarFormaPagamento();
 }
 
 function calcFrete() {
@@ -4978,63 +5042,88 @@ function copiarPixCola() {
 
 let chavePixCache = null;
 
+var pagEntregaAberto = null;
+
+// Desenha as formas de pagamento em dois grupos: "Pagar agora" (Pix automático) e "Pagar na entrega"
 async function garantirOpcaoPixCorreta() {
-  const opcaoPix = document.querySelector('#ped-pagamento option[value="Pix"]');
-  if (!opcaoPix || !restPublico) return;
-  if (chavePixCache === null) {
-    try {
-      const resp = await fetch('/api/consultar-pontos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ acao: 'buscar_pix', restauranteId: restPublico.id })
-      });
-      const data = await resp.json();
-      chavePixCache = data.chavePix || false;
-    } catch (e) {
-      chavePixCache = false;
-    }
+  const sel = document.getElementById('ped-pagamento');
+  const box = document.getElementById('lista-pagamento');
+  if (!sel || !box || !restPublico) return;
+  const online = !!restPublico.pix_online_ativo;
+  const soOnline = online && !!restPublico.so_online;
+  if (!online && (sel.value === 'Pix online' || sel.value === 'Cartão online')) sel.value = '';
+  if (soOnline && sel.value === 'Cartão na entrega') sel.value = '';
+  const atual = sel.value;
+  if (pagEntregaAberto === null) pagEntregaAberto = !online;
+  const aberto = pagEntregaAberto || atual === 'Dinheiro' || atual === 'Cartão na entrega';
+
+  const bolinha = marcado => `<span style="flex:none;width:22px;height:22px;border-radius:50%;border:2px solid ${marcado ? 'var(--laranja)' : '#bbb'};display:flex;align-items:center;justify-content:center;">${marcado ? '<span style="width:12px;height:12px;border-radius:50%;background:var(--laranja);"></span>' : ''}</span>`;
+  const linha = (valor, icone, titulo, sub) => `
+    <div onclick="escolherPagamento('${valor}')" style="display:flex;align-items:center;gap:12px;padding:14px 12px;border-top:1px solid var(--creme-borda);cursor:pointer;background:var(--branco,#fff);">
+      <span style="flex:none;width:30px;text-align:center;font-size:22px;">${icone}</span>
+      <span style="flex:1;"><span style="display:block;font-size:15px;font-weight:600;">${titulo}</span>${sub ? `<span style="display:block;font-size:12px;color:var(--texto-muted);">${sub}</span>` : ''}</span>
+      ${bolinha(atual === valor)}
+    </div>`;
+  const pixIcone = '<svg width="26" height="26" viewBox="0 0 26 26"><g fill="#32BCAD"><rect x="9" y="1.5" width="8" height="8" rx="2" transform="rotate(45 13 5.5)"/><rect x="9" y="16.5" width="8" height="8" rx="2" transform="rotate(45 13 20.5)"/><rect x="1.5" y="9" width="8" height="8" rx="2" transform="rotate(45 5.5 13)"/><rect x="16.5" y="9" width="8" height="8" rx="2" transform="rotate(45 20.5 13)"/></g></svg>';
+
+  box.innerHTML = `
+    <div style="border:1.5px solid var(--creme-borda);border-radius:12px;overflow:hidden;">
+      ${online ? `
+        <div style="background:var(--creme);padding:12px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+          <div><div style="font-size:15px;font-weight:700;">Pagar agora</div><div style="font-size:12px;color:var(--texto-muted);">Pague com agilidade e segurança</div></div>
+          <span style="background:#4CAF50;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:8px;white-space:nowrap;">Mais rápido</span>
+        </div>
+        ${linha('Pix online', pixIcone, 'Pix', 'Pague agora')}
+        ${linha('Cartão online', '💳', 'Cartão de crédito', 'Pague agora')}
+      ` : ''}
+      <div onclick="alternarGrupoEntrega()" style="background:var(--creme);padding:13px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;${online ? 'border-top:1px solid var(--creme-borda);' : ''}">
+        <div style="font-size:15px;font-weight:700;">Pagar na entrega</div>
+        <span style="font-size:14px;color:var(--texto-muted);">${aberto ? '▲' : '▼'}</span>
+      </div>
+      ${aberto ? linha('Dinheiro', '💵', 'Dinheiro', soOnline ? 'Pagamento em dinheiro na entrega' : '') + (soOnline ? '' : linha('Cartão na entrega', '💳', 'Cartão', 'Maquininha na entrega')) : ''}
+      ${soOnline && aberto ? '<div style="padding:10px 12px;font-size:12px;color:var(--texto-muted);border-top:1px solid var(--creme-borda);background:var(--creme);">🔒 Hoje esta loja não leva maquininha. Para pagar no cartão, escolha <b>Cartão de crédito</b> em "Pagar agora".</div>' : ''}
+    </div>`;
+  atualizarBotaoFinalizar();
+}
+
+function alternarGrupoEntrega() {
+  pagEntregaAberto = !pagEntregaAberto;
+  garantirOpcaoPixCorreta();
+}
+
+function escolherPagamento(valor) {
+  const sel = document.getElementById('ped-pagamento');
+  if (!sel) return;
+  sel.value = valor;
+  alternarFormaPagamento();
+  garantirOpcaoPixCorreta();
+}
+
+// O botão fica cinza ("Selecione a forma de pagamento") até o cliente escolher uma forma
+function atualizarBotaoFinalizar() {
+  const btn = document.getElementById('btn-finalizar-pedido');
+  const sel = document.getElementById('ped-pagamento');
+  if (!btn || !sel || modoComandaAtivo) return;
+  const pausado = !!restPublico?.pausado_manual;
+  const aviso = document.getElementById('aviso-rodape-carrinho');
+  const v = sel.value;
+  if (!v) {
+    btn.textContent = 'Selecione a forma de pagamento';
+    btn.disabled = true; btn.style.opacity = '0.55'; btn.style.cursor = 'not-allowed';
+    if (aviso) aviso.style.display = 'none';
+    return;
   }
-  opcaoPix.style.display = chavePixCache ? '' : 'none';
-  opcaoPix.disabled = !chavePixCache;
-  if (!chavePixCache && document.getElementById('ped-pagamento').value === 'Pix') {
-    document.getElementById('ped-pagamento').value = 'Dinheiro';
-  }
+  btn.textContent = v === 'Pix online' ? 'Pagar com Pix' : v === 'Cartão online' ? 'Pagar com cartão' : 'Fechar pedido via WhatsApp';
+  btn.disabled = pausado; btn.style.opacity = pausado ? '0.5' : '1'; btn.style.cursor = pausado ? 'not-allowed' : 'pointer';
+  if (aviso) aviso.style.display = (v === 'Pix online' || v === 'Cartão online') ? 'none' : 'block';
 }
 
 async function alternarFormaPagamento() {
   const pagamento = document.getElementById('ped-pagamento').value;
-  const campoPix = document.getElementById('campo-pix');
   const campoTroco = document.getElementById('campo-troco');
-
-  campoTroco.style.display = pagamento === 'Dinheiro' ? 'block' : 'none';
-
-  if (pagamento === 'Pix' && restPublico) {
-    if (chavePixCache === null) {
-      try {
-        const resp = await fetch('/api/consultar-pontos', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ acao: 'buscar_pix', restauranteId: restPublico.id })
-        });
-        const data = await resp.json();
-        chavePixCache = data.chavePix || false;
-      } catch (e) {
-        chavePixCache = false;
-      }
-    }
-    if (chavePixCache) {
-      const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
-      const total = Math.max(0, sub + (fretesSelecionado||0) - (descontoAtual||0));
-      const codigo = gerarPixCopiaCola(chavePixCache, restPublico.nome, restPublico.cidade, total, 'SERVIDELIVERY' + Date.now().toString().slice(-8));
-      document.getElementById('pix-copia-cola').value = codigo;
-      document.getElementById('pix-qrcode').src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(codigo);
-      campoPix.style.display = 'block';
-    } else {
-      campoPix.style.display = 'none';
-    }
-  } else {
-    campoPix.style.display = 'none';
-  }
+  if (campoTroco) campoTroco.style.display = pagamento === 'Dinheiro' ? 'block' : 'none';
+  const campoPix = document.getElementById('campo-pix');
+  if (campoPix) campoPix.style.display = 'none';
 }
 
 function renderListaCarrinho() {
@@ -5110,6 +5199,7 @@ function abrirCarrinho() {
     if (avisoRodape) avisoRodape.style.display = 'block';
     if (tituloModal) tituloModal.textContent = 'Meu carrinho';
   }
+  atualizarBotaoFinalizar();
 }
 
 function atualizarAvisoPausado() {
@@ -5171,6 +5261,7 @@ async function finalizarPedidoInterno() {
   const nome = document.getElementById('ped-nome').value;
   const telefone = document.getElementById('ped-telefone').value;
   const pagamento = document.getElementById('ped-pagamento').value;
+  if (!pagamento) { toast('Escolha a forma de pagamento.', 'erro'); return; }
   const troco = pagamento === 'Dinheiro' ? document.getElementById('ped-troco').value : '';
   const obs = document.getElementById('ped-obs').value;
 
@@ -5198,6 +5289,22 @@ async function finalizarPedidoInterno() {
   const total = Math.max(0, sub + frete - descontoAtual - cashbackUsadoNessePedido);
   const pctCashback = parseFloat(restPublico.cashback_percentual || 0);
   const cashbackACreditar = pctCashback > 0 ? total * (pctCashback / 100) : 0;
+
+  // PIX ONLINE: o pedido só vai pro painel depois que o Pix for pago (servidor confere com o Mercado Pago)
+  if (pagamento === 'Pix online' || pagamento === 'Cartão online') {
+    const metodoOnline = pagamento === 'Cartão online' ? 'cartao' : 'pix';
+    const endPix = modoAtual === 'delivery'
+      ? (referencia ? `${endereco} (Ref: ${referencia})` : endereco)
+      : (modoAtual === 'retirada' ? `Retirada no local${agendamento ? ' — '+agendamento : ''}` : 'Consumir no local');
+    const mesaPix = document.getElementById('ped-mesa')?.value?.trim();
+    const modoPix = {delivery:'Delivery', retirada:'Retirar no local', local: mesaPix ? `Consumir no local — Mesa ${mesaPix}` : 'Consumir no local'}[modoAtual];
+    return iniciarPixOnline({
+      nome, telefone, bairro, total, sub, frete, desconto: descontoAtual, cashbackUsado: cashbackUsadoNessePedido,
+      enderecoCompleto: endPix, modoLabel: modoPix, obs,
+      observacao: `Nome: ${nome}\nTelefone: ${telefone}\nModo: ${modoPix}\nPagamento: ${metodoOnline === 'cartao' ? 'Cartão online' : 'Pix online'} ✅ JÁ PAGO (confirmado automaticamente pelo Mercado Pago)${obs ? '\nObs: '+obs : ''}`,
+      nascimento: document.getElementById('ped-nascimento')?.value || null, metodo: metodoOnline
+    });
+  }
 
   // Busca/atualiza cliente (fidelidade) via função no servidor, sem expor dados publicamente
   let clienteId = null;
@@ -5314,7 +5421,181 @@ async function finalizarPedidoInterno() {
   modoAtual = 'delivery';
   atualizarCarrinho();
   fecharModal('modal-carrinho');
+  document.getElementById('ped-pagamento').value = '';
   toast('Pedido enviado!', 'ok');
+}
+
+// ===== PIX ONLINE (Mercado Pago) — lado do cliente =====
+let pixPollTimer = null, pixTimerRelogio = null;
+
+function fecharTelaPix() {
+  if (pixPollTimer) { clearInterval(pixPollTimer); pixPollTimer = null; }
+  if (pixTimerRelogio) { clearInterval(pixTimerRelogio); pixTimerRelogio = null; }
+  document.getElementById('overlay-pix')?.remove();
+}
+
+async function iniciarPixOnline(d) {
+  toast('Gerando seu Pix...', '');
+  let data;
+  try {
+    const resp = await fetch('/api/consultar-pontos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        acao: 'pagamento_criar', metodo: d.metodo || 'pix', restauranteId: restPublico.id,
+        pedido: { endereco: d.enderecoCompleto, bairro: d.bairro, frete: d.frete, desconto: d.desconto, cashback_usado: d.cashbackUsado, total: d.total, observacao: d.observacao },
+        itens: carrinho.map(i => ({ item_id: i.resgate ? null : i.id, nome: i.nome, preco: i.preco, quantidade: i.qtd, observacao: i.resgate ? '🎁 Resgate de fidelidade - GRÁTIS' : (i.obs || null) })),
+        cliente: { nome: d.nome, telefone: d.telefone, dataNascimento: d.nascimento }
+      })
+    });
+    data = await resp.json();
+  } catch (e) {
+    toast('Sem conexão. Tente de novo.', 'erro');
+    return;
+  }
+  if (!data || !data.ok) { toast((data && data.error) || 'Não deu pra gerar o Pix agora.', 'erro'); return; }
+  d.itensCopia = carrinho.map(i => ({ nome: i.nome, variacao: i.variacao, qtd: i.qtd, preco: i.preco, obs: i.obs }));
+  d.carrinhoCompleto = JSON.parse(JSON.stringify(carrinho));
+  d.totalPago = data.total;
+  if (data.urlPagamento) {
+    // Cartão: abre a tela segura do Mercado Pago (os dados do cartão nunca passam pelo nosso site)
+    try { localStorage.setItem('servidelivery_pagpendente_' + data.pendenteId, JSON.stringify(d)); } catch (e) {}
+    toast('Abrindo pagamento seguro...', 'ok');
+    window.location.href = data.urlPagamento;
+    return;
+  }
+  mostrarTelaPix(data, d);
+}
+
+function mostrarTelaPix(pix, d) {
+  fecharTelaPix();
+  const ov = document.createElement('div');
+  ov.id = 'overlay-pix';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto;';
+  const valor = 'R$ ' + Number(pix.total).toFixed(2).replace('.', ',');
+  ov.innerHTML = `
+    <div id="pix-caixa" style="background:#fff;color:#222;border-radius:16px;max-width:380px;width:100%;padding:22px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);">
+      <div style="font-size:18px;font-weight:800;margin-bottom:4px;">Pague com Pix</div>
+      <div style="font-size:26px;font-weight:800;color:var(--laranja,#E8571A);margin-bottom:10px;">${valor}</div>
+      ${pix.qrCodeBase64 ? `<img src="data:image/png;base64,${pix.qrCodeBase64}" alt="QR Code do Pix" style="width:210px;height:210px;border-radius:10px;border:1px solid #eee;padding:6px;background:#fff;">` : ''}
+      <div style="font-size:12px;color:#666;margin:8px 0 6px;">Abra o app do seu banco, escolha <b>Pix → Ler QR Code</b> ou use o <b>Pix Copia e Cola</b>:</div>
+      <textarea id="pix-online-cola" readonly rows="3" style="width:100%;font-size:11px;font-family:monospace;padding:8px;border-radius:8px;border:1px solid #ddd;resize:none;">${pix.qrCode}</textarea>
+      <button type="button" class="btn btn-laranja" style="width:100%;margin-top:8px;" onclick="navigator.clipboard.writeText(document.getElementById('pix-online-cola').value).then(()=>toast('Código Pix copiado!','ok'))">📋 Copiar código Pix</button>
+      <div id="pix-online-status" style="margin-top:14px;font-size:13px;font-weight:600;color:#B26A00;">⏳ Aguardando o pagamento... não feche esta tela.</div>
+      <div id="pix-online-relogio" style="font-size:12px;color:#888;margin-top:4px;"></div>
+      <button type="button" class="btn btn-outline" style="width:100%;margin-top:12px;" onclick="fecharTelaPix()">Cancelar</button>
+    </div>`;
+  document.body.appendChild(ov);
+
+  const expira = new Date(pix.expiraEm).getTime();
+  const atualizaRelogio = () => {
+    const falta = Math.max(0, Math.floor((expira - Date.now()) / 1000));
+    const el = document.getElementById('pix-online-relogio');
+    if (!el) return;
+    el.textContent = falta > 0 ? `O Pix vale por mais ${Math.floor(falta/60)}:${String(falta%60).padStart(2,'0')}` : 'Esse Pix venceu.';
+    if (falta <= 0) {
+      document.getElementById('pix-online-status').textContent = '⚠️ O Pix venceu. Feche e peça de novo.';
+      if (pixPollTimer) { clearInterval(pixPollTimer); pixPollTimer = null; }
+    }
+  };
+  atualizaRelogio();
+  pixTimerRelogio = setInterval(atualizaRelogio, 1000);
+
+  let consultando = false;
+  pixPollTimer = setInterval(async () => {
+    if (consultando) return;
+    consultando = true;
+    try {
+      const resp = await fetch('/api/consultar-pontos', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'pix_status', pendenteId: pix.pendenteId })
+      });
+      const st = await resp.json();
+      if (st.status === 'pago') {
+        clearInterval(pixPollTimer); pixPollTimer = null;
+        sucessoPixOnline(pix.pendenteId, d);
+      } else if (st.status === 'expirado') {
+        clearInterval(pixPollTimer); pixPollTimer = null;
+        const el = document.getElementById('pix-online-status');
+        if (el) el.textContent = '⚠️ Esse Pix venceu ou foi cancelado. Feche e peça de novo.';
+      }
+    } catch (e) {}
+    consultando = false;
+  }, 4000);
+}
+
+function sucessoPixOnline(pedidoId, d) {
+  const numero = pedidoId.slice(-6).toUpperCase();
+  cashbackDisponivel = Math.max(0, cashbackDisponivel - (d.cashbackUsado || 0));
+  cashbackUsarValor = 0;
+  try {
+    localStorage.setItem('servidelivery_recibo_' + pedidoId, JSON.stringify({
+      restNome: restPublico.nome, pedidoNum: numero, data: new Date().toLocaleString('pt-BR'), nome: d.nome, telefone: d.telefone,
+      endereco: d.enderecoCompleto, bairro: d.bairro, pagamento: (d.metodo === 'cartao' ? 'Cartão online (pago)' : 'Pix online (pago)'), troco: '', obs: d.obs, modo: d.modoLabel,
+      itens: d.itensCopia, sub: d.sub, frete: d.frete, desconto: d.desconto, total: d.totalPago
+    }));
+    const chaveHist = 'servidelivery_historico_' + restPublico.id;
+    let historico = [];
+    try { historico = JSON.parse(localStorage.getItem(chaveHist)) || []; } catch (e) {}
+    historico.unshift({ itens: d.carrinhoCompleto || carrinho, data: new Date().toISOString(), total: d.totalPago });
+    localStorage.setItem(chaveHist, JSON.stringify(historico.slice(0, 15)));
+    localStorage.setItem('servidelivery_ultimopedido_meta_' + restPublico.id, JSON.stringify({ pedidoId, criado_em: new Date().toISOString() }));
+  } catch (e) {}
+  carrinho = [];
+  descontoAtual = 0; cupomAplicado = null; resgateAplicado = null; descontoResgate = 0; modoAtual = 'delivery';
+  atualizarCarrinho();
+  fecharModal('modal-carrinho');
+  document.getElementById('ped-pagamento').value = '';
+  const link = `${window.location.href.split('?')[0]}?acompanhar=${pedidoId}`;
+  const caixa = document.getElementById('pix-caixa');
+  if (caixa) caixa.innerHTML = `
+    <div style="font-size:54px;">✅</div>
+    <div style="font-size:20px;font-weight:800;margin:6px 0;">Pagamento confirmado!</div>
+    <div style="font-size:14px;color:#555;margin-bottom:14px;">Seu pedido <b>#${numero}</b> já foi enviado para o ${esc(restPublico.nome)}.</div>
+    <a href="${link}" class="btn btn-laranja" style="display:block;text-decoration:none;">Acompanhar meu pedido</a>
+    <button type="button" class="btn btn-outline" style="width:100%;margin-top:10px;" onclick="fecharTelaPix()">Fechar</button>`;
+}
+
+// Volta do Mercado Pago depois do pagamento com cartão: confirma e mostra o pedido
+function retornoPagamentoCartao(pendenteId) {
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem('servidelivery_pagpendente_' + pendenteId)); } catch (e) {}
+  if (!d) d = { nome: '', telefone: '', bairro: '', enderecoCompleto: '', obs: '', modoLabel: '', itensCopia: [], sub: 0, frete: 0, desconto: 0, cashbackUsado: 0, totalPago: 0, metodo: 'cartao' };
+  const falhou = ['rejected', 'failure', 'cancelled'].includes(new URLSearchParams(window.location.search).get('collection_status') || new URLSearchParams(window.location.search).get('status') || '');
+  fecharTelaPix();
+  const ov = document.createElement('div');
+  ov.id = 'overlay-pix';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+  ov.innerHTML = `<div id="pix-caixa" style="background:#fff;color:#222;border-radius:16px;max-width:380px;width:100%;padding:24px;text-align:center;">
+    <div style="font-size:18px;font-weight:800;margin-bottom:8px;">Confirmando seu pagamento...</div>
+    <div id="pix-online-status" style="font-size:13px;color:#B26A00;font-weight:600;">⏳ Só um instante.</div>
+    <button type="button" class="btn btn-outline" style="width:100%;margin-top:16px;" onclick="fecharTelaPix();history.replaceState(null,'',window.location.pathname)">Fechar</button>
+  </div>`;
+  document.body.appendChild(ov);
+  let tentativas = 0;
+  const consulta = async () => {
+    tentativas++;
+    try {
+      const resp = await fetch('/api/consultar-pontos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'pix_status', pendenteId }) });
+      const st = await resp.json();
+      if (st.status === 'pago') {
+        clearInterval(pixPollTimer); pixPollTimer = null;
+        try { localStorage.removeItem('servidelivery_pagpendente_' + pendenteId); } catch (e) {}
+        history.replaceState(null, '', window.location.pathname);
+        sucessoPixOnline(pendenteId, d);
+        return;
+      }
+      if (st.status === 'expirado' || tentativas > 45 || (falhou && tentativas > 3)) {
+        clearInterval(pixPollTimer); pixPollTimer = null;
+        const el = document.getElementById('pix-online-status');
+        if (el) el.innerHTML = falhou || st.status === 'expirado'
+          ? '⚠️ O pagamento não foi aprovado. Nada foi cobrado de você. Volte ao cardápio e tente de novo.'
+          : '⚠️ Ainda não recebemos a confirmação. Se foi cobrado, o pedido aparece em instantes no restaurante.';
+      }
+    } catch (e) {}
+  };
+  pixPollTimer = setInterval(consulta, 3000);
+  consulta();
 }
 
 function mostrarRecibo(pedidoId) {

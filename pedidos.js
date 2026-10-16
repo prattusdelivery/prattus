@@ -301,7 +301,7 @@ async function renderDashboard() {
         (pedidosDelivery||[]).map(p => `
           <div class="pedido-card">
             <div class="pedido-info">
-              <div class="pedido-num">#${p.id.slice(-4).toUpperCase()} — ${esc(p.observacao?.split('Nome:')[1]?.split('\n')[0]?.trim() || p.clientes?.nome || 'Cliente')}</div>
+              <div class="pedido-num">#${p.id.slice(-4).toUpperCase()} — ${esc(p.observacao?.split('Nome:')[1]?.split('\n')[0]?.trim() || p.clientes?.nome || 'Cliente')}${(p.observacao||'').includes('JÁ PAGO') ? ' <span style="background:#0F6E56;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;">✅ PAGO ' + ((p.observacao||'').includes('Cartão online') ? 'NO CARTÃO' : 'NO PIX') + '</span>' : ''}</div>
               <div class="pedido-cliente">${esc(p.bairro)} · ${dataDoBanco(p.criado_em).toLocaleString('pt-BR')}</div>
             </div>
             <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
@@ -374,6 +374,7 @@ async function renderPedidos() {
           <div class="pedido-num">#${p.id.slice(-4).toUpperCase()}</div>
           <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
         </div>
+        ${(p.observacao||'').includes('JÁ PAGO') ? `<div style="background:#0F6E56;color:#fff;font-size:13px;font-weight:800;padding:7px 10px;border-radius:8px;margin-bottom:8px;text-align:center;letter-spacing:.3px;">✅ PAGO ${(p.observacao||'').includes('Cartão online') ? 'NO CARTÃO' : 'NO PIX'} — não cobrar do cliente</div>` : ''}
         ${mesaMatch ? `<div style="display:inline-block;background:var(--laranja);color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;">🍽️ Mesa ${esc(mesaMatch[1])}</div>` : ''}
         ${p.status === 'preparando' && p.aceito_em ? `<div style="display:inline-block;background:#FFF3E0;color:#B26A00;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;margin-left:4px;">⏱️ ${tempoDecorridoTexto(p.aceito_em)} em preparo</div>` : ''}
         <div class="pedido-cliente" style="margin-bottom:8px;">${esc(p.endereco)} — ${esc(p.bairro)}</div>
@@ -432,6 +433,7 @@ async function renderComandas() {
           <div class="pedido-num">#${p.id.slice(-4).toUpperCase()}</div>
           <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
         </div>
+        ${(p.observacao||'').includes('JÁ PAGO') ? `<div style="background:#0F6E56;color:#fff;font-size:13px;font-weight:800;padding:7px 10px;border-radius:8px;margin-bottom:8px;text-align:center;letter-spacing:.3px;">✅ PAGO ${(p.observacao||'').includes('Cartão online') ? 'NO CARTÃO' : 'NO PIX'} — não cobrar do cliente</div>` : ''}
         ${mesaMatch ? `<div style="display:inline-block;background:var(--laranja);color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;">🍽️ Mesa ${esc(mesaMatch[1])}</div>` : ''}
         ${p.status === 'preparando' && p.aceito_em ? `<div style="display:inline-block;background:#FFF3E0;color:#B26A00;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;margin-left:4px;">⏱️ ${tempoDecorridoTexto(p.aceito_em)} em preparo</div>` : ''}
         <div class="pedido-cliente" style="margin-bottom:8px;">${esc(p.endereco)} — ${esc(p.bairro)}</div>
