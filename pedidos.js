@@ -301,7 +301,7 @@ async function renderDashboard() {
         (pedidosDelivery||[]).map(p => `
           <div class="pedido-card">
             <div class="pedido-info">
-              <div class="pedido-num">#${p.id.slice(-4).toUpperCase()} — ${esc(p.observacao?.split('Nome:')[1]?.split('\n')[0]?.trim() || p.clientes?.nome || 'Cliente')}${(p.observacao||'').includes('JÁ PAGO') ? ' <span style="background:#0F6E56;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;">✅ PAGO ' + ((p.observacao||'').includes('Cartão online') ? 'NO CARTÃO' : 'NO PIX') + '</span>' : ''}</div>
+              <div class="pedido-num">#${p.id.slice(-4).toUpperCase()} — ${esc(p.observacao?.split('Nome:')[1]?.split('\n')[0]?.trim() || p.clientes?.nome || 'Cliente')}${(p.observacao||'').includes('JÁ PAGO') ? ' <span style="background:#0F6E56;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;">✅ PAGO ' + ((p.observacao||'').includes('Cartão online') ? 'NO CARTÃO' : 'NO PIX') + '</span>' : ''}${textoAgendamento(p) ? ' <span style="background:#FFD60A;color:#C00000;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;border:1px solid #C00000;">⏰ AGENDADO ' + esc(textoAgendamento(p)) + '</span>' : ''}</div>
               <div class="pedido-cliente">${esc(p.bairro)} · ${dataDoBanco(p.criado_em).toLocaleString('pt-BR')}</div>
             </div>
             <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
@@ -374,6 +374,7 @@ async function renderPedidos() {
           <div class="pedido-num">#${p.id.slice(-4).toUpperCase()}</div>
           <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
         </div>
+        ${faixaAgendado(p)}
         ${(p.observacao||'').includes('JÁ PAGO') ? `<div style="background:#0F6E56;color:#fff;font-size:13px;font-weight:800;padding:7px 10px;border-radius:8px;margin-bottom:8px;text-align:center;letter-spacing:.3px;">✅ PAGO ${(p.observacao||'').includes('Cartão online') ? 'NO CARTÃO' : 'NO PIX'} — não cobrar do cliente</div>` : ''}
         ${mesaMatch ? `<div style="display:inline-block;background:var(--laranja);color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;">🍽️ Mesa ${esc(mesaMatch[1])}</div>` : ''}
         ${p.status === 'preparando' && p.aceito_em ? `<div style="display:inline-block;background:#FFF3E0;color:#B26A00;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;margin-left:4px;">⏱️ ${tempoDecorridoTexto(p.aceito_em)} em preparo</div>` : ''}
@@ -433,6 +434,7 @@ async function renderComandas() {
           <div class="pedido-num">#${p.id.slice(-4).toUpperCase()}</div>
           <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
         </div>
+        ${faixaAgendado(p)}
         ${(p.observacao||'').includes('JÁ PAGO') ? `<div style="background:#0F6E56;color:#fff;font-size:13px;font-weight:800;padding:7px 10px;border-radius:8px;margin-bottom:8px;text-align:center;letter-spacing:.3px;">✅ PAGO ${(p.observacao||'').includes('Cartão online') ? 'NO CARTÃO' : 'NO PIX'} — não cobrar do cliente</div>` : ''}
         ${mesaMatch ? `<div style="display:inline-block;background:var(--laranja);color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;">🍽️ Mesa ${esc(mesaMatch[1])}</div>` : ''}
         ${p.status === 'preparando' && p.aceito_em ? `<div style="display:inline-block;background:#FFF3E0;color:#B26A00;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;margin-left:4px;">⏱️ ${tempoDecorridoTexto(p.aceito_em)} em preparo</div>` : ''}
@@ -551,6 +553,21 @@ function imprimirComandaPorId(id) {
   imprimirComanda(pedido);
 }
 
+// Pedido agendado: devolve "dd/mm às hh:mm" (ou '' se o pedido não for agendado)
+function textoAgendamento(p) {
+  const m = String(p.endereco || '').match(/Retirada no local\s+—\s+(\S+)\s+às\s+(\d{1,2}:\d{2})/);
+  if (!m) return '';
+  let d = m[1];
+  const iso = d.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) d = `${iso[3]}/${iso[2]}/${iso[1]}`;
+  return `${d} às ${m[2]}`;
+}
+function faixaAgendado(p) {
+  const t = textoAgendamento(p);
+  if (!t) return '';
+  return `<div style="background:#FFD60A;color:#C00000;font-size:14px;font-weight:900;padding:8px 10px;border-radius:8px;margin-bottom:8px;text-align:center;border:2px solid #C00000;letter-spacing:.3px;">⏰ PEDIDO AGENDADO PARA ${esc(t)}</div>`;
+}
+
 function imprimirComanda(p) {
   const printCardapio = document.getElementById('print-cardapio');
   if (printCardapio) printCardapio.innerHTML = '';
@@ -574,6 +591,7 @@ function imprimirComanda(p) {
     <div><strong>${esc(modo)}</strong></div>
     <div>Cliente: ${esc(nome)}</div>
     ${telefone ? `<div>Tel: ${esc(telefone)}</div>` : ''}
+    ${textoAgendamento(p) ? `<div style="text-align:center;font-weight:900;font-size:16px;border:2px solid #000;padding:4px;margin:4px 0;">*** AGENDADO PARA ${esc(textoAgendamento(p))} ***</div>` : ''}
     ${p.endereco ? `<div>End: ${esc(p.endereco)}</div>` : ''}
     ${p.bairro ? `<div>Bairro: ${esc(p.bairro)}</div>` : ''}
     <div class="cp-linha"></div>
