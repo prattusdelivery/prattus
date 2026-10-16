@@ -237,9 +237,10 @@ async function mpConectar(req, res, headers, acao) {
     body: JSON.stringify({ restaurante_id: restauranteId, access_token: token, atualizado_em: new Date().toISOString() })
   });
   if (!salvou.ok) return res.status(500).json({ error: 'Não consegui salvar. Tente de novo.' });
-  await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}`, {
+  const ligou = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}`, {
     method: 'PATCH', headers: { ...headers, 'Prefer': 'return=minimal' }, body: JSON.stringify({ pix_online_ativo: true })
   });
+  if (!ligou.ok) return res.status(500).json({ error: 'Conectou, mas não consegui ligar o pagamento online. Tente de novo.' });
   return res.status(200).json({ ok: true, conta: conta.data?.nickname || conta.data?.first_name || 'Mercado Pago' });
 }
 
