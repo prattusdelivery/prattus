@@ -5064,6 +5064,7 @@ async function garantirOpcaoPixCorreta() {
       <span style="flex:1;"><span style="display:block;font-size:15px;font-weight:600;">${titulo}</span>${sub ? `<span style="display:block;font-size:12px;color:var(--texto-muted);">${sub}</span>` : ''}</span>
       ${bolinha(atual === valor)}
     </div>`;
+  const cartaoIcone = '<svg width="28" height="26" viewBox="0 0 28 26"><rect x="1.5" y="4" width="25" height="18" rx="4" fill="#FF6B1A"/><rect x="1.5" y="9" width="25" height="3.5" fill="#B8430A" opacity=".55"/><rect x="5" y="15.5" width="7" height="3.5" rx="1.2" fill="#fff"/><circle cx="21" cy="17.5" r="2.2" fill="#fff" opacity=".85"/></svg>';
   const pixIcone = '<svg width="26" height="26" viewBox="0 0 26 26"><g fill="#32BCAD"><rect x="9" y="1.5" width="8" height="8" rx="2" transform="rotate(45 13 5.5)"/><rect x="9" y="16.5" width="8" height="8" rx="2" transform="rotate(45 13 20.5)"/><rect x="1.5" y="9" width="8" height="8" rx="2" transform="rotate(45 5.5 13)"/><rect x="16.5" y="9" width="8" height="8" rx="2" transform="rotate(45 20.5 13)"/></g></svg>';
 
   box.innerHTML = `
@@ -5074,14 +5075,14 @@ async function garantirOpcaoPixCorreta() {
           <span style="background:#4CAF50;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:8px;white-space:nowrap;">Rápido e seguro</span>
         </div>
         ${linha('Pix online', pixIcone, 'Pix', 'Pague agora')}
-        ${linha('Cartão online', '💳', 'Cartão de crédito', 'Pague agora')}
+        ${linha('Cartão online', cartaoIcone, 'Cartão de crédito', 'Pague agora')}
       ` : ''}
       ${soOnline ? '' : `
       <div onclick="alternarGrupoEntrega()" style="background:#efefef;padding:13px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;${online ? 'border-top:1px solid var(--creme-borda);' : ''}">
         <div style="font-size:14px;font-weight:600;color:#777;">Prefere pagar quando chegar?</div>
         <span style="font-size:14px;color:#777;">${aberto ? '▲' : '▼'}</span>
       </div>
-      ${aberto ? linha('Dinheiro', '💵', 'Dinheiro', '') + linha('Cartão na entrega', '💳', 'Cartão', 'Maquininha na entrega') : ''}`}
+      ${aberto ? linha('Dinheiro', '💵', 'Dinheiro', '') + linha('Cartão na entrega', cartaoIcone, 'Cartão', 'Maquininha na entrega') : ''}`}
     </div>`;
   atualizarBotaoFinalizar();
 }
