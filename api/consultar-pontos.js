@@ -345,7 +345,7 @@ async function pixCriar(req, res, headers) {
     if (!pref.ok || !pref.data?.init_point) {
       await fetch(`${SUPABASE_URL}/rest/v1/pagamentos_pendentes?id=eq.${id}`, { method: 'DELETE', headers });
       await reportarErro(new Error('Mercado Pago recusou criar checkout: ' + JSON.stringify(pref.data || {}).slice(0, 400)), 'cartao-criar');
-      return res.status(502).json({ error: 'O pagamento por cartão não pôde ser aberto agora. Tente de novo ou escolha outra forma.' });
+      return res.status(502).json({ error: 'O pagamento por cartão não pôde ser aberto agora. Tente de novo ou escolha outra forma.', detalhe: String(pref.data?.message || pref.data?.error || '') + ' ' + JSON.stringify(pref.data?.cause || []).slice(0, 300) });
     }
     return res.status(200).json({ ok: true, pendenteId: id, total, urlPagamento: pref.data.init_point });
   }
