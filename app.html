@@ -1062,10 +1062,10 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
     </div>
 
     <!-- AGENDAMENTO (só retirada) -->
-    <div id="bloco-agendamento" style="display:none;">
+    <div id="bloco-agendamento" style="display:block;">
       <div id="agend-aviso" style="font-size:12px;color:var(--texto-muted);margin-bottom:6px;">Quer agendar? Escolha a data e o horário. Deixe em branco para pedir agora.</div>
       <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:10px;">
-        <div class="form-group" style="min-width:0;"><label id="lbl-data-agend">Data para retirada</label><input type="date" id="ped-data" style="width:100%;min-width:0;box-sizing:border-box;"></div>
+        <div class="form-group" style="min-width:0;"><label id="lbl-data-agend">Data da entrega</label><input type="date" id="ped-data" style="width:100%;min-width:0;box-sizing:border-box;"></div>
         <div class="form-group" style="min-width:0;"><label>Horário</label><input type="time" id="ped-hora" style="width:100%;min-width:0;box-sizing:border-box;"></div>
       </div>
     </div>
@@ -5222,6 +5222,7 @@ function abrirCarrinho() {
   alternarFormaPagamento();
   renderListaCarrinho();
   abrirModal('modal-carrinho');
+  try { selecionarModo(modoAtual); } catch(e) {}
   renderRankingCarrinho();
   atualizarAvisoPausado();
 
@@ -5522,6 +5523,7 @@ async function finalizarPedidoInterno() {
   resgateAplicado = null;
   descontoResgate = 0;
   modoAtual = 'delivery';
+  try { selecionarModo('delivery'); } catch(e) {}
   atualizarCarrinho();
   fecharModal('modal-carrinho');
   document.getElementById('ped-pagamento').value = '';
@@ -5645,7 +5647,7 @@ function sucessoPixOnline(pedidoId, d) {
     localStorage.setItem('servidelivery_ultimopedido_meta_' + restPublico.id, JSON.stringify({ pedidoId, criado_em: new Date().toISOString() }));
   } catch (e) {}
   carrinho = [];
-  descontoAtual = 0; cupomAplicado = null; resgateAplicado = null; descontoResgate = 0; modoAtual = 'delivery';
+  descontoAtual = 0; cupomAplicado = null; resgateAplicado = null; descontoResgate = 0; modoAtual = 'delivery'; try { selecionarModo('delivery'); } catch(e) {}
   atualizarCarrinho();
   fecharModal('modal-carrinho');
   document.getElementById('ped-pagamento').value = '';
