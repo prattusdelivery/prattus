@@ -266,6 +266,16 @@ body{font-family:var(--font-body);background:var(--creme);color:var(--texto);min
 .btn-sm:hover{border-color:var(--laranja);color:var(--laranja);}
 .btn-sm.perigo:hover{border-color:var(--vermelho);color:var(--vermelho);}
 
+/* ===== AJUSTES PARA CELULAR (nada pode passar da largura da tela) ===== */
+html,body{max-width:100%;overflow-x:hidden;}
+.modal{overflow-x:hidden;}
+.modal .form-group,.modal .carr-item,.modal [style*="grid-template-columns"] > *{min-width:0;}
+.form-group input[type=date],.form-group input[type=time]{min-width:0;max-width:100%;min-height:44px;display:block;-webkit-appearance:none;appearance:none;}
+#carr-lista,.carr-item{max-width:100%;overflow-x:hidden;}
+@media(max-width:520px){
+  .modal [style*="grid-template-columns:1fr 1fr"],.modal [style*="grid-template-columns:2fr 1fr 1fr"]{grid-template-columns:minmax(0,1fr) !important;}
+}
+
 /* ===== MODAL ===== */
 .modal-overlay{
   position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;
@@ -5986,7 +5996,7 @@ async function garantirUserIdRestaurante() {
 }
 </script>
 <script src="cardapio.js"></script>
-<script src="pedidos.js"></script>
+<script src="pedidos.js?v=20261016b"></script>
 <script src="relatorios.js"></script>
 <script src="clientes.js"></script>
 </body>
