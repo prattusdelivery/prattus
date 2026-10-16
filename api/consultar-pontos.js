@@ -335,7 +335,7 @@ async function pixCriar(req, res, headers) {
         auto_return: 'approved',
         // Só cartão de crédito, em 1x (Pix tem a opção própria; maquininha é "pagar na entrega")
         payment_methods: {
-          excluded_payment_types: [{ id: 'ticket' }, { id: 'atm' }, { id: 'bank_transfer' }, { id: 'debit_card' }, { id: 'prepaid_card' }, { id: 'account_money' }],
+          excluded_payment_types: [{ id: 'ticket' }, { id: 'atm' }, { id: 'bank_transfer' }, { id: 'debit_card' }, { id: 'prepaid_card' }],
           installments: 1
         },
         statement_descriptor: 'SERVIDELIVERY',
