@@ -3488,6 +3488,11 @@ async function renderConfig() {
           <span class="toggle-slider"></span>
         </label>
       </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label>Retirada no local: aceitar até as (opcional)</label>
+        <input type="time" id="cfg-retirada-ate" value="${esc(r.retirada_ate||'')}" style="max-width:160px;">
+        <div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Depois desse horário o cliente não consegue pedir retirada. Deixe vazio para valer o horário de fechamento da loja.</div>
+      </div>
 
       <div class="form-group" style="margin-top:24px;">
         <label style="font-size:14px;font-weight:700;">Notificações</label>
@@ -3722,6 +3727,7 @@ async function salvarConfig() {
     endereco_estado: document.getElementById('cfg-end-estado').value || null,
     endereco_cep: document.getElementById('cfg-end-cep').value || null,
     retirada_disponivel: document.getElementById('cfg-retirada-disponivel').checked,
+    retirada_ate: document.getElementById('cfg-retirada-ate').value || null,
     tema: document.getElementById('cfg-tema').value,
     som_notificacao: document.getElementById('cfg-som').value,
     cashback_percentual: parseFloat(document.getElementById('cfg-cashback').value) || 0,
@@ -5278,6 +5284,10 @@ function validarAgendamentoRetirada(data, hora) {
       const [ah, am] = cfg.abre.split(':').map(Number);
       const [fh, fm] = cfg.fecha.split(':').map(Number);
       const min = hh * 60 + mm;
+      if (rest.retirada_ate) {
+        const [rh, rm] = rest.retirada_ate.split(':').map(Number);
+        if (!isNaN(rh) && min > rh * 60 + rm) return `A retirada no local vai até as ${rest.retirada_ate}. Escolha um horário até lá.`;
+      }
       if (min < ah * 60 + am || min > fh * 60 + fm) return `Nesse dia o restaurante funciona das ${cfg.abre} às ${cfg.fecha}. Escolha um horário dentro desse período.`;
     }
   }
@@ -5329,6 +5339,12 @@ async function finalizarPedidoInterno() {
   } else if (modoAtual === 'retirada') {
     const data = document.getElementById('ped-data').value;
     const hora = document.getElementById('ped-hora').value;
+    if (!data && !hora && restPublico?.retirada_ate) {
+      const ag = new Date(); const [rh, rm] = restPublico.retirada_ate.split(':').map(Number);
+      if (!isNaN(rh) && ag.getHours() * 60 + ag.getMinutes() > rh * 60 + rm) {
+        toast(`A retirada no local vai até as ${restPublico.retirada_ate}. Agora só delivery, ou agende para outro dia.`, 'erro'); return;
+      }
+    }
     if ((data && !hora) || (!data && hora)) { toast('Para agendar, escolha a data e também o horário da retirada.', 'erro'); return; }
     if (data && hora) {
       const erroAgend = validarAgendamentoRetirada(data, hora);
