@@ -3396,7 +3396,7 @@ async function renderConfig() {
           <div style="font-size:13px;font-weight:700;color:#0F6E56;margin-bottom:8px;">✅ Conectado. Seus clientes pagam o Pix ou o cartão na hora e o pedido já chega pago.</div>
           <label style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin-bottom:10px;cursor:pointer;font-size:13px;">
             <input type="checkbox" ${r.so_online ? 'checked' : ''} onchange="alternarSoOnline(this.checked)" style="width:18px;height:18px;">
-            <span><b>Receber só pagamento online hoje</b><br><span style="font-size:11px;color:var(--texto-muted);">Esconde o grupo "Pagar na entrega" (dinheiro e maquininha). O cliente só consegue pagar pelo Pix ou cartão online.</span></span>
+            <span><b>Receber só pagamento online hoje</b><br><span style="font-size:11px;color:var(--texto-muted);">Esconde só a maquininha. Pix, cartão online e <b>dinheiro continuam sempre liberados</b>.</span></span>
           </label>
           <button type="button" class="btn-sm" onclick="document.getElementById('bloco-trocar-mp').style.display='block';this.style.display='none'">Trocar conta do Mercado Pago</button>
           <div id="bloco-trocar-mp" style="display:none;margin-top:8px;">
@@ -5080,7 +5080,7 @@ async function garantirOpcaoPixCorreta() {
   const online = !!restPublico.pix_online_ativo;
   const soOnline = online && !!restPublico.so_online;
   if (!online && (sel.value === 'Pix online' || sel.value === 'Cartão online')) sel.value = '';
-  if (soOnline && (sel.value === 'Cartão na entrega' || sel.value === 'Dinheiro')) sel.value = '';
+  if (soOnline && sel.value === 'Cartão na entrega') sel.value = '';
   const atual = sel.value;
   if (pagEntregaAberto === null) pagEntregaAberto = !online;
   const aberto = pagEntregaAberto || atual === 'Dinheiro' || atual === 'Cartão na entrega';
@@ -5105,12 +5105,11 @@ async function garantirOpcaoPixCorreta() {
         ${linha('Pix online', pixIcone, 'Pix', 'Pague agora')}
         ${linha('Cartão online', cartaoIcone, 'Cartão de crédito', 'Pague agora')}
       ` : ''}
-      ${soOnline ? '' : `
       <div onclick="alternarGrupoEntrega()" style="background:#efefef;padding:13px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;${online ? 'border-top:1px solid var(--creme-borda);' : ''}">
         <div style="font-size:14px;font-weight:600;color:#777;">Prefere pagar quando chegar?</div>
         <span style="font-size:14px;color:#777;">${aberto ? '▲' : '▼'}</span>
       </div>
-      ${aberto ? linha('Dinheiro', '💵', 'Dinheiro', '') + linha('Cartão na entrega', cartaoIcone, 'Cartão', 'Maquininha na entrega') : ''}`}
+      ${aberto ? linha('Dinheiro', '💵', 'Dinheiro', soOnline ? 'Pagamento em dinheiro sempre disponível' : '') + (soOnline ? '' : linha('Cartão na entrega', cartaoIcone, 'Cartão', 'Maquininha na entrega')) : ''}
     </div>`;
   atualizarBotaoFinalizar();
 }
