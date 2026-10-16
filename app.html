@@ -1053,9 +1053,9 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
 
     <!-- AGENDAMENTO (só retirada) -->
     <div id="bloco-agendamento" style="display:none;">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div class="form-group"><label>Data para retirada</label><input type="date" id="ped-data"></div>
-        <div class="form-group"><label>Horário</label><input type="time" id="ped-hora"></div>
+      <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:10px;">
+        <div class="form-group" style="min-width:0;"><label>Data para retirada</label><input type="date" id="ped-data" style="width:100%;min-width:0;box-sizing:border-box;"></div>
+        <div class="form-group" style="min-width:0;"><label>Horário</label><input type="time" id="ped-hora" style="width:100%;min-width:0;box-sizing:border-box;"></div>
       </div>
     </div>
 
@@ -5516,7 +5516,7 @@ function fecharTelaPix() {
 }
 
 async function iniciarPixOnline(d) {
-  toast('Gerando seu Pix...', '');
+  toast(d.metodo === 'cartao' ? 'Preparando o pagamento no cartão...' : 'Gerando seu Pix...', '');
   let data;
   try {
     const resp = await fetch('/api/consultar-pontos', {
