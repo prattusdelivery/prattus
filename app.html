@@ -5052,7 +5052,7 @@ async function garantirOpcaoPixCorreta() {
   const online = !!restPublico.pix_online_ativo;
   const soOnline = online && !!restPublico.so_online;
   if (!online && (sel.value === 'Pix online' || sel.value === 'Cartão online')) sel.value = '';
-  if (soOnline && sel.value === 'Cartão na entrega') sel.value = '';
+  if (soOnline && (sel.value === 'Cartão na entrega' || sel.value === 'Dinheiro')) sel.value = '';
   const atual = sel.value;
   if (pagEntregaAberto === null) pagEntregaAberto = !online;
   const aberto = pagEntregaAberto || atual === 'Dinheiro' || atual === 'Cartão na entrega';
@@ -5076,12 +5076,12 @@ async function garantirOpcaoPixCorreta() {
         ${linha('Pix online', pixIcone, 'Pix', 'Pague agora')}
         ${linha('Cartão online', '💳', 'Cartão de crédito', 'Pague agora')}
       ` : ''}
-      <div onclick="alternarGrupoEntrega()" style="background:var(--creme);padding:13px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;${online ? 'border-top:1px solid var(--creme-borda);' : ''}">
-        <div style="font-size:15px;font-weight:700;">Pagar na entrega</div>
-        <span style="font-size:14px;color:var(--texto-muted);">${aberto ? '▲' : '▼'}</span>
+      ${soOnline ? '' : `
+      <div onclick="alternarGrupoEntrega()" style="background:#efefef;padding:13px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;${online ? 'border-top:1px solid var(--creme-borda);' : ''}">
+        <div style="font-size:14px;font-weight:600;color:#777;">Pagar na entrega</div>
+        <span style="font-size:14px;color:#777;">${aberto ? '▲' : '▼'}</span>
       </div>
-      ${aberto ? linha('Dinheiro', '💵', 'Dinheiro', soOnline ? 'Pagamento em dinheiro na entrega' : '') + (soOnline ? '' : linha('Cartão na entrega', '💳', 'Cartão', 'Maquininha na entrega')) : ''}
-      ${soOnline && aberto ? '<div style="padding:10px 12px;font-size:12px;color:var(--texto-muted);border-top:1px solid var(--creme-borda);background:var(--creme);">🔒 Hoje esta loja não leva maquininha. Para pagar no cartão, escolha <b>Cartão de crédito</b> em "Pagar agora".</div>' : ''}
+      ${aberto ? linha('Dinheiro', '💵', 'Dinheiro', '') + linha('Cartão na entrega', '💳', 'Cartão', 'Maquininha na entrega') : ''}`}
     </div>`;
   atualizarBotaoFinalizar();
 }
