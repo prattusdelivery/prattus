@@ -531,7 +531,7 @@ async function criarPedidoPago(pend, headers) {
     fetch(`${SITE}/api/notificar`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        tipo: 'pedido', restauranteId: rId, titulo: '🛵 Novo pedido PAGO no Pix!',
+        tipo: 'pedido', restauranteId: rId, titulo: (pend.payload?.metodo === 'cartao' ? '🛵 Novo pedido PAGO no cartão!' : '🛵 Novo pedido PAGO no Pix!'),
         corpo: `Pedido #${pend.id.slice(-6).toUpperCase()} — R$ ${Number(pend.total).toFixed(2).replace('.', ',')} (já pago)`
       })
     }).catch(() => {});
