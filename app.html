@@ -1063,8 +1063,9 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
 
     <!-- AGENDAMENTO (só retirada) -->
     <div id="bloco-agendamento" style="display:none;">
+      <div id="agend-aviso" style="font-size:12px;color:var(--texto-muted);margin-bottom:6px;">Quer agendar? Escolha a data e o horário. Deixe em branco para pedir agora.</div>
       <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:10px;">
-        <div class="form-group" style="min-width:0;"><label>Data para retirada</label><input type="date" id="ped-data" style="width:100%;min-width:0;box-sizing:border-box;"></div>
+        <div class="form-group" style="min-width:0;"><label id="lbl-data-agend">Data para retirada</label><input type="date" id="ped-data" style="width:100%;min-width:0;box-sizing:border-box;"></div>
         <div class="form-group" style="min-width:0;"><label>Horário</label><input type="time" id="ped-hora" style="width:100%;min-width:0;box-sizing:border-box;"></div>
       </div>
     </div>
@@ -4864,8 +4865,10 @@ function selecionarModo(modo) {
   const blocoAgendamento = document.getElementById('bloco-agendamento');
   const campoMesa = document.getElementById('campo-mesa');
   if (blocoEndereco) blocoEndereco.style.display = modo === 'delivery' ? 'block' : 'none';
-  if (blocoAgendamento) blocoAgendamento.style.display = modo === 'retirada' ? 'block' : 'none';
-  if (modo === 'retirada') {
+  if (blocoAgendamento) blocoAgendamento.style.display = (modo === 'retirada' || modo === 'delivery') ? 'block' : 'none';
+  const lblAg = document.getElementById('lbl-data-agend');
+  if (lblAg) lblAg.textContent = modo === 'delivery' ? 'Data da entrega' : 'Data para retirada';
+  if (modo === 'retirada' || modo === 'delivery') {
     const campoData = document.getElementById('ped-data');
     if (campoData) {
       const f = dt => dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
@@ -5271,7 +5274,8 @@ function mudarQtd(idx, delta) {
 }
 
 // Confere se a data/hora de retirada agendada faz sentido (futuro, até 7 dias, dentro do horário da loja)
-function validarAgendamentoRetirada(data, hora) {
+function validarAgendamentoRetirada(data, hora, modo) {
+  modo = modo || 'retirada';
   const [a, m, d] = data.split('-').map(Number);
   const [hh, mm] = hora.split(':').map(Number);
   if (!a || !m || !d || isNaN(hh) || isNaN(mm)) return 'Data ou horário inválido.';
@@ -5300,7 +5304,7 @@ function validarAgendamentoRetirada(data, hora) {
       const [ah, am] = cfg.abre.split(':').map(Number);
       const [fh, fm] = cfg.fecha.split(':').map(Number);
       const min = hh * 60 + mm;
-      {
+      if (modo === 'retirada') {
         const limite = rest.retirada_ate || '21:30';
         const [rh, rm] = limite.split(':').map(Number);
         if (!isNaN(rh) && min > rh * 60 + rm) return `A retirada no local vai até as ${limite}. Escolha um horário até lá.`;
@@ -5353,6 +5357,14 @@ async function finalizarPedidoInterno() {
     referencia = document.getElementById('ped-referencia').value;
     bairro = document.getElementById('ped-bairro').value;
     if (!rua || !numero || !bairro) { toast('Preencha rua, número e bairro!', 'erro'); return; }
+    const dataE = document.getElementById('ped-data').value;
+    const horaE = document.getElementById('ped-hora').value;
+    if ((dataE && !horaE) || (!dataE && horaE)) { toast('Para agendar a entrega, escolha a data e também o horário.', 'erro'); return; }
+    if (dataE && horaE) {
+      const erroAgendE = validarAgendamentoRetirada(dataE, horaE, 'delivery');
+      if (erroAgendE) { toast(erroAgendE, 'erro'); return; }
+      agendamento = `${dataE.split('-').reverse().join('/')} às ${horaE}`;
+    }
   } else if (modoAtual === 'retirada') {
     const data = document.getElementById('ped-data').value;
     const hora = document.getElementById('ped-hora').value;
@@ -5392,7 +5404,7 @@ async function finalizarPedidoInterno() {
     return iniciarPixOnline({
       nome, telefone, bairro, total, sub, frete, desconto: descontoAtual, cashbackUsado: cashbackUsadoNessePedido,
       enderecoCompleto: endPix, modoLabel: modoPix, obs,
-      observacao: `Nome: ${nome}\nTelefone: ${telefone}\nModo: ${modoPix}\nPagamento: ${metodoOnline === 'cartao' ? 'Cartão online' : 'Pix online'} ✅ JÁ PAGO (confirmado automaticamente pelo Mercado Pago)${obs ? '\nObs: '+obs : ''}`,
+      observacao: `Nome: ${nome}\nTelefone: ${telefone}\nModo: ${modoPix}${agendamento ? '\nAgendado para: '+agendamento : ''}\nPagamento: ${metodoOnline === 'cartao' ? 'Cartão online' : 'Pix online'} ✅ JÁ PAGO (confirmado automaticamente pelo Mercado Pago)${obs ? '\nObs: '+obs : ''}`,
       nascimento: document.getElementById('ped-nascimento')?.value || null, metodo: metodoOnline
     });
   }
@@ -5424,7 +5436,7 @@ async function finalizarPedidoInterno() {
     status: 'novo', endereco: enderecoCompleto, bairro,
     frete, subtotal: sub, total,
     cashback_usado: cashbackUsadoNessePedido, cashback_a_creditar: cashbackACreditar || null, cashback_creditado: false,
-    observacao: `Nome: ${nome}\nTelefone: ${telefone}\nModo: ${modoLabel}\nPagamento: ${pagamento}${troco ? ' (troco para R$ '+parseFloat(troco).toFixed(2)+')' : ''}${pagamento === 'Pix' ? '\n⚠️ CONFIRME o comprovante do Pix com o cliente antes de liberar o pedido!' : ''}${obs ? '\nObs: '+obs : ''}`
+    observacao: `Nome: ${nome}\nTelefone: ${telefone}\nModo: ${modoLabel}${agendamento ? '\nAgendado para: '+agendamento : ''}\nPagamento: ${pagamento}${troco ? ' (troco para R$ '+parseFloat(troco).toFixed(2)+')' : ''}${pagamento === 'Pix' ? '\n⚠️ CONFIRME o comprovante do Pix com o cliente antes de liberar o pedido!' : ''}${obs ? '\nObs: '+obs : ''}`
   });
   const pedido = erroPedido ? null : { id: novoIdPedido };
 
@@ -5996,7 +6008,7 @@ async function garantirUserIdRestaurante() {
 }
 </script>
 <script src="cardapio.js"></script>
-<script src="pedidos.js?v=20261016b"></script>
+<script src="pedidos.js?v=20261016c"></script>
 <script src="relatorios.js"></script>
 <script src="clientes.js"></script>
 </body>

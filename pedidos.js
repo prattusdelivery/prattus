@@ -555,17 +555,21 @@ function imprimirComandaPorId(id) {
 
 // Pedido agendado: devolve "dd/mm às hh:mm" (ou '' se o pedido não for agendado)
 function textoAgendamento(p) {
-  const m = String(p.endereco || '').match(/Retirada no local\s+—\s+(\S+)\s+às\s+(\d{1,2}:\d{2})/);
+  let m = String(p.observacao || '').match(/Agendado para:\s*(\S+)\s+às\s+(\d{1,2}:\d{2})/);
+  if (!m) m = String(p.endereco || '').match(/Retirada no local\s+—\s+(\S+)\s+às\s+(\d{1,2}:\d{2})/);
   if (!m) return '';
   let d = m[1];
   const iso = d.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (iso) d = `${iso[3]}/${iso[2]}/${iso[1]}`;
   return `${d} às ${m[2]}`;
 }
+function tipoAgendamento(p) {
+  return /Modo:\s*Delivery/i.test(p.observacao || '') ? 'ENTREGA' : 'RETIRADA';
+}
 function faixaAgendado(p) {
   const t = textoAgendamento(p);
   if (!t) return '';
-  return `<div style="background:#FFD60A;color:#C00000;font-size:14px;font-weight:900;padding:8px 10px;border-radius:8px;margin-bottom:8px;text-align:center;border:2px solid #C00000;letter-spacing:.3px;">⏰ PEDIDO AGENDADO PARA ${esc(t)}</div>`;
+  return `<div style="background:#FFD60A;color:#C00000;font-size:14px;font-weight:900;padding:8px 10px;border-radius:8px;margin-bottom:8px;text-align:center;border:2px solid #C00000;letter-spacing:.3px;">⏰ ${tipoAgendamento(p)} AGENDADA PARA ${esc(t)}</div>`;
 }
 
 function imprimirComanda(p) {
@@ -591,7 +595,7 @@ function imprimirComanda(p) {
     <div><strong>${esc(modo)}</strong></div>
     <div>Cliente: ${esc(nome)}</div>
     ${telefone ? `<div>Tel: ${esc(telefone)}</div>` : ''}
-    ${textoAgendamento(p) ? `<div style="text-align:center;font-weight:900;font-size:16px;border:2px solid #000;padding:4px;margin:4px 0;">*** AGENDADO PARA ${esc(textoAgendamento(p))} ***</div>` : ''}
+    ${textoAgendamento(p) ? `<div style="text-align:center;font-weight:900;font-size:16px;border:2px solid #000;padding:4px;margin:4px 0;">*** ${tipoAgendamento(p)} AGENDADA PARA ${esc(textoAgendamento(p))} ***</div>` : ''}
     ${p.endereco ? `<div>End: ${esc(p.endereco)}</div>` : ''}
     ${p.bairro ? `<div>Bairro: ${esc(p.bairro)}</div>` : ''}
     <div class="cp-linha"></div>
