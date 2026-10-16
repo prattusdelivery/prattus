@@ -4849,6 +4849,14 @@ function selecionarModo(modo) {
   const campoMesa = document.getElementById('campo-mesa');
   if (blocoEndereco) blocoEndereco.style.display = modo === 'delivery' ? 'block' : 'none';
   if (blocoAgendamento) blocoAgendamento.style.display = modo === 'retirada' ? 'block' : 'none';
+  if (modo === 'retirada') {
+    const campoData = document.getElementById('ped-data');
+    if (campoData) {
+      const f = dt => dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+      const hoje = new Date(); const fim = new Date(Date.now() + 7*24*3600000);
+      campoData.min = f(hoje); campoData.max = f(fim);
+    }
+  }
   if (campoMesa) campoMesa.style.display = modo === 'local' ? 'block' : 'none';
   if (modo !== 'delivery') {
     fretesSelecionado = 0;
@@ -5247,6 +5255,35 @@ function mudarQtd(idx, delta) {
   abrirCarrinho();
 }
 
+// Confere se a data/hora de retirada agendada faz sentido (futuro, até 7 dias, dentro do horário da loja)
+function validarAgendamentoRetirada(data, hora) {
+  const [a, m, d] = data.split('-').map(Number);
+  const [hh, mm] = hora.split(':').map(Number);
+  if (!a || !m || !d || isNaN(hh) || isNaN(mm)) return 'Data ou horário inválido.';
+  const quando = new Date(a, m - 1, d, hh, mm);
+  const agora = new Date();
+  if (quando.getTime() < agora.getTime() + 15 * 60000) return 'Escolha um horário daqui a pelo menos 15 minutos.';
+  if (quando.getTime() > agora.getTime() + 7 * 24 * 3600000) return 'Só dá para agendar nos próximos 7 dias.';
+  const rest = restPublico || {};
+  const dia = quando.getDay();
+  let cfg = null;
+  if (rest.horarios_semana && rest.horarios_semana[dia]) cfg = rest.horarios_semana[dia];
+  else if (rest.horario_abre && rest.horario_fecha && rest.dias_funcionamento?.length) {
+    cfg = { ativo: rest.dias_funcionamento.includes(dia), abre: rest.horario_abre, fecha: rest.horario_fecha };
+  }
+  if (cfg) {
+    const nomeDia = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'][dia];
+    if (!cfg.ativo) return `O restaurante não abre nesse dia (${nomeDia}). Escolha outro dia.`;
+    if (cfg.abre && cfg.fecha) {
+      const [ah, am] = cfg.abre.split(':').map(Number);
+      const [fh, fm] = cfg.fecha.split(':').map(Number);
+      const min = hh * 60 + mm;
+      if (min < ah * 60 + am || min > fh * 60 + fm) return `Nesse dia o restaurante funciona das ${cfg.abre} às ${cfg.fecha}. Escolha um horário dentro desse período.`;
+    }
+  }
+  return '';
+}
+
 var pedidoEmAndamento = false;
 async function finalizarPedido() {
   if (pedidoEmAndamento) return;
@@ -5292,7 +5329,12 @@ async function finalizarPedidoInterno() {
   } else if (modoAtual === 'retirada') {
     const data = document.getElementById('ped-data').value;
     const hora = document.getElementById('ped-hora').value;
-    agendamento = data && hora ? `${data} às ${hora}` : '';
+    if ((data && !hora) || (!data && hora)) { toast('Para agendar, escolha a data e também o horário da retirada.', 'erro'); return; }
+    if (data && hora) {
+      const erroAgend = validarAgendamentoRetirada(data, hora);
+      if (erroAgend) { toast(erroAgend, 'erro'); return; }
+    }
+    agendamento = data && hora ? `${data.split('-').reverse().join('/')} às ${hora}` : '';
   }
 
   if (!nome || !telefone) { toast('Preencha nome e telefone!', 'erro'); return; }
