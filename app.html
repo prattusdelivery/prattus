@@ -5226,6 +5226,26 @@ var modoComandaAtivo = false;
 let modoConsultaAtivo = false;
 var comandaAtual = null;
 
+// ===== Lembra nome, telefone e endereço NESTE aparelho (nada vai pro servidor, ninguém mais vê) =====
+function salvarDadosCliente(d) {
+  try { localStorage.setItem('sd_dados_cliente', JSON.stringify(d)); } catch (e) {}
+}
+function preencherDadosSalvos() {
+  try {
+    const d = JSON.parse(localStorage.getItem('sd_dados_cliente') || 'null');
+    if (!d) return;
+    const por = (id, v) => { const el = document.getElementById(id); if (el && !el.value && v) el.value = v; };
+    por('ped-nome', d.nome); por('ped-telefone', d.telefone);
+    por('ped-rua', d.rua); por('ped-numero', d.numero);
+    por('ped-complemento', d.complemento); por('ped-referencia', d.referencia);
+    const sel = document.getElementById('ped-bairro');
+    if (sel && !sel.value && d.bairro && [...sel.options].some(o => o.value === d.bairro)) {
+      sel.value = d.bairro;
+      calcFrete();
+    }
+  } catch (e) {}
+}
+
 function abrirCarrinho() {
   atualizarTotalCarrinho();
   garantirOpcaoPixCorreta();
@@ -5233,6 +5253,7 @@ function abrirCarrinho() {
   renderListaCarrinho();
   abrirModal('modal-carrinho');
   try { selecionarModo(modoAtual); } catch(e) {}
+  preencherDadosSalvos();
   renderRankingCarrinho();
   atualizarAvisoPausado();
 
@@ -5368,6 +5389,7 @@ async function finalizarPedidoInterno() {
     referencia = document.getElementById('ped-referencia').value;
     bairro = document.getElementById('ped-bairro').value;
     if (!rua || !numero || !bairro) { toast('Preencha rua, número e bairro!', 'erro'); return; }
+    salvarDadosCliente({ nome, telefone, rua, numero, complemento, referencia, bairro });
     const dataE = document.getElementById('ped-data').value;
     const horaE = document.getElementById('ped-hora').value;
     if ((dataE && !horaE) || (!dataE && horaE)) { toast('Para agendar a entrega, escolha a data e também o horário.', 'erro'); return; }
@@ -6024,7 +6046,7 @@ async function garantirUserIdRestaurante() {
 }
 </script>
 <script src="cardapio.js"></script>
-<script src="pedidos.js?v=20261017b"></script>
+<script src="pedidos.js?v=20261017c"></script>
 <script src="relatorios.js"></script>
 <script src="clientes.js"></script>
 </body>

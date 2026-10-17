@@ -379,7 +379,7 @@ async function renderPedidos() {
         ${faixaPagamento(p)}
         ${mesaMatch ? `<div style="display:inline-block;background:var(--laranja);color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;">🍽️ Mesa ${esc(mesaMatch[1])}</div>` : ''}
         ${p.status === 'preparando' && p.aceito_em ? `<div style="display:inline-block;background:#FFF3E0;color:#B26A00;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;margin-left:4px;">⏱️ ${tempoDecorridoTexto(p.aceito_em)} em preparo</div>` : ''}
-        <div class="pedido-cliente" style="margin-bottom:8px;">${esc(p.endereco)} — ${esc(p.bairro)}</div>
+        <div class="pedido-cliente" style="margin-bottom:8px;">${[p.endereco, p.bairro].filter(x => x && String(x).trim()).map(esc).join(' — ')}</div>
         <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">${itensTxt}</div>
         ${obsFormatada(p)}
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -440,7 +440,7 @@ async function renderComandas() {
         ${faixaPagamento(p)}
         ${mesaMatch ? `<div style="display:inline-block;background:var(--laranja);color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;">🍽️ Mesa ${esc(mesaMatch[1])}</div>` : ''}
         ${p.status === 'preparando' && p.aceito_em ? `<div style="display:inline-block;background:#FFF3E0;color:#B26A00;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;margin-left:4px;">⏱️ ${tempoDecorridoTexto(p.aceito_em)} em preparo</div>` : ''}
-        <div class="pedido-cliente" style="margin-bottom:8px;">${esc(p.endereco)} — ${esc(p.bairro)}</div>
+        <div class="pedido-cliente" style="margin-bottom:8px;">${[p.endereco, p.bairro].filter(x => x && String(x).trim()).map(esc).join(' — ')}</div>
         <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">${itensTxt}</div>
         ${obsFormatada(p)}
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
