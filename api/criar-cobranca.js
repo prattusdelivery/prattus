@@ -101,7 +101,8 @@ export default async function handler(req, res) {
       }
       if (!chkResp.ok) {
         await reportarErro(new Error('Asaas checkout: ' + JSON.stringify(chkData).slice(0, 500)), 'criar-cobranca-checkout');
-        return res.status(500).json({ error: 'O Asaas não aceitou criar o pagamento no cartão agora.', detalhe: chkData });
+        const motivo = (chkData && Array.isArray(chkData.errors) ? chkData.errors.map(e => e.description || e.code).join(' | ') : '') || ('status ' + chkResp.status);
+      return res.status(500).json({ error: 'O Asaas não aceitou criar o pagamento no cartão: ' + motivo, detalhe: chkData });
       }
       const checkoutUrl = chkData.link || chkData.url || (chkData.id ? `https://asaas.com/checkoutSession/show?id=${chkData.id}` : null);
       if (!checkoutUrl) {
