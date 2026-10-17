@@ -3548,7 +3548,7 @@ async function renderConfig() {
         <div class="form-group"><label>Complemento (opcional)</label><input type="text" id="cfg-end-complemento" value="${esc(r.endereco_complemento||'')}" placeholder="Ex: Sala 2"></div>
       </div>
       <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;">
-        <div class="form-group"><label>Cidade</label><input type="text" id="cfg-end-cidade" value="${esc(r.endereco_cidade||'')}" placeholder="Ex: Frederico Westphalen"></div>
+        <div class="form-group"><label>Cidade</label><input type="text" id="cfg-end-cidade" value="${esc(r.endereco_cidade||'')}" placeholder="Ex: sua cidade"></div>
         <div class="form-group"><label>Estado</label><input type="text" id="cfg-end-estado" value="${esc(r.endereco_estado||'')}" maxlength="2" placeholder="RS"></div>
         <div class="form-group"><label>CEP</label><input type="text" id="cfg-end-cep" value="${esc(r.endereco_cep||'')}" placeholder="00000-000"></div>
       </div>
@@ -5391,6 +5391,10 @@ async function finalizarPedidoInterno() {
   const frete = modoAtual === 'delivery' ? fretesSelecionado : 0;
   const cashbackUsadoNessePedido = Math.max(0, Math.min(cashbackUsarValor, sub + frete - descontoAtual));
   const total = Math.max(0, sub + frete - descontoAtual - cashbackUsadoNessePedido);
+  if (pagamento === 'Dinheiro' && troco && parseFloat(troco) > 0 && parseFloat(troco) < total) {
+    toast('O troco precisa ser maior que o valor do pedido (R$ ' + total.toFixed(2).replace('.',',') + '). Corrija o valor ou deixe em branco.', 'erro');
+    return;
+  }
   const pctCashback = parseFloat(restPublico.cashback_percentual || 0);
   const cashbackACreditar = pctCashback > 0 ? total * (pctCashback / 100) : 0;
 
@@ -6010,7 +6014,7 @@ async function garantirUserIdRestaurante() {
 }
 </script>
 <script src="cardapio.js"></script>
-<script src="pedidos.js?v=20261016c"></script>
+<script src="pedidos.js?v=20261016d"></script>
 <script src="relatorios.js"></script>
 <script src="clientes.js"></script>
 </body>

@@ -380,7 +380,7 @@ async function renderPedidos() {
         ${p.status === 'preparando' && p.aceito_em ? `<div style="display:inline-block;background:#FFF3E0;color:#B26A00;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;margin-left:4px;">⏱️ ${tempoDecorridoTexto(p.aceito_em)} em preparo</div>` : ''}
         <div class="pedido-cliente" style="margin-bottom:8px;">${esc(p.endereco)} — ${esc(p.bairro)}</div>
         <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">${itensTxt}</div>
-        ${p.observacao ? `<div style="font-size:11px;color:var(--laranja);margin-bottom:10px;">${esc(p.observacao).replace(/\n/g,' · ')}</div>` : ''}
+        ${obsFormatada(p)}
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
           ${montaBotoesStatus(p, telefone)}
           <button class="btn-sm" onclick="imprimirComandaPorId('${p.id}')" title="Imprimir comanda">🖨️</button>
@@ -440,7 +440,7 @@ async function renderComandas() {
         ${p.status === 'preparando' && p.aceito_em ? `<div style="display:inline-block;background:#FFF3E0;color:#B26A00;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;margin-left:4px;">⏱️ ${tempoDecorridoTexto(p.aceito_em)} em preparo</div>` : ''}
         <div class="pedido-cliente" style="margin-bottom:8px;">${esc(p.endereco)} — ${esc(p.bairro)}</div>
         <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">${itensTxt}</div>
-        ${p.observacao ? `<div style="font-size:11px;color:var(--laranja);margin-bottom:10px;">${esc(p.observacao).replace(/\n/g,' · ')}</div>` : ''}
+        ${obsFormatada(p)}
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
           ${montaBotoesStatus(p, telefone)}
           <button class="btn-sm" onclick="imprimirComandaPorId('${p.id}')" title="Imprimir comanda">🖨️</button>
@@ -686,4 +686,18 @@ async function mudarStatus(id, status) {
   await db.from('pedidos').update({ status }).eq('id', id);
   toast('Status atualizado!', 'ok');
   if (paginaAtual === 'pedidos') renderPedidos(); else if (paginaAtual === 'comandas') renderComandas();
+}
+
+
+// Observação do pedido: texto preto; só o "Agendado para" fica destacado (vermelho, negrito, maior, marca-texto amarelo)
+function obsFormatada(p) {
+  if (!p.observacao) return '';
+  const partes = String(p.observacao).split('\n').map(l => {
+    const txt = esc(l);
+    if (/^Agendado para:/i.test(l)) {
+      return `<span style="background:linear-gradient(transparent 15%,#FFE95C 15%);color:#C00000;font-weight:900;font-size:15px;padding:1px 4px;text-decoration:underline;text-decoration-thickness:2px;">${txt}</span>`;
+    }
+    return txt;
+  });
+  return `<div style="font-size:12px;color:#000;margin-bottom:10px;line-height:1.7;">${partes.join(' · ')}</div>`;
 }
