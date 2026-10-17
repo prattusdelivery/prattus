@@ -3171,8 +3171,8 @@ async function renderMensalidade() {
       <button class="btn btn-laranja" style="margin-top:6px;" onclick="iniciarAssinatura('mensal', this, 'cartao')">💳 Mensal no cartão — R$39,90/mês</button>
       <button class="btn btn-outline" style="margin-top:8px;" onclick="iniciarAssinatura('anual', this, 'cartao')">💳 Anual no cartão — R$399,90/ano</button>
       <div style="font-size:12px;color:var(--texto-muted);margin:14px 0 2px;">Ou pague por Pix ou boleto (você paga todo mês):</div>
-      <button class="btn btn-outline" style="margin-top:6px;" onclick="iniciarAssinatura('mensal', this)">Pix/boleto — mensal R$39,90</button>
-      <button class="btn btn-outline" style="margin-top:8px;" onclick="iniciarAssinatura('anual', this)">Pix/boleto — anual R$399,90</button>
+      <button class="btn btn-outline" style="margin-top:6px;" onclick="iniciarAssinatura('mensal', this, 'pix')">Pix/boleto — mensal R$39,90</button>
+      <button class="btn btn-outline" style="margin-top:8px;" onclick="iniciarAssinatura('anual', this, 'pix')">Pix/boleto — anual R$399,90</button>
     `;
   } else {
     statusHtml = `
@@ -3181,8 +3181,8 @@ async function renderMensalidade() {
       <button class="btn btn-laranja" style="margin-top:6px;" onclick="iniciarAssinatura('mensal', this, 'cartao')">💳 Mensal no cartão — R$39,90/mês</button>
       <button class="btn btn-outline" style="margin-top:8px;" onclick="iniciarAssinatura('anual', this, 'cartao')">💳 Anual no cartão — R$399,90/ano</button>
       <div style="font-size:12px;color:var(--texto-muted);margin:14px 0 2px;">Ou pague por Pix ou boleto (você paga todo mês):</div>
-      <button class="btn btn-outline" style="margin-top:6px;" onclick="iniciarAssinatura('mensal', this)">Pix/boleto — mensal R$39,90</button>
-      <button class="btn btn-outline" style="margin-top:8px;" onclick="iniciarAssinatura('anual', this)">Pix/boleto — anual R$399,90</button>
+      <button class="btn btn-outline" style="margin-top:6px;" onclick="iniciarAssinatura('mensal', this, 'pix')">Pix/boleto — mensal R$39,90</button>
+      <button class="btn btn-outline" style="margin-top:8px;" onclick="iniciarAssinatura('anual', this, 'pix')">Pix/boleto — anual R$399,90</button>
     `;
   }
 
@@ -4336,7 +4336,7 @@ async function iniciarAssinatura(plano, btnEl, metodo) {
         email: usuarioAtual.email,
         cpfCnpj,
         plano,
-        metodo: metodo || null
+        metodo: metodo || 'cartao'
       })
     });
     const data = await resp.json();
@@ -4367,7 +4367,7 @@ function mostrarBannerTrial(dias) {
   const banner = document.createElement('div');
   banner.id = 'trial-banner';
   banner.style.cssText = 'background:#FFF1E6;color:#C4522E;font-size:13px;text-align:center;padding:10px 16px;font-weight:500;';
-  banner.innerHTML = `🎁 Teste grátis: <strong>${dias} dia${dias===1?'':'s'} restante${dias===1?'':'s'}</strong> · <a href="#" onclick="iniciarAssinatura('mensal', this); return false;" style="color:#C4522E;text-decoration:underline;font-weight:600;">Assinar mensal</a> · <a href="#" onclick="iniciarAssinatura('anual', this); return false;" style="color:#C4522E;text-decoration:underline;font-weight:600;">Assinar anual (+ cardápio grátis)</a>`;
+  banner.innerHTML = `🎁 Teste grátis: <strong>${dias} dia${dias===1?'':'s'} restante${dias===1?'':'s'}</strong> · <a href="#" onclick="iniciarAssinatura('mensal', this, 'cartao'); return false;" style="color:#C4522E;text-decoration:underline;font-weight:600;">Assinar mensal no cartão</a> · <a href="#" onclick="iniciarAssinatura('anual', this, 'cartao'); return false;" style="color:#C4522E;text-decoration:underline;font-weight:600;">Assinar anual no cartão (+ cardápio grátis)</a>`;
   document.querySelector('.topbar').after(banner);
 }
 
@@ -4388,8 +4388,8 @@ function mostrarBloqueioTrial() {
       <button onclick="iniciarAssinatura('mensal', this, 'cartao')" style="background:var(--laranja);color:#fff;border:none;text-decoration:none;padding:13px 28px;border-radius:10px;font-size:14px;font-weight:600;margin-bottom:10px;cursor:pointer;">💳 Mensal no cartão — R$39,90/mês</button>
       <button onclick="iniciarAssinatura('anual', this, 'cartao')" style="background:none;border:1px solid var(--laranja);color:var(--laranja);padding:11px 24px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:14px;cursor:pointer;">💳 Anual no cartão — R$399,90/ano</button>
       <div style="font-size:12px;color:var(--texto-muted);margin-bottom:8px;">Ou pague por Pix/boleto (todo mês):</div>
-      <button onclick="iniciarAssinatura('mensal', this)" style="background:none;border:1px solid var(--creme-borda);color:var(--texto-muted);padding:9px 20px;border-radius:10px;font-size:12px;font-weight:600;margin-bottom:8px;cursor:pointer;">Pix/boleto — mensal R$39,90</button>
-      <button onclick="iniciarAssinatura('anual', this)" style="background:none;border:1px solid var(--creme-borda);color:var(--texto-muted);padding:9px 20px;border-radius:10px;font-size:12px;font-weight:600;margin-bottom:14px;cursor:pointer;">Pix/boleto — anual R$399,90</button>
+      <button onclick="iniciarAssinatura('mensal', this, 'pix')" style="background:none;border:1px solid var(--creme-borda);color:var(--texto-muted);padding:9px 20px;border-radius:10px;font-size:12px;font-weight:600;margin-bottom:8px;cursor:pointer;">Pix/boleto — mensal R$39,90</button>
+      <button onclick="iniciarAssinatura('anual', this, 'pix')" style="background:none;border:1px solid var(--creme-borda);color:var(--texto-muted);padding:9px 20px;border-radius:10px;font-size:12px;font-weight:600;margin-bottom:14px;cursor:pointer;">Pix/boleto — anual R$399,90</button>
       ${podeUsarGraca ? `
         <button onclick="ativarGracaProvisoria()" style="background:none;border:none;color:var(--texto-muted);font-size:12px;text-decoration:underline;margin-bottom:14px;cursor:pointer;">
           🕐 Já sou assinante — liberar acesso por 24h pra resolver o pagamento
