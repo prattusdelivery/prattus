@@ -15,7 +15,13 @@ export default async function handler(req, res) {
 
     // Teste sem efeito: mostra por qual caminho o pedido passaria (não cria nada na Asaas)
     if (req.body && req.body.teste === 'seco') {
-      return res.status(200).json({ teste: true, caminho: metodo === 'cartao' ? 'cartao' : 'antigo', metodoRecebido: metodo || null });
+      return res.status(200).json({ teste: true, caminho: metodo === 'cartao' ? 'cartao' : (metodo === 'pix' ? 'pix' : 'bloqueado'), metodoRecebido: metodo || null });
+    }
+
+    // Trava de segurança: o pedido precisa dizer se é cartão ou Pix/boleto. Sem isso, não cria nada
+    // (evita gerar boleto sem o cliente escolher boleto).
+    if (metodo !== 'cartao' && metodo !== 'pix') {
+      return res.status(400).json({ error: 'Página desatualizada. Aperte Ctrl + F5 e tente de novo.', metodoRecebido: metodo || null });
     }
 
     const valor = plano === 'anual' ? 399.90 : 39.90;
