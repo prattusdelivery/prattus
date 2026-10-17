@@ -692,12 +692,6 @@ async function mudarStatus(id, status) {
 // Observação do pedido: texto preto; só o "Agendado para" fica destacado (vermelho, negrito, maior, marca-texto amarelo)
 function obsFormatada(p) {
   if (!p.observacao) return '';
-  const partes = String(p.observacao).split('\n').map(l => {
-    const txt = esc(l);
-    if (/^Agendado para:/i.test(l)) {
-      return `<span style="background:linear-gradient(transparent 15%,#FFE95C 15%);color:#C00000;font-weight:900;font-size:15px;padding:1px 4px;text-decoration:underline;text-decoration-thickness:2px;">${txt}</span>`;
-    }
-    return txt;
-  });
+  const partes = String(p.observacao).split('\n').filter(l => !/^Agendado para:/i.test(l)).map(l => esc(l));
   return `<div style="font-size:12px;color:#000;margin-bottom:10px;line-height:1.7;">${partes.join(' · ')}</div>`;
 }
