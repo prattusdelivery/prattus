@@ -13,6 +13,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Dados incompletos (restauranteId, nome, email, cpfCnpj e plano são obrigatórios)' });
     }
 
+    // Teste sem efeito: mostra por qual caminho o pedido passaria (não cria nada na Asaas)
+    if (req.body && req.body.teste === 'seco') {
+      return res.status(200).json({ teste: true, caminho: metodo === 'cartao' ? 'cartao' : 'antigo', metodoRecebido: metodo || null });
+    }
+
     const valor = plano === 'anual' ? 399.90 : 39.90;
     const ciclo = plano === 'anual' ? 'YEARLY' : 'MONTHLY';
 
