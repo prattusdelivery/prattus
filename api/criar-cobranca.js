@@ -95,13 +95,16 @@ export default async function handler(req, res) {
         return { r, d };
       };
       // 1ª tentativa: cliente já criado; se o Asaas não aceitar, 2ª tentativa com os dados do cliente no corpo
+      const descErros = (d, st) => (d && Array.isArray(d.errors) ? d.errors.map(e => e.description || e.code).join(' | ') : '') || ('status ' + st);
       let { r: chkResp, d: chkData } = await tentar({ customer: customerId });
+      let motivo1 = '';
       if (!chkResp.ok) {
+        motivo1 = descErros(chkData, chkResp.status);
         ({ r: chkResp, d: chkData } = await tentar({ customerData: { name: nome, email, cpfCnpj } }));
       }
       if (!chkResp.ok) {
         await reportarErro(new Error('Asaas checkout: ' + JSON.stringify(chkData).slice(0, 500)), 'criar-cobranca-checkout');
-        const motivo = (chkData && Array.isArray(chkData.errors) ? chkData.errors.map(e => e.description || e.code).join(' | ') : '') || ('status ' + chkResp.status);
+        const motivo = (motivo1 ? '[1ª tentativa] ' + motivo1 + ' [2ª tentativa] ' : '') + descErros(chkData, chkResp.status);
       return res.status(500).json({ error: 'O Asaas não aceitou criar o pagamento no cartão: ' + motivo, detalhe: chkData });
       }
       const checkoutUrl = chkData.link || chkData.url || (chkData.id ? `https://asaas.com/checkoutSession/show?id=${chkData.id}` : null);
