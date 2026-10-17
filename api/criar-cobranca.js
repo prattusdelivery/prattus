@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { restauranteId, nome, email, plano, cpfCnpj } = req.body || {};
+    const { restauranteId, nome, email, plano, cpfCnpj, metodo } = req.body || {};
 
     if (!restauranteId || !nome || !email || !plano || !cpfCnpj) {
       return res.status(400).json({ error: 'Dados incompletos (restauranteId, nome, email, cpfCnpj e plano são obrigatórios)' });
@@ -46,6 +46,69 @@ export default async function handler(req, res) {
         const updData = await updResp.json();
         return res.status(500).json({ error: 'Erro ao atualizar CPF/CNPJ do cliente na Asaas', detalhe: updData });
       }
+    }
+
+    // 1.5. CARTÃO AUTOMÁTICO: página de pagamento do próprio Asaas (Checkout com assinatura).
+    //      O restaurante digita o cartão 1 vez lá; o Asaas cobra sozinho todo mês/ano.
+    //      Os dados do cartão nunca passam pelo nosso servidor.
+    if (metodo === 'cartao') {
+      const SITE = 'https://www.servidelivery.com.br';
+      // primeira cobrança: daqui a 2 minutos (horário de Brasília), formato "AAAA-MM-DD HH:mm:ss"
+      const base = new Date(Date.now() + 2 * 60 * 1000 - 3 * 60 * 60 * 1000);
+      const nextDueDate = base.toISOString().replace('T', ' ').slice(0, 19);
+      const corpoBase = {
+        billingTypes: ['CREDIT_CARD'],
+        chargeTypes: ['RECURRENT'],
+        minutesToExpire: 120,
+        externalReference: restauranteId,
+        callback: {
+          successUrl: SITE + '/painel?assinatura=ok',
+          cancelUrl: SITE + '/painel?assinatura=cancelada',
+          expiredUrl: SITE + '/painel?assinatura=expirada'
+        },
+        items: [{
+          name: plano === 'anual' ? 'ServiDelivery - plano anual' : 'ServiDelivery - plano mensal',
+          description: 'Assinatura ServiDelivery - ' + nome,
+          quantity: 1,
+          value: valor
+        }],
+        subscription: { cycle: ciclo, nextDueDate }
+      };
+      const tentar = async (extra) => {
+        const r = await fetch(`${ASAAS_BASE}/checkouts`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'access_token': ASAAS_KEY },
+          body: JSON.stringify({ ...corpoBase, ...extra })
+        });
+        let d = {}; try { d = await r.json(); } catch (e) {}
+        return { r, d };
+      };
+      // 1ª tentativa: cliente já criado; se o Asaas não aceitar, 2ª tentativa com os dados do cliente no corpo
+      let { r: chkResp, d: chkData } = await tentar({ customer: customerId });
+      if (!chkResp.ok) {
+        ({ r: chkResp, d: chkData } = await tentar({ customerData: { name: nome, email, cpfCnpj } }));
+      }
+      if (!chkResp.ok) {
+        await reportarErro(new Error('Asaas checkout: ' + JSON.stringify(chkData).slice(0, 500)), 'criar-cobranca-checkout');
+        return res.status(500).json({ error: 'O Asaas não aceitou criar o pagamento no cartão agora.', detalhe: chkData });
+      }
+      const checkoutUrl = chkData.link || chkData.url || (chkData.id ? `https://asaas.com/checkoutSession/show?id=${chkData.id}` : null);
+      if (!checkoutUrl) {
+        return res.status(500).json({ error: 'Pagamento criado, mas não foi possível obter o link.', detalhe: chkData });
+      }
+      if (process.env.SUPABASE_SERVICE_KEY) {
+        await fetch(`https://qdyhmtccahlqscvrckpx.supabase.co/rest/v1/restaurantes?id=eq.${restauranteId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': process.env.SUPABASE_SERVICE_KEY,
+            'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({ plano_tipo: plano })
+        }).catch(() => {});
+      }
+      return res.status(200).json({ ok: true, checkoutUrl, checkoutId: chkData.id });
     }
 
     // 2. Cria a assinatura recorrente (mensal ou anual)

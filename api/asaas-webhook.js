@@ -5,6 +5,27 @@ import { reportarErro } from './_sentry.js';
 
 const SUPABASE_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
 
+// Descobre de qual restaurante é o pagamento. Pagamentos de assinatura criados pelo Checkout
+// podem vir sem externalReference; nesse caso olhamos a assinatura e depois o cliente no Asaas.
+async function descobrirRestauranteId(pagamento) {
+  if (!pagamento) return null;
+  if (pagamento.externalReference) return pagamento.externalReference;
+  const headers = { 'access_token': process.env.ASAAS_API_KEY };
+  try {
+    if (pagamento.subscription) {
+      const r = await fetch(`https://api.asaas.com/v3/subscriptions/${pagamento.subscription}`, { headers });
+      const d = await r.json();
+      if (d && d.externalReference) return d.externalReference;
+    }
+    if (pagamento.customer) {
+      const r = await fetch(`https://api.asaas.com/v3/customers/${pagamento.customer}`, { headers });
+      const d = await r.json();
+      if (d && d.externalReference) return d.externalReference;
+    }
+  } catch (e) {}
+  return null;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).end();
@@ -24,8 +45,11 @@ export default async function handler(req, res) {
     const eventosQueLiberam = ['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED'];
     const eventosQueCancelam = ['PAYMENT_OVERDUE', 'PAYMENT_DELETED', 'PAYMENT_REFUNDED'];
 
-    if (eventosQueLiberam.includes(tipo) && pagamento?.externalReference) {
-      const restauranteId = pagamento.externalReference;
+    const restauranteIdEvento = (eventosQueLiberam.includes(tipo) || eventosQueCancelam.includes(tipo))
+      ? await descobrirRestauranteId(pagamento) : null;
+
+    if (eventosQueLiberam.includes(tipo) && restauranteIdEvento) {
+      const restauranteId = restauranteIdEvento;
 
       const svcHeadersLeitura = {
         'apikey': process.env.SUPABASE_SERVICE_KEY,
@@ -66,8 +90,8 @@ export default async function handler(req, res) {
       }).catch(() => {});
     }
 
-    if (eventosQueCancelam.includes(tipo) && pagamento?.externalReference) {
-      const restauranteId = pagamento.externalReference;
+    if (eventosQueCancelam.includes(tipo) && restauranteIdEvento) {
+      const restauranteId = restauranteIdEvento;
 
       await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}`, {
         method: 'PATCH',
