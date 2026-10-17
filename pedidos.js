@@ -301,7 +301,7 @@ async function renderDashboard() {
         (pedidosDelivery||[]).map(p => `
           <div class="pedido-card">
             <div class="pedido-info">
-              <div class="pedido-num">#${p.id.slice(-4).toUpperCase()} — ${esc(p.observacao?.split('Nome:')[1]?.split('\n')[0]?.trim() || p.clientes?.nome || 'Cliente')}${(p.observacao||'').includes('JÁ PAGO') ? ' <span style="background:#0F6E56;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;">✅ PAGO ' + ((p.observacao||'').includes('Cartão online') ? 'NO CARTÃO' : 'NO PIX') + '</span>' : badgeNaoPago(p)}${textoAgendamento(p) ? ' <span style="background:#FFD60A;color:#C00000;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;border:1px solid #C00000;">⏰ AGENDADO ' + esc(textoAgendamento(p)) + '</span>' : ''}</div>
+              <div class="pedido-num">#${p.id.slice(-4).toUpperCase()} — ${esc(p.observacao?.split('Nome:')[1]?.split('\n')[0]?.trim() || p.clientes?.nome || 'Cliente')}${(p.observacao||'').includes('JÁ PAGO') ? ' <span style="background:#0F6E56;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;">✅ PAGO ' + ((p.observacao||'').includes('Cartão online') ? 'NO CARTÃO' : 'NO PIX') + '</span>' : badgeNaoPago(p)}${badgeRetirada(p)}${textoAgendamento(p) ? ' <span style="background:#FFD60A;color:#C00000;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;border:1px solid #C00000;">⏰ AGENDADO ' + esc(textoAgendamento(p)) + '</span>' : ''}</div>
               <div class="pedido-cliente">${esc(p.bairro)} · ${dataDoBanco(p.criado_em).toLocaleString('pt-BR')}</div>
             </div>
             <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
@@ -375,6 +375,7 @@ async function renderPedidos() {
           <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
         </div>
         ${faixaAgendado(p)}
+        ${faixaRetirada(p)}
         ${faixaPagamento(p)}
         ${mesaMatch ? `<div style="display:inline-block;background:var(--laranja);color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;">🍽️ Mesa ${esc(mesaMatch[1])}</div>` : ''}
         ${p.status === 'preparando' && p.aceito_em ? `<div style="display:inline-block;background:#FFF3E0;color:#B26A00;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;margin-left:4px;">⏱️ ${tempoDecorridoTexto(p.aceito_em)} em preparo</div>` : ''}
@@ -435,6 +436,7 @@ async function renderComandas() {
           <div class="pedido-val">R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
         </div>
         ${faixaAgendado(p)}
+        ${faixaRetirada(p)}
         ${faixaPagamento(p)}
         ${mesaMatch ? `<div style="display:inline-block;background:var(--laranja);color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;">🍽️ Mesa ${esc(mesaMatch[1])}</div>` : ''}
         ${p.status === 'preparando' && p.aceito_em ? `<div style="display:inline-block;background:#FFF3E0;color:#B26A00;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;margin-left:4px;">⏱️ ${tempoDecorridoTexto(p.aceito_em)} em preparo</div>` : ''}
@@ -573,8 +575,7 @@ function dadosPagamento(p) {
   if (/Mesa\s+\S+/.test(obs) || p.codigo_comanda_id) return null; // comanda: paga ao fechar a mesa
   const forma = (obs.match(/Pagamento:\s*([^\n(]+)/) || [])[1]?.trim();
   if (!forma) return null;
-  const retirada = /Modo:\s*[^\n]*retirada/i.test(obs);
-  const quando = retirada ? 'NA RETIRADA' : 'NA ENTREGA';
+  const quando = /Modo:\s*Retirar/i.test(obs) ? 'NA RETIRADA' : (/Modo:\s*Consumir/i.test(obs) ? 'NO LOCAL' : 'NA ENTREGA');
   const trocoPara = parseFloat((obs.match(/troco para R\$\s*([\d.,]+)/i) || [])[1]?.replace(',', '.'));
   const total = parseFloat(p.total) || 0;
   const dinheiro = /dinheiro/i.test(forma);
@@ -596,6 +597,19 @@ function badgeNaoPago(p) {
   const d = dadosPagamento(p);
   if (!d || d.pago) return '';
   return ` <span style="background:#B42318;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;">${d.dinheiro ? '💵 NÃO PAGO' : '💳 NÃO PAGO'}</span>`;
+}
+
+// Faixa azul para retirada no local (quando NÃO é agendada; a agendada já tem a faixa amarela)
+function ehRetirada(p) {
+  return /Modo:\s*Retirar/i.test(p.observacao || '') && !p.codigo_comanda_id;
+}
+function faixaRetirada(p) {
+  if (!ehRetirada(p) || textoAgendamento(p)) return '';
+  return `<div style="background:#1D4ED8;color:#fff;font-size:13px;font-weight:800;padding:7px 10px;border-radius:8px;margin-bottom:8px;text-align:center;letter-spacing:.3px;">🏃 RETIRADA NO LOCAL — o cliente vem buscar</div>`;
+}
+function badgeRetirada(p) {
+  if (!ehRetirada(p)) return '';
+  return ' <span style="background:#1D4ED8;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;">🏃 RETIRADA</span>';
 }
 
 function faixaAgendado(p) {

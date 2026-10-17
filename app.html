@@ -1352,6 +1352,10 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
     <input type="text" id="cad-cliente-telefone" placeholder="55999999999">
   </div>
   <div class="form-group">
+    <label>Endereço (opcional)</label>
+    <input type="text" id="cad-cliente-endereco" placeholder="Rua, número, bairro">
+  </div>
+  <div class="form-group">
     <label>Data de nascimento (opcional)</label>
     <input type="date" id="cad-cliente-nascimento">
   </div>
@@ -3403,6 +3407,12 @@ async function renderConfig() {
       <div class="form-group" style="background:var(--creme);border-radius:10px;padding:14px;">
         <label style="font-size:14px;font-weight:700;">⚡ Receber Pix e cartão online (Mercado Pago)</label>
         <div style="font-size:12px;color:var(--texto-muted);margin:4px 0 10px;">O cliente paga o Pix ou o cartão na hora de pedir e o pedido entra aqui no painel já como <b>pago</b>, sem precisar conferir comprovante. O dinheiro cai direto na sua conta do Mercado Pago.</div>
+        <div style="font-size:12px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin:0 0 10px;line-height:1.6;">
+          <b>💡 Quando o dinheiro cai na sua conta?</b><br>
+          • <b>Pix:</b> cai na hora.<br>
+          • <b>Cartão:</b> quem escolhe é você, dentro do Mercado Pago: <b>na hora</b>, em <b>14 dias</b> ou em <b>30 dias</b>. Quanto mais rápido, maior a taxa.<br>
+          <span style="color:var(--texto-muted);">As taxas são cobradas pelo Mercado Pago, não pelo ServiDelivery (que não cobra comissão por pedido). Para mudar o prazo, entre na sua conta do Mercado Pago.</span>
+        </div>
         ${r.pix_online_ativo ? `
           <div style="font-size:13px;font-weight:700;color:#0F6E56;margin-bottom:8px;">✅ Conectado. Seus clientes pagam o Pix ou o cartão na hora e o pedido já chega pago.</div>
           <label style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin-bottom:10px;cursor:pointer;font-size:13px;">
@@ -6014,7 +6024,7 @@ async function garantirUserIdRestaurante() {
 }
 </script>
 <script src="cardapio.js"></script>
-<script src="pedidos.js?v=20261017a"></script>
+<script src="pedidos.js?v=20261017b"></script>
 <script src="relatorios.js"></script>
 <script src="clientes.js"></script>
 </body>

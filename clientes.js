@@ -23,6 +23,7 @@ function editarCliente(id) {
   document.getElementById('cad-cliente-nome').value = c.nome || '';
   document.getElementById('cad-cliente-telefone').value = c.telefone || '';
   document.getElementById('cad-cliente-nascimento').value = c.data_nascimento || '';
+  document.getElementById('cad-cliente-endereco').value = c.endereco || '';
   document.getElementById('cad-cliente-titulo').textContent = 'Editar cliente';
   document.getElementById('cad-cliente-btn-salvar').textContent = 'Salvar alterações';
   abrirModal('modal-cadastro-cliente');
@@ -33,6 +34,7 @@ function resetarFormCliente() {
   document.getElementById('cad-cliente-nome').value = '';
   document.getElementById('cad-cliente-telefone').value = '';
   document.getElementById('cad-cliente-nascimento').value = '';
+  document.getElementById('cad-cliente-endereco').value = '';
   document.getElementById('cad-cliente-titulo').textContent = 'Cadastrar cliente';
   document.getElementById('cad-cliente-btn-salvar').textContent = 'Cadastrar';
 }
@@ -41,6 +43,7 @@ async function salvarClienteManual() {
   const nome = document.getElementById('cad-cliente-nome').value.trim();
   const telefone = document.getElementById('cad-cliente-telefone').value.trim();
   const nascimento = document.getElementById('cad-cliente-nascimento').value || null;
+  const endereco = document.getElementById('cad-cliente-endereco').value.trim() || null;
 
   if (!nome || !telefone) {
     toast('Preencha nome e telefone!', 'erro');
@@ -55,8 +58,8 @@ async function salvarClienteManual() {
   }
 
   const { error } = clienteEditandoId
-    ? await db.from('clientes').update({ nome, telefone, data_nascimento: nascimento }).eq('id', clienteEditandoId)
-    : await db.from('clientes').insert({ restaurante_id: restauranteAtual.id, nome, telefone, data_nascimento: nascimento });
+    ? await db.from('clientes').update({ nome, telefone, data_nascimento: nascimento, endereco }).eq('id', clienteEditandoId)
+    : await db.from('clientes').insert({ restaurante_id: restauranteAtual.id, nome, telefone, data_nascimento: nascimento, endereco });
 
   if (error) {
     toast(clienteEditandoId ? 'Erro ao salvar alterações.' : 'Erro ao cadastrar cliente.', 'erro');
@@ -261,7 +264,7 @@ function renderClienteLista(lista) {
             <div class="cliente-avatar">${esc(c.nome).charAt(0).toUpperCase()}</div>
             <div style="flex:1;">
               <div class="cliente-nome">${esc(c.nome)}</div>
-              <div class="cliente-sub">${esc(c.email)||''} ${c.telefone?'· '+esc(c.telefone):''}${c.data_nascimento ? ' · 🎂 '+new Date(c.data_nascimento+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'}) : ''}</div>
+              <div class="cliente-sub">${esc(c.email)||''} ${c.telefone?'· '+esc(c.telefone):''}${c.endereco ? ' · 📍 '+esc(c.endereco) : ''}${c.data_nascimento ? ' · 🎂 '+new Date(c.data_nascimento+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'}) : ''}</div>
             </div>
             <div style="text-align:right;">
               <div style="font-size:13px;font-weight:700;color:var(--laranja)">R$ ${parseFloat(c.total_gasto||0).toFixed(2).replace('.',',')}</div>
@@ -366,9 +369,9 @@ async function exportarClientesCSV() {
   if (!restauranteAtual) return;
   toast('Gerando arquivo...', 'ok');
   const { data: clientes } = await db.from('clientes').select('*').eq('restaurante_id', restauranteAtual.id).order('total_gasto', {ascending:false});
-  const linhas = [['Nome','Telefone','Total gasto','Total de pedidos','Pontos','Aniversário']];
+  const linhas = [['Nome','Telefone','Endereço','Total gasto','Total de pedidos','Pontos','Aniversário']];
   (clientes||[]).forEach(c => linhas.push([
-    c.nome, c.telefone, parseFloat(c.total_gasto||0).toFixed(2).replace('.',','),
+    c.nome, c.telefone, c.endereco || '', parseFloat(c.total_gasto||0).toFixed(2).replace('.',','),
     c.total_pedidos, c.pontos, c.data_nascimento ? new Date(c.data_nascimento+'T00:00:00').toLocaleDateString('pt-BR') : ''
   ]));
   baixarArquivoTexto(gerarCSV(linhas), `clientes-${restauranteAtual.nome.replace(/\s+/g,'-')}.csv`, 'text/csv;charset=utf-8');
