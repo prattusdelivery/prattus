@@ -585,6 +585,10 @@ async function renderComandas() {
   });
 
   document.getElementById('conteudo').innerHTML = `
+    <div class="card" style="margin-bottom:20px;text-align:center;">
+      <button onclick="abrirLeitorQr()" style="width:100%;background:var(--laranja);color:#fff;border:none;border-radius:12px;padding:16px;font-size:17px;font-weight:700;cursor:pointer;">📷 Ler QR Code da comanda</button>
+      <div style="font-size:12px;color:var(--texto-muted);margin-top:8px;">Aponte a câmera do celular para o QR Code do cartão da comanda.</div>
+    </div>
     ${meuPapel === 'garcom' ? '' : `<div class="card" style="margin-bottom:20px;">
       <div class="card-titulo">🔍 Fechar conta pelo código de barras</div>
       <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Passe o leitor no código de barras da comanda (ou digite o número e aperte Enter).</div>
@@ -864,4 +868,126 @@ function obsFormatada(p) {
   if (!p.observacao) return '';
   const partes = String(p.observacao).split('\n').filter(l => !/^Agendado para:/i.test(l)).map(l => esc(l));
   return `<div style="font-size:12px;color:#000;margin-bottom:10px;line-height:1.7;">${partes.join(' · ')}</div>`;
+}
+
+
+// ===== LEITOR DE QR CODE DENTRO DO SISTEMA (câmera do celular) =====
+var leitorQr = { stream: null, ativo: false, fundo: null };
+
+function fecharLeitorQr() {
+  leitorQr.ativo = false;
+  if (leitorQr.stream) { leitorQr.stream.getTracks().forEach(t => t.stop()); leitorQr.stream = null; }
+  if (leitorQr.fundo) { leitorQr.fundo.remove(); leitorQr.fundo = null; }
+}
+
+function carregarJsQr() {
+  return new Promise((resolve, reject) => {
+    if (window.jsQR) return resolve();
+    const sc = document.createElement('script');
+    sc.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+    sc.onload = () => resolve();
+    sc.onerror = () => reject(new Error('jsqr'));
+    document.head.appendChild(sc);
+  });
+}
+
+// Descobre o id da comanda a partir do que o QR/código de barras trouxe
+async function comandaIdDoTexto(texto) {
+  const t = String(texto || '').trim();
+  const mLink = t.match(/[?&]comanda=([0-9a-fA-F-]{36})/);
+  if (mLink) return mLink[1];
+  if (/^[0-9a-fA-F-]{36}$/.test(t)) return t;
+  if (/^\d{6}$/.test(t)) {
+    const { data } = await db.from('codigos_comanda').select('id')
+      .eq('restaurante_id', restauranteAtual.id).eq('codigo_curto', t).maybeSingle();
+    return data?.id || null;
+  }
+  return null;
+}
+
+async function abrirLeitorQr() {
+  if (leitorQr.ativo) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    toast('Este aparelho não deixa abrir a câmera aqui. Use a câmera normal do celular.', 'erro');
+    return;
+  }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+  } catch (e) {
+    toast('Não consegui abrir a câmera. Toque em "Permitir" quando o celular perguntar.', 'erro');
+    return;
+  }
+  leitorQr.stream = stream;
+  leitorQr.ativo = true;
+
+  const fundo = document.createElement('div');
+  fundo.style.cssText = 'position:fixed;inset:0;background:#000;z-index:9999;display:flex;flex-direction:column;';
+  fundo.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;color:#fff;">
+      <div style="font-size:16px;font-weight:700;">📷 Aponte para o QR Code</div>
+      <button id="qr-fechar" style="background:rgba(255,255,255,0.2);border:none;color:#fff;padding:8px 16px;border-radius:20px;font-size:14px;cursor:pointer;">✖ Fechar</button>
+    </div>
+    <div style="flex:1;position:relative;overflow:hidden;">
+      <video id="qr-video" playsinline muted autoplay style="width:100%;height:100%;object-fit:cover;"></video>
+      <div style="position:absolute;top:50%;left:50%;width:240px;height:240px;transform:translate(-50%,-50%);border:3px solid #fff;border-radius:16px;box-shadow:0 0 0 2000px rgba(0,0,0,0.45);"></div>
+    </div>
+    <div id="qr-aviso" style="color:#fff;text-align:center;padding:14px;font-size:14px;">Procurando o QR Code...</div>`;
+  document.body.appendChild(fundo);
+  leitorQr.fundo = fundo;
+  fundo.querySelector('#qr-fechar').onclick = fecharLeitorQr;
+
+  const video = fundo.querySelector('#qr-video');
+  video.srcObject = stream;
+  try { await video.play(); } catch (e) {}
+
+  let detector = null;
+  if ('BarcodeDetector' in window) {
+    try { detector = new BarcodeDetector({ formats: ['qr_code'] }); } catch (e) { detector = null; }
+  }
+  if (!detector) {
+    try { await carregarJsQr(); } catch (e) {
+      fecharLeitorQr();
+      toast('Não consegui preparar o leitor. Tente de novo ou use a câmera normal do celular.', 'erro');
+      return;
+    }
+  }
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  let lendo = false;
+
+  async function tentarLer() {
+    if (!leitorQr.ativo) return;
+    if (!lendo && video.readyState >= 2 && video.videoWidth) {
+      lendo = true;
+      try {
+        let texto = null;
+        if (detector) {
+          const achados = await detector.detect(video);
+          if (achados.length) texto = achados[0].rawValue;
+        } else {
+          const w = Math.min(video.videoWidth, 640);
+          const h = Math.round(video.videoHeight * (w / video.videoWidth));
+          canvas.width = w; canvas.height = h;
+          ctx.drawImage(video, 0, 0, w, h);
+          const img = ctx.getImageData(0, 0, w, h);
+          const r = window.jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' });
+          if (r) texto = r.data;
+        }
+        if (texto) {
+          const id = await comandaIdDoTexto(texto);
+          if (id) {
+            fecharLeitorQr();
+            await carregarModoComanda(id);
+            return;
+          }
+          const aviso = document.getElementById('qr-aviso');
+          if (aviso) aviso.textContent = 'Esse QR Code não é de uma comanda. Tente outro.';
+        }
+      } catch (e) {}
+      lendo = false;
+    }
+    setTimeout(tentarLer, 250);
+  }
+  tentarLer();
 }
