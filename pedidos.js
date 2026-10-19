@@ -90,7 +90,6 @@ async function carregarModoComanda(comandaId) {
   const infoBar = document.getElementById('pub-info-bar');
   if (infoBar) infoBar.innerHTML = `
     <button onclick="sairModoComanda()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;padding:5px 12px;border-radius:20px;font-size:12px;cursor:pointer;">← Voltar pro painel</button>
-    ${meuPapel === 'garcom' ? '' : `<button onclick="abrirFechamentoComanda()" style="background:var(--laranja);border:none;color:#fff;padding:5px 12px;border-radius:20px;font-size:12px;cursor:pointer;font-weight:600;">💰 Fechar conta</button>`}
   `;
   const fechado = document.getElementById('pub-fechado');
   if (fechado) fechado.style.display = 'none';
@@ -102,15 +101,23 @@ async function carregarModoComanda(comandaId) {
     (cats||[]).map(c => `<div class="pub-cat" onclick="filtrarCat('${c.id}',this)">${esc(c.nome)}</div>`).join('');
   renderItensPublico(itens||[]);
 
-  // Botões especiais da comanda (restaurante por peso): prato por peso e prato livre
   const rankingWrap = document.getElementById('pub-ranking-wrap');
   if (rankingWrap) {
-    const precoLivre = parseFloat(rest?.comanda_livre_preco) || 0;
-    rankingWrap.innerHTML = `
-      <div style="display:flex;gap:8px;flex-wrap:wrap;padding:10px 16px;">
-        <button onclick="adicionarPratoPorPeso()" style="flex:1;min-width:140px;background:var(--laranja);color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;">⚖️ Prato por peso</button>
-        <button onclick="adicionarPratoLivre()" style="flex:1;min-width:140px;background:#0F6E56;color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;">♾️ Livre${precoLivre ? ' — R$ ' + precoLivre.toFixed(2).replace('.', ',') : ''}</button>
-      </div>`;
+    if (meuPapel === 'garcom') {
+      // Garçom / atendente da balança: botões do prato por peso e do Livre
+      const precoLivre = parseFloat(rest?.comanda_livre_preco) || 0;
+      rankingWrap.innerHTML = `
+        <div style="display:flex;gap:8px;flex-wrap:wrap;padding:10px 16px;">
+          <button onclick="adicionarPratoPorPeso()" style="flex:1;min-width:140px;background:var(--laranja);color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;">⚖️ Prato por peso</button>
+          <button onclick="adicionarPratoLivre()" style="flex:1;min-width:140px;background:#0F6E56;color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;">♾️ Livre${precoLivre ? ' — R$ ' + precoLivre.toFixed(2).replace('.', ',') : ''}</button>
+        </div>`;
+    } else {
+      // Caixa / dono: botão grande pra fechar a conta
+      rankingWrap.innerHTML = `
+        <div style="padding:10px 16px;">
+          <button onclick="abrirFechamentoComanda()" style="width:100%;background:#0F6E56;color:#fff;border:none;border-radius:14px;padding:18px;font-size:19px;font-weight:800;cursor:pointer;letter-spacing:.3px;box-shadow:0 3px 10px rgba(0,0,0,.2);">💰 FECHAR CONTA</button>
+        </div>`;
+    }
   }
 
   mostrarTela('cliente');
