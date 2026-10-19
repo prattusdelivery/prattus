@@ -3346,13 +3346,32 @@ function pgMarcarPix(qual, marcado) {
   if (wrap) wrap.style.display = m.checked ? 'block' : 'none';
 }
 
+function cpfValido(d) {
+  if (!/^\d{11}$/.test(d) || /^(\d)\1{10}$/.test(d)) return false;
+  for (let t = 9; t < 11; t++) {
+    let soma = 0;
+    for (let i = 0; i < t; i++) soma += parseInt(d[i]) * (t + 1 - i);
+    if (((soma * 10) % 11) % 10 !== parseInt(d[t])) return false;
+  }
+  return true;
+}
+
+// Arruma a chave sozinho: o dono só cola o que tem no banco (telefone ganha o +55 automaticamente)
 function normalizarChavePix(v) {
   v = String(v || '').trim();
   if (!v) return '';
   if (v.includes('@')) return v.toLowerCase();
-  if (/^[\d.\-\/ ]+$/.test(v)) return v.replace(/\D/g, '');          // CPF ou CNPJ: só números
-  if (/^\+[\d() -]+$/.test(v)) return '+' + v.replace(/\D/g, '');       // telefone com +55
-  return v;                                                            // chave aleatória
+  if (/^\+/.test(v)) return '+' + v.replace(/\D/g, '');
+  if (/^[\d.\-\/ ()]+$/.test(v)) {
+    const d = v.replace(/\D/g, '');
+    if (v.includes('(')) return d.startsWith('55') && d.length >= 12 ? '+' + d : '+55' + d;   // telefone com DDD entre parênteses
+    if (d.length === 14) return d;                                                           // CNPJ
+    if (d.length === 11) return cpfValido(d) ? d : '+55' + d;                                // CPF ou celular
+    if (d.length === 10) return '+55' + d;                                                   // telefone fixo
+    if ((d.length === 12 || d.length === 13) && d.startsWith('55')) return '+' + d;          // telefone já com 55
+    return d;
+  }
+  return v;                                                                                  // chave aleatória
 }
 
 async function salvarFormasPagamento() {
@@ -3488,8 +3507,8 @@ async function renderConfig() {
           <span><b>📲 Pix manual</b><br><span style="font-size:11px;color:var(--texto-muted);">O cliente paga na sua chave Pix e manda o comprovante no WhatsApp. Você confere antes de liberar o pedido.</span></span>
         </label>
         <div id="pg-pix-chave-wrap" style="display:${r.pgto_pix === 'manual' ? 'block' : 'none'};margin-bottom:12px;">
-          <input type="text" id="cfg-pix" value="${esc(chavePixAtual)}" placeholder="Sua chave Pix" autocomplete="off" style="width:100%;">
-          <div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Copie a chave exatamente como está no seu banco. Se for telefone, comece com +55 (ex: +5555999999999).</div>
+          <input type="text" id="cfg-pix" value="${esc(chavePixAtual)}" placeholder="Coloque sua chave Pix aqui" autocomplete="off" style="width:100%;">
+          <div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Pode ser CPF, CNPJ, telefone, e-mail ou chave aleatória.</div>
         </div>
         <div style="font-size:13px;font-weight:700;margin:10px 0 6px;">Cartão (pode marcar os dois)</div>
         <label style="display:flex;align-items:flex-start;gap:10px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;font-size:13px;">
