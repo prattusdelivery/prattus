@@ -3397,6 +3397,54 @@ async function salvarFormasPagamento() {
   toast('Formas de pagamento salvas!', 'ok');
 }
 
+// Botão "Conectar com Mercado Pago": leva o dono pro site do Mercado Pago, ele autoriza e volta sozinho
+async function conectarMercadoPagoUmClique(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Abrindo o Mercado Pago…'; }
+  try {
+    const { data: sessao } = await db.auth.getSession();
+    const tokenDono = sessao?.session?.access_token;
+    const resp = await fetch('/api/consultar-pontos', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acao: 'mp_oauth_url', restauranteId: restauranteAtual.id, tokenDono })
+    });
+    const data = await resp.json();
+    if (!data.ok || !data.url) {
+      toast(data.error || 'Não consegui abrir o Mercado Pago. Tente de novo.', 'erro');
+      if (btn) { btn.disabled = false; btn.textContent = '🔗 Conectar com Mercado Pago (1 clique)'; }
+      return;
+    }
+    window.location.href = data.url;
+  } catch (e) {
+    toast('Erro de conexão. Tente de novo.', 'erro');
+    if (btn) { btn.disabled = false; btn.textContent = '🔗 Conectar com Mercado Pago (1 clique)'; }
+  }
+}
+
+// Quando o dono volta do Mercado Pago (?mp=ok ou ?mp=erro)
+async function tratarRetornoMercadoPago() {
+  const p = new URLSearchParams(window.location.search);
+  const resultado = p.get('mp');
+  if (!resultado) return;
+  const motivo = p.get('motivo') || '';
+  try { window.history.replaceState({}, '', window.location.pathname); } catch (e) {}
+  for (let i = 0; i < 20 && !(typeof restauranteAtual !== 'undefined' && restauranteAtual && restauranteAtual.id); i++) {
+    await new Promise(r => setTimeout(r, 300));
+  }
+  if (resultado === 'ok') {
+    if (restauranteAtual) restauranteAtual.pix_online_ativo = true;
+    try { irPara('config'); } catch (e) {}
+    toast('✅ Mercado Pago conectado! Seus clientes já podem pagar Pix e cartão.', 'ok');
+  } else {
+    const msgs = {
+      cancelado: 'Você não autorizou o Mercado Pago. Tente de novo quando quiser.',
+      expirou: 'O link expirou. Clique em conectar de novo.',
+      recusou: 'O Mercado Pago não aceitou. Tente de novo.',
+    };
+    try { irPara('config'); } catch (e) {}
+    toast(msgs[motivo] || 'Não deu certo conectar. Tente de novo.', 'erro');
+  }
+}
+
 async function conectarMercadoPago() {
   const token = (document.getElementById('cfg-mp-token')?.value || '').trim();
   if (!token) { toast('Cole o código do Mercado Pago primeiro.', 'erro'); return; }
@@ -3485,13 +3533,20 @@ async function renderConfig() {
           <div style="font-size:13px;font-weight:700;color:#0F6E56;margin-bottom:8px;">✅ Conectado. Seus clientes pagam o Pix ou o cartão na hora e o pedido já chega pago.</div>
           <button type="button" class="btn-sm" onclick="document.getElementById('bloco-trocar-mp').style.display='block';this.style.display='none'">Trocar conta do Mercado Pago</button>
           <div id="bloco-trocar-mp" style="display:none;margin-top:8px;">
-            <input type="password" id="cfg-mp-token" placeholder="Cole aqui o novo código (Access Token)" autocomplete="off" style="width:100%;margin-bottom:8px;">
-            <button type="button" class="btn-sm" style="width:100%;" onclick="conectarMercadoPago()">Salvar nova conta</button>
+            <button type="button" class="btn-sm" style="width:100%;background:#009EE3;color:#fff;border:none;font-weight:700;margin-bottom:10px;" onclick="conectarMercadoPagoUmClique(this)">🔗 Conectar outra conta do Mercado Pago</button>
+            <details style="font-size:12px;color:var(--texto-muted);"><summary style="cursor:pointer;">Prefiro colar o código manualmente</summary>
+              <input type="password" id="cfg-mp-token" placeholder="Cole aqui o novo código (Access Token)" autocomplete="off" style="width:100%;margin:8px 0;">
+              <button type="button" class="btn-sm" style="width:100%;" onclick="conectarMercadoPago()">Salvar nova conta</button>
+            </details>
           </div>
         ` : `
           <div style="font-size:12px;color:#B26A00;margin-bottom:8px;">Ainda não conectado. Enquanto isso, seus clientes só veem "Pagar na entrega".</div>
-          <input type="password" id="cfg-mp-token" placeholder="Cole aqui o código (Access Token) do Mercado Pago" autocomplete="off" style="width:100%;margin-bottom:8px;">
-          <button type="button" class="btn-sm" style="width:100%;" onclick="conectarMercadoPago()">Conectar Mercado Pago</button>
+          <button type="button" class="btn-sm" style="width:100%;background:#009EE3;color:#fff;border:none;font-weight:700;padding:12px;font-size:14px;margin-bottom:10px;" onclick="conectarMercadoPagoUmClique(this)">🔗 Conectar com Mercado Pago (1 clique)</button>
+          <div style="font-size:11px;color:var(--texto-muted);margin-bottom:8px;">Você entra na sua conta do Mercado Pago, toca em <b>Autorizar</b> e volta pra cá. Não precisa copiar nenhum código.</div>
+          <details style="font-size:12px;color:var(--texto-muted);"><summary style="cursor:pointer;">Prefiro colar o código manualmente</summary>
+            <input type="password" id="cfg-mp-token" placeholder="Cole aqui o código (Access Token) do Mercado Pago" autocomplete="off" style="width:100%;margin:8px 0;">
+            <button type="button" class="btn-sm" style="width:100%;" onclick="conectarMercadoPago()">Conectar com o código</button>
+          </details>
         `}
       </div>
       <div class="form-group" style="background:var(--creme);border-radius:10px;padding:14px;">
@@ -6164,6 +6219,7 @@ async function initComTimeout() {
     resolveu = true;
     clearTimeout(timeoutId);
   }
+  tratarRetornoMercadoPago();
 }
 
 function mostrarErroCarregamentoInicial() {
