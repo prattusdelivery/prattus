@@ -3609,6 +3609,9 @@ async function renderConfig() {
         <div class="form-group"><label>Pedido mínimo (R$)</label><input type="number" id="cfg-minimo" value="${r.pedido_minimo||''}" placeholder="0.00" step="0.01" min="0"></div>
       </div>
 
+      <div class="config-titulo" style="margin-top:20px;">Comanda (restaurante por peso / livre)</div>
+      <div class="form-group"><label>Preço do prato "Livre" (R$)</label><input type="number" id="cfg-comanda-livre" value="${r.comanda_livre_preco||''}" placeholder="Ex: 20.00" step="0.01" min="0" style="max-width:200px;"><div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Se o seu restaurante tem rodízio/"come à vontade", coloque o valor aqui. Ele aparece como botão "♾️ Livre" na comanda do garçom. Deixe vazio se não usa.</div></div>
+
       <div class="config-titulo" style="margin-top:4px;">Horário de funcionamento</div>
       <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Configure um horário diferente pra cada dia, ou deixe desmarcado nos dias que ficar fechado.</div>
       <div id="horarios-semana-wrap">
@@ -3773,6 +3776,7 @@ async function salvarConfig() {
     },
     tempo_entrega: document.getElementById('cfg-tempo').value || null,
     pedido_minimo: parseFloat(document.getElementById('cfg-minimo').value) || null,
+    comanda_livre_preco: parseFloat(document.getElementById('cfg-comanda-livre').value) || null,
     horarios_semana: horariosSemana,
     dias_funcionamento: diasMarcados,
   };
@@ -5285,7 +5289,7 @@ function abrirCarrinho() {
     if (blocoCheckout) blocoCheckout.style.display = 'none';
     if (btnFinalizar) { btnFinalizar.textContent = '🍽️ Enviar pedido pra cozinha'; btnFinalizar.onclick = finalizarComanda; }
     if (avisoRodape) avisoRodape.style.display = 'none';
-    if (tituloModal) tituloModal.textContent = `Comanda — Mesa ${comandaAtual?.mesa || ''}`;
+    if (tituloModal) tituloModal.textContent = `Comanda — ${comandaAtual?.mesa ? 'Mesa ' + comandaAtual.mesa : 'Sem mesa'}`;
   } else {
     if (blocoCheckout) blocoCheckout.style.display = 'block';
     if (btnFinalizar) { btnFinalizar.textContent = 'Fechar pedido via WhatsApp'; btnFinalizar.onclick = finalizarPedido; }

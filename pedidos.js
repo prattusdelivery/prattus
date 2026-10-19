@@ -18,13 +18,18 @@ async function carregarModoComanda(comandaId) {
 
   let historicoId = null;
   if (codigo.status !== 'em_uso') {
-    const mesa = prompt('Código livre! Qual o número da mesa?');
-    if (!mesa || !mesa.trim()) return;
+    // Comanda nova. Aqui (e só aqui) dá pra "Pular" o número da mesa — serve pro restaurante
+    // por peso: a atendente da balança lança o prato e o garçom informa a mesa depois.
+    const resp = await perguntarMesaComanda({ titulo: 'Código livre! Qual o número da mesa?', podePular: true });
+    if (!resp) return;
+    const mesaNova = resp.pular ? null : resp.mesa;
+    const abertaEm = new Date().toISOString();
     const { error: erroAbrir } = await db.from('codigos_comanda').update({
-      status: 'em_uso', mesa: mesa.trim(), aberta_em: new Date().toISOString()
+      status: 'em_uso', mesa: mesaNova, aberta_em: abertaEm
     }).eq('id', comandaId);
     if (erroAbrir) { alert('Erro ao abrir a comanda. Tente de novo.'); return; }
-    codigo.mesa = mesa.trim();
+    codigo.mesa = mesaNova;
+    codigo.aberta_em = abertaEm;
 
     // Guarda um registro permanente dessa abertura — sobrevive mesmo depois da mesa fechar,
     // pra contar corretamente quantas comandas foram abertas por dia/mês
@@ -39,6 +44,29 @@ async function carregarModoComanda(comandaId) {
       .select('id').eq('codigo_comanda_id', codigo.id).is('fechada_em', null)
       .order('aberta_em', {ascending: false}).limit(1).maybeSingle();
     historicoId = historicoExistente?.id || null;
+
+    // Comanda aberta SEM mesa (veio da balança): a pergunta da mesa abre sempre, sem "Pular",
+    // até alguém informar. Exceções: se ainda não tem nenhum pedido (ainda está na balança),
+    // pode pular de novo; e o gerente/caixa pode seguir sem mesa só pra fechar a conta.
+    if (!codigo.mesa) {
+      let semPedidos = true;
+      try {
+        const { count } = await db.from('pedidos').select('id', { count: 'exact', head: true })
+          .eq('codigo_comanda_id', codigo.id).gte('criado_em', codigo.aberta_em || '1970-01-01');
+        semPedidos = (count || 0) === 0;
+      } catch (e) {}
+      const resp = await perguntarMesaComanda({
+        titulo: 'Essa comanda ainda está sem mesa. Qual o número da mesa?',
+        podePular: semPedidos,
+        podeSeguirSemMesa: !semPedidos && meuPapel !== 'garcom'
+      });
+      if (!resp) return;
+      if (resp.mesa) {
+        const ok = await informarMesaDaComanda(codigo, resp.mesa, historicoId);
+        if (!ok) return;
+        codigo.mesa = resp.mesa;
+      }
+    }
   }
 
   comandaAtual = { id: codigo.id, mesa: codigo.mesa, historicoId };
@@ -57,7 +85,7 @@ async function carregarModoComanda(comandaId) {
   categorias = cats || [];
   etiquetasCache = etiquetasData || [];
 
-  document.getElementById('pub-rest-nome').textContent = `Mesa ${codigo.mesa}`;
+  document.getElementById('pub-rest-nome').textContent = textoMesa(codigo.mesa);
   document.getElementById('pub-rest-sub').textContent = '📋 Comanda do garçom';
   const infoBar = document.getElementById('pub-info-bar');
   if (infoBar) infoBar.innerHTML = `
@@ -74,12 +102,105 @@ async function carregarModoComanda(comandaId) {
     (cats||[]).map(c => `<div class="pub-cat" onclick="filtrarCat('${c.id}',this)">${esc(c.nome)}</div>`).join('');
   renderItensPublico(itens||[]);
 
+  // Botões especiais da comanda (restaurante por peso): prato por peso e prato livre
   const rankingWrap = document.getElementById('pub-ranking-wrap');
-  if (rankingWrap) rankingWrap.innerHTML = '';
+  if (rankingWrap) {
+    const precoLivre = parseFloat(rest?.comanda_livre_preco) || 0;
+    rankingWrap.innerHTML = `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;padding:10px 16px;">
+        <button onclick="adicionarPratoPorPeso()" style="flex:1;min-width:140px;background:var(--laranja);color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;">⚖️ Prato por peso</button>
+        <button onclick="adicionarPratoLivre()" style="flex:1;min-width:140px;background:#0F6E56;color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;">♾️ Livre${precoLivre ? ' — R$ ' + precoLivre.toFixed(2).replace('.', ',') : ''}</button>
+      </div>`;
+  }
 
   mostrarTela('cliente');
   atualizarCarrinho();
-  toast(`Comanda aberta — Mesa ${codigo.mesa}`, 'ok');
+  toast(`Comanda aberta — ${textoMesa(codigo.mesa)}`, 'ok');
+}
+
+// ===== COMANDA SEM MESA / PRATO POR PESO / LIVRE =====
+function textoMesa(mesa) {
+  return mesa ? `Mesa ${mesa}` : 'Sem mesa';
+}
+
+// Janelinha que pergunta o número da mesa. Devolve: {mesa:'12'}, {pular:true}, {semMesa:true} ou null (cancelou).
+function perguntarMesaComanda({ titulo, podePular, podeSeguirSemMesa }) {
+  return new Promise(resolve => {
+    const fundo = document.createElement('div');
+    fundo.className = 'modal-overlay aberto';
+    fundo.style.zIndex = '9999';
+    fundo.innerHTML = `
+      <div class="modal" style="max-width:400px;">
+        <div class="modal-titulo" style="margin-bottom:14px;">${esc(titulo)}</div>
+        <input type="text" id="mesa-comanda-input" placeholder="Número da mesa" autocomplete="off" style="width:100%;font-size:20px;text-align:center;padding:12px;margin-bottom:14px;">
+        <button id="mesa-comanda-ok" style="width:100%;background:var(--laranja);color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:8px;">✅ Confirmar mesa</button>
+        ${podePular ? `<button id="mesa-comanda-pular" style="width:100%;background:#fff;color:var(--laranja);border:2px solid var(--laranja);border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;">⏭️ Pular (a mesa será informada depois)</button>` : ''}
+        ${podeSeguirSemMesa ? `<button id="mesa-comanda-sem" style="width:100%;background:#fff;color:#444;border:1px solid #ccc;border-radius:10px;padding:12px;font-size:14px;cursor:pointer;margin-bottom:8px;">Seguir sem mesa (só pra fechar a conta)</button>` : ''}
+        <button id="mesa-comanda-cancela" style="width:100%;background:none;color:#888;border:none;padding:10px;font-size:13px;cursor:pointer;">Cancelar</button>
+      </div>`;
+    document.body.appendChild(fundo);
+    const campo = fundo.querySelector('#mesa-comanda-input');
+    setTimeout(() => campo.focus(), 50);
+    const fechar = (valor) => { fundo.remove(); resolve(valor); };
+    const confirmar = () => {
+      const m = campo.value.trim();
+      if (!m) { campo.style.border = '2px solid #C00000'; campo.focus(); return; }
+      fechar({ mesa: m });
+    };
+    fundo.querySelector('#mesa-comanda-ok').onclick = confirmar;
+    campo.addEventListener('keydown', e => { if (e.key === 'Enter') confirmar(); });
+    fundo.querySelector('#mesa-comanda-pular')?.addEventListener('click', () => fechar({ pular: true }));
+    fundo.querySelector('#mesa-comanda-sem')?.addEventListener('click', () => fechar({ semMesa: true }));
+    fundo.querySelector('#mesa-comanda-cancela').onclick = () => fechar(null);
+  });
+}
+
+// Garçom informou a mesa de uma comanda que estava sem mesa: atualiza a comanda, o histórico e os pedidos já lançados
+async function informarMesaDaComanda(codigo, mesa, historicoId) {
+  const { error } = await db.from('codigos_comanda').update({ mesa }).eq('id', codigo.id);
+  if (error) { alert('Erro ao salvar a mesa. Tente de novo.'); return false; }
+  try {
+    if (historicoId) await db.from('comandas_historico').update({ mesa }).eq('id', historicoId);
+    const { data: peds } = await db.from('pedidos').select('id,observacao')
+      .eq('codigo_comanda_id', codigo.id).gte('criado_em', codigo.aberta_em || '1970-01-01');
+    for (const p of (peds || [])) {
+      await db.from('pedidos').update({
+        endereco: `Mesa ${mesa}`,
+        observacao: (p.observacao || '').replace('Comanda — Sem mesa', `Comanda — Mesa ${mesa}`)
+      }).eq('id', p.id);
+    }
+  } catch (e) { console.error('Erro ao atualizar pedidos com a mesa:', e); }
+  return true;
+}
+
+function lerValorEmReais(texto) {
+  let s = String(texto || '').replace(/[^\d,.]/g, '');
+  s = s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s; // "11,89" ou "1.234,50" ou "11.89"
+  const v = parseFloat(s);
+  return (isFinite(v) && v > 0 && v < 10000) ? Math.round(v * 100) / 100 : null;
+}
+
+function adicionarPratoPorPeso() {
+  const txt = prompt('Qual o valor do prato? (ex: 11,89)');
+  if (txt === null) return;
+  const valor = lerValorEmReais(txt);
+  if (!valor) { toast('Valor inválido. Digite assim: 11,89', 'erro'); return; }
+  carrinho.push({ id: 'especial-peso-' + Date.now(), especial: true, nome: 'Prato por peso', preco: valor, qtd: 1, obs: '' });
+  atualizarCarrinho();
+  toast(`Prato por peso — R$ ${valor.toFixed(2).replace('.', ',')} adicionado!`);
+}
+
+function adicionarPratoLivre() {
+  let valor = parseFloat(restPublico?.comanda_livre_preco) || 0;
+  if (!valor) {
+    const txt = prompt('Qual o valor do prato Livre? (ex: 20,00)\nDica: fixe esse valor em Configurações.');
+    if (txt === null) return;
+    valor = lerValorEmReais(txt);
+    if (!valor) { toast('Valor inválido. Digite assim: 20,00', 'erro'); return; }
+  }
+  carrinho.push({ id: 'especial-livre-' + Date.now(), especial: true, nome: 'Prato Livre', preco: valor, qtd: 1, obs: '' });
+  atualizarCarrinho();
+  toast(`Prato Livre — R$ ${valor.toFixed(2).replace('.', ',')} adicionado!`);
 }
 
 var comandaEmAndamento = false;
@@ -103,23 +224,26 @@ async function finalizarComandaInterno(jaConfirmado) {
   const sub = carrinho.reduce((s,i) => s + parseFloat(i.preco) * i.qtd, 0);
   const obsGeral = document.getElementById('ped-obs')?.value || '';
 
+  // Só prato por peso / Livre = não precisa ir pra cozinha: já entra como finalizado
+  const soEspeciais = carrinho.every(i => i.especial);
+
   const dadosPedido = {
     restaurante_id: restauranteAtual.id,
-    status: jaConfirmado ? 'preparando' : 'novo',
-    endereco: `Mesa ${comandaAtual.mesa}`,
+    status: soEspeciais ? 'entregue' : (jaConfirmado ? 'preparando' : 'novo'),
+    endereco: textoMesa(comandaAtual.mesa),
     bairro: 'Salão',
     frete: 0, subtotal: sub, total: sub,
     codigo_comanda_id: comandaAtual.id,
-    observacao: `Comanda — Mesa ${comandaAtual.mesa}${obsGeral ? '\nObs: '+obsGeral : ''}`
+    observacao: `Comanda — ${textoMesa(comandaAtual.mesa)}${obsGeral ? '\nObs: '+obsGeral : ''}`
   };
-  if (jaConfirmado) dadosPedido.aceito_em = new Date().toISOString();
+  if (jaConfirmado || soEspeciais) dadosPedido.aceito_em = new Date().toISOString();
 
   const { data: pedido, error } = await db.from('pedidos').insert(dadosPedido).select().single();
 
   if (error || !pedido) { toast('Erro ao enviar pedido. Tente de novo.', 'erro'); return; }
 
   const { error: erroItens } = await db.from('pedido_itens').insert(carrinho.map(i => ({
-    pedido_id: pedido.id, item_id: i.resgate ? null : i.id, nome: i.nome,
+    pedido_id: pedido.id, item_id: (i.resgate || i.especial) ? null : i.id, nome: i.nome,
     preco: i.preco, quantidade: i.qtd, observacao: [i.variacao, i.obs].filter(Boolean).join(' · ') || null
   })));
   if (erroItens) console.error('Erro ao salvar itens da comanda:', erroItens);
@@ -128,7 +252,7 @@ async function finalizarComandaInterno(jaConfirmado) {
   atualizarCarrinho();
   fecharModal('modal-carrinho');
   if (document.getElementById('ped-obs')) document.getElementById('ped-obs').value = '';
-  toast(`Pedido enviado pra cozinha — Mesa ${comandaAtual.mesa}! 🍽️`, 'ok');
+  toast(soEspeciais ? `Prato lançado na comanda — ${textoMesa(comandaAtual.mesa)}! ✅` : `Pedido enviado pra cozinha — ${textoMesa(comandaAtual.mesa)}! 🍽️`, 'ok');
 }
 
 function sairModoComanda() {
@@ -153,7 +277,7 @@ async function abrirFechamentoComanda() {
     await finalizarComandaInterno(true);
   }
 
-  document.getElementById('fechar-comanda-mesa').textContent = `Mesa ${comandaAtual.mesa}`;
+  document.getElementById('fechar-comanda-mesa').textContent = textoMesa(comandaAtual.mesa);
   document.getElementById('fechar-comanda-lista').innerHTML = 'Carregando...';
   document.getElementById('fechar-comanda-total').textContent = 'R$ 0,00';
   abrirModal('modal-fechar-comanda');
@@ -472,7 +596,7 @@ async function renderComandas() {
       ${mesasComTotal.map(m => `
         <div class="frete-row">
           <div style="flex:1;">
-            <div style="font-size:14px;font-weight:600;">Mesa ${esc(m.mesa)}</div>
+            <div style="font-size:14px;font-weight:600;">${m.mesa ? 'Mesa ' + esc(m.mesa) : '⚖️ Sem mesa (aguardando garçom)'}</div>
             <div style="font-size:12px;color:var(--texto-muted);">${m.qtdPedidos} pedido(s) · aberta desde ${dataDoBanco(m.aberta_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
           </div>
           <div style="font-size:15px;font-weight:700;color:var(--laranja);margin-right:12px;">R$ ${m.total.toFixed(2).replace('.',',')}</div>
