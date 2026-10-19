@@ -132,7 +132,7 @@ function perguntarMesaComanda({ titulo, podePular, podeSeguirSemMesa }) {
     fundo.innerHTML = `
       <div class="modal" style="max-width:400px;">
         <div class="modal-titulo" style="margin-bottom:14px;">${esc(titulo)}</div>
-        <input type="text" id="mesa-comanda-input" placeholder="Número da mesa" autocomplete="off" style="width:100%;font-size:20px;text-align:center;padding:12px;margin-bottom:14px;">
+        <input type="text" id="mesa-comanda-input" name="mesa_comanda_numero" placeholder="Número da mesa" autocomplete="off" style="width:100%;font-size:20px;text-align:center;padding:12px;margin-bottom:14px;">
         <button id="mesa-comanda-ok" style="width:100%;background:var(--laranja);color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:8px;">✅ Confirmar mesa</button>
         ${podePular ? `<button id="mesa-comanda-pular" style="width:100%;background:#fff;color:var(--laranja);border:2px solid var(--laranja);border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;">⏭️ Pular (a mesa será informada depois)</button>` : ''}
         ${podeSeguirSemMesa ? `<button id="mesa-comanda-sem" style="width:100%;background:#fff;color:#444;border:1px solid #ccc;border-radius:10px;padding:12px;font-size:14px;cursor:pointer;margin-bottom:8px;">Seguir sem mesa (só pra fechar a conta)</button>` : ''}
@@ -592,7 +592,7 @@ async function renderComandas() {
     ${meuPapel === 'garcom' ? '' : `<div class="card" style="margin-bottom:20px;">
       <div class="card-titulo">🔍 Fechar conta pelo código de barras</div>
       <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Passe o leitor no código de barras da comanda (ou digite o número e aperte Enter).</div>
-      <input type="text" id="busca-codigo-barras" placeholder="Escaneie ou digite o código de 6 dígitos" style="font-size:16px;letter-spacing:2px;" onkeypress="if(event.key==='Enter')buscarComandaPorCodigo()" autocomplete="off">
+      <input type="text" id="busca-codigo-barras" name="leitor_comanda_numero" inputmode="numeric" placeholder="Escaneie ou digite os 6 números" style="font-size:16px;letter-spacing:2px;" onkeypress="if(event.key==='Enter')buscarComandaPorCodigo()" autocomplete="off" autocorrect="off" spellcheck="false">
     </div>`}
     ${mesasComTotal.length > 0 ? `
     <div class="card" style="margin-bottom:20px;background:var(--laranja-light);border:1.5px dashed var(--laranja);">
