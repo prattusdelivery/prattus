@@ -69,7 +69,7 @@ async function carregarModoComanda(comandaId) {
     }
   }
 
-  comandaAtual = { id: codigo.id, mesa: codigo.mesa, historicoId };
+  comandaAtual = { id: codigo.id, mesa: codigo.mesa, historicoId, abertaEm: codigo.aberta_em || null, totalFechamento: null };
   modoComandaAtivo = true;
   carrinho = [];
 
@@ -297,8 +297,13 @@ async function abrirFechamentoComanda() {
 
   let codigo, pedidos;
   try {
-    const r1 = await comTimeout(db.from('codigos_comanda').select('aberta_em').eq('id', comandaAtual.id).single());
-    codigo = r1.data;
+    if (comandaAtual.abertaEm) {
+      codigo = { aberta_em: comandaAtual.abertaEm };
+    } else {
+      const r1 = await comTimeout(db.from('codigos_comanda').select('aberta_em').eq('id', comandaAtual.id).single());
+      codigo = r1.data;
+      comandaAtual.abertaEm = codigo?.aberta_em || null;
+    }
     const r2 = await comTimeout(db.from('pedidos')
       .select('id,total,criado_em,pedido_itens(nome,quantidade,preco)')
       .eq('codigo_comanda_id', comandaAtual.id)
@@ -313,6 +318,7 @@ async function abrirFechamentoComanda() {
   const lista = document.getElementById('fechar-comanda-lista');
   if (!pedidos || pedidos.length === 0) {
     lista.innerHTML = '<div class="empty"><div class="empty-txt">Nenhum pedido registrado ainda nessa visita.</div></div>';
+    comandaAtual.totalFechamento = 0;
     return;
   }
 
@@ -333,31 +339,37 @@ async function abrirFechamentoComanda() {
     </div>
   `).join('');
   document.getElementById('fechar-comanda-total').textContent = 'R$ ' + total.toFixed(2).replace('.',',');
+  comandaAtual.totalFechamento = total;
 }
 
-async function confirmarFechamentoComanda() {
+async function confirmarFechamentoComanda(btn) {
   if (meuPapel === 'garcom') { toast('Só o gerente/caixa fecha a conta.', 'erro'); return; }
   if (!comandaAtual) return;
+  if (btn && btn.disabled) return;
   if (!confirm('Confirma o pagamento e libera essa mesa pra um novo cliente?')) return;
+  const textoBtn = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Fechando a conta...'; }
+  const reabilita = () => { if (btn) { btn.disabled = false; btn.textContent = textoBtn; } };
 
-  // Calcula o total de novo (mesma lógica da tela de fechamento) pra guardar no histórico
-  const { data: codigoAtual } = await db.from('codigos_comanda').select('aberta_em').eq('id', comandaAtual.id).single();
-  const { data: pedidosFechando } = await db.from('pedidos').select('total')
-    .eq('codigo_comanda_id', comandaAtual.id).gte('criado_em', codigoAtual?.aberta_em || '1970-01-01');
-  const totalFechamento = (pedidosFechando||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
-
-  if (comandaAtual.historicoId) {
-    await db.from('comandas_historico').update({
-      fechada_em: new Date().toISOString(), total: totalFechamento
-    }).eq('id', comandaAtual.historicoId);
+  // Total já calculado na tela de fechamento; só recalcula se por algum motivo não tiver
+  let totalFechamento = comandaAtual.totalFechamento;
+  if (totalFechamento === null || totalFechamento === undefined) {
+    const { data: pedidosFechando } = await db.from('pedidos').select('total')
+      .eq('codigo_comanda_id', comandaAtual.id).gte('criado_em', comandaAtual.abertaEm || '1970-01-01');
+    totalFechamento = (pedidosFechando||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
   }
 
-  const { error } = await db.from('codigos_comanda').update({
-    status: 'livre', mesa: null, aberta_em: null
-  }).eq('id', comandaAtual.id);
+  // Histórico e liberação da mesa ao mesmo tempo (mais rápido)
+  const [, resLiberar] = await Promise.all([
+    comandaAtual.historicoId
+      ? db.from('comandas_historico').update({ fechada_em: new Date().toISOString(), total: totalFechamento }).eq('id', comandaAtual.historicoId)
+      : Promise.resolve(),
+    db.from('codigos_comanda').update({ status: 'livre', mesa: null, aberta_em: null }).eq('id', comandaAtual.id)
+  ]);
 
-  if (error) { toast('Erro ao liberar a mesa. Tente de novo.', 'erro'); return; }
+  if (resLiberar && resLiberar.error) { toast('Erro ao liberar a mesa. Tente de novo.', 'erro'); reabilita(); return; }
 
+  reabilita();
   fecharModal('modal-fechar-comanda');
   toast('Conta fechada e mesa liberada!', 'ok');
   sairModoComanda();
@@ -376,15 +388,24 @@ async function renderDashboard() {
   if (!restauranteAtual) return;
   const rid = restauranteAtual.id;
 
-  const { data: pedHoje } = await db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).is('codigo_comanda_id', null).gte('criado_em', inicioDoDiaLocal());
-  const { data: pedMes } = await db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).is('codigo_comanda_id', null).gte('criado_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
-  const { data: comandaHoje } = await db.from('pedidos').select('id').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).not('codigo_comanda_id', 'is', null).gte('criado_em', inicioDoDiaLocal());
-  const { data: comandaMes } = await db.from('pedidos').select('id').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).not('codigo_comanda_id', 'is', null).gte('criado_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
-  const { data: comandaFatHoje } = await db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).not('codigo_comanda_id', 'is', null).gte('criado_em', inicioDoDiaLocal());
-  const { data: comandaFatMes } = await db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', ['preparando','entrega','entregue']).not('codigo_comanda_id', 'is', null).gte('criado_em', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
-  const { data: clientes } = await db.from('clientes').select('id').eq('restaurante_id', rid);
-  const { data: pedidosDelivery } = await db.from('pedidos').select('*,clientes(nome),pedido_itens(nome,quantidade,preco)').eq('restaurante_id', rid).is('codigo_comanda_id', null).order('criado_em', {ascending:false}).limit(5);
-  const { data: pedidosComanda } = await db.from('pedidos').select('*,clientes(nome),pedido_itens(nome,quantidade,preco)').eq('restaurante_id', rid).not('codigo_comanda_id', 'is', null).order('criado_em', {ascending:false}).limit(5);
+  // Todas as buscas ao mesmo tempo (antes eram uma de cada vez e a tela demorava)
+  const inicioMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+  const okStatus = ['preparando','entrega','entregue'];
+  const [
+    { data: pedHoje }, { data: pedMes }, { data: comandaHoje }, { data: comandaMes },
+    { data: comandaFatHoje }, { data: comandaFatMes }, { data: clientes },
+    { data: pedidosDelivery }, { data: pedidosComanda }
+  ] = await Promise.all([
+    db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', okStatus).is('codigo_comanda_id', null).gte('criado_em', inicioDoDiaLocal()),
+    db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', okStatus).is('codigo_comanda_id', null).gte('criado_em', inicioMes),
+    db.from('pedidos').select('id').eq('restaurante_id', rid).in('status', okStatus).not('codigo_comanda_id', 'is', null).gte('criado_em', inicioDoDiaLocal()),
+    db.from('pedidos').select('id').eq('restaurante_id', rid).in('status', okStatus).not('codigo_comanda_id', 'is', null).gte('criado_em', inicioMes),
+    db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', okStatus).not('codigo_comanda_id', 'is', null).gte('criado_em', inicioDoDiaLocal()),
+    db.from('pedidos').select('total').eq('restaurante_id', rid).in('status', okStatus).not('codigo_comanda_id', 'is', null).gte('criado_em', inicioMes),
+    db.from('clientes').select('id').eq('restaurante_id', rid),
+    db.from('pedidos').select('*,clientes(nome),pedido_itens(nome,quantidade,preco)').eq('restaurante_id', rid).is('codigo_comanda_id', null).order('criado_em', {ascending:false}).limit(5),
+    db.from('pedidos').select('*,clientes(nome),pedido_itens(nome,quantidade,preco)').eq('restaurante_id', rid).not('codigo_comanda_id', 'is', null).order('criado_em', {ascending:false}).limit(5)
+  ]);
 
   const fatHoje = (pedHoje||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
   const fatMes = (pedMes||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
@@ -543,12 +564,20 @@ async function renderPedidos() {
 }
 
 async function renderComandas() {
-  await autoFinalizarEntregasAntigas();
   if (!restauranteAtual) return;
-  const { data: pedidos } = await db.from('pedidos')
-    .select('*,pedido_itens(nome,quantidade,preco,observacao)')
-    .eq('restaurante_id', restauranteAtual.id)
-    .order('criado_em', {ascending: false});
+  // Só os últimos 3 dias (o resto fica no Histórico) — antes trazia TODOS os pedidos e ficava lento
+  const desde = new Date(Date.now() - 3*24*3600*1000).toISOString();
+  const [{ data: pedidos }, { data: mesasAbertas }] = await Promise.all([
+    db.from('pedidos')
+      .select('*,pedido_itens(nome,quantidade,preco,observacao)')
+      .eq('restaurante_id', restauranteAtual.id)
+      .gte('criado_em', desde)
+      .order('criado_em', {ascending: false})
+      .limit(400),
+    db.from('codigos_comanda')
+      .select('*').eq('restaurante_id', restauranteAtual.id).eq('status', 'em_uso').order('aberta_em'),
+    autoFinalizarEntregasAntigas()
+  ]);
 
   const ehComanda = p => !!p.codigo_comanda_id || (p.observacao||'').includes('Modo: Consumir no local');
   const lista = (pedidos || []).filter(ehComanda);
@@ -583,9 +612,6 @@ async function renderComandas() {
     `;
   }
 
-  const { data: mesasAbertas } = await db.from('codigos_comanda')
-    .select('*').eq('restaurante_id', restauranteAtual.id).eq('status', 'em_uso').order('aberta_em');
-
   const mesasComTotal = (mesasAbertas||[]).map(m => {
     const pedidosDaMesa = lista.filter(p => p.codigo_comanda_id === m.id && dataDoBanco(p.criado_em) >= dataDoBanco(m.aberta_em));
     const total = pedidosDaMesa.reduce((s,p) => s + parseFloat(p.total||0), 0);
@@ -618,7 +644,7 @@ async function renderComandas() {
     </div>
     ` : ''}
     ${meuPapel === 'garcom' ? (mesasComTotal.length === 0 ? '<div class="empty"><div class="empty-ico">🍽️</div><div class="empty-txt">Nenhuma mesa aberta no momento. Escaneie o QR de uma mesa pra começar.</div></div>' : '') : `
-    <div style="font-size:14px;color:var(--texto-muted);margin-bottom:16px;">${lista.length} comanda(s) no total</div>
+    <div style="font-size:14px;color:var(--texto-muted);margin-bottom:16px;">${lista.length} comanda(s) nos últimos 3 dias</div>
     <div class="kanban">
       <div class="kanban-col col-novo">
         <div class="kanban-col-titulo"><span class="kanban-dot novo"></span>Aguardando Confirmação <span class="kanban-count">${novos.length}</span></div>
