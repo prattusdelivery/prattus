@@ -146,9 +146,10 @@ function perguntarMesaComanda({ titulo, podePular, podeSeguirSemMesa }) {
         <button id="mesa-comanda-cancela" style="width:100%;background:none;color:#888;border:none;padding:10px;font-size:13px;cursor:pointer;">Cancelar</button>
       </div>`;
     document.body.appendChild(fundo);
+    window.__aguardandoUsuario = true;
     const campo = fundo.querySelector('#mesa-comanda-input');
     setTimeout(() => campo.focus(), 50);
-    const fechar = (valor) => { fundo.remove(); resolve(valor); };
+    const fechar = (valor) => { window.__aguardandoUsuario = false; fundo.remove(); resolve(valor); };
     const confirmar = () => {
       const m = campo.value.trim();
       if (!m) { campo.style.border = '2px solid #C00000'; campo.focus(); return; }

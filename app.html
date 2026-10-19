@@ -6153,7 +6153,8 @@ if (reciboParam) {
 async function initComTimeout() {
   let resolveu = false;
   const timeoutId = setTimeout(() => {
-    if (!resolveu) mostrarErroCarregamentoInicial();
+    // Não mostra o erro se o sistema está esperando o usuário responder (ex.: perguntando o número da mesa)
+    if (!resolveu && !window.__aguardandoUsuario) mostrarErroCarregamentoInicial();
   }, 12000);
   try {
     await init();
@@ -6185,7 +6186,7 @@ async function garantirUserIdRestaurante() {
 }
 </script>
 <script src="cardapio.js"></script>
-<script src="pedidos.js?v=20261019e"></script>
+<script src="pedidos.js?v=20261019f"></script>
 <script src="relatorios.js"></script>
 <script src="clientes.js"></script>
 </body>
