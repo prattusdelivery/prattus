@@ -25,7 +25,7 @@ function senhaConfere(senha, senhaHashArmazenada) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
+  if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'Método não permitido' });
   }
   if (!process.env.SUPABASE_SERVICE_KEY) {
@@ -38,6 +38,17 @@ export default async function handler(req, res) {
     'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
   };
 
+  // Volta do botão "Conectar com Mercado Pago": o Mercado Pago manda o dono de volta pra cá (GET)
+  if (req.method === 'GET') {
+    try {
+      return await mpOauthVolta(req, res, headers);
+    } catch (e) {
+      await reportarErro(e, 'mp-oauth-volta');
+      res.writeHead(302, { Location: 'https://www.servidelivery.com.br/painel?mp=erro&motivo=erro' });
+      return res.end();
+    }
+  }
+
   try {
     // Aviso automático do Mercado Pago ("o pagamento mudou") — chega por ?mp=1&r=<restaurante>
     if (req.query && req.query.mp) {
@@ -48,6 +59,9 @@ export default async function handler(req, res) {
 
     if (acao === 'mp_conectar' || acao === 'mp_desconectar') {
       return await mpConectar(req, res, headers, acao);
+    }
+    if (acao === 'mp_oauth_url') {
+      return await mpOauthUrl(req, res, headers);
     }
     if (acao === 'pix_criar' || acao === 'pagamento_criar') {
       return await pixCriar(req, res, headers);
@@ -199,10 +213,126 @@ async function mpChamar(caminho, token, opcoes = {}) {
   return { ok: resp.ok, status: resp.status, data };
 }
 
+// Devolve o código de acesso do restaurante. Se ele veio do botão "Conectar com Mercado Pago"
+// (que vale ~6 meses), renova sozinho quando estiver perto de vencer.
 async function tokenDoRestaurante(restauranteId, headers) {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/restaurante_mp?restaurante_id=eq.${restauranteId}&select=access_token`, { headers });
-  const d = await r.json();
-  return Array.isArray(d) && d[0] ? d[0].access_token : null;
+  let r = await fetch(`${SUPABASE_URL}/rest/v1/restaurante_mp?restaurante_id=eq.${restauranteId}&select=access_token,refresh_token,expira_em`, { headers });
+  let d = await r.json();
+  if (!Array.isArray(d)) {
+    // Colunas novas ainda não existem: usa só o código antigo
+    r = await fetch(`${SUPABASE_URL}/rest/v1/restaurante_mp?restaurante_id=eq.${restauranteId}&select=access_token`, { headers });
+    d = await r.json();
+  }
+  const linha = Array.isArray(d) ? d[0] : null;
+  if (!linha) return null;
+  if (linha.refresh_token && linha.expira_em && process.env.MP_CLIENT_SECRET) {
+    const falta = new Date(linha.expira_em).getTime() - Date.now();
+    if (falta < 30 * 24 * 3600 * 1000) {
+      const novo = await renovarTokenMP(restauranteId, linha.refresh_token, headers);
+      if (novo) return novo;
+      if (falta <= 0) return null; // venceu e não conseguiu renovar
+    }
+  }
+  return linha.access_token || null;
+}
+
+async function renovarTokenMP(restauranteId, refreshToken, headers) {
+  try {
+    const resp = await fetch(MP_API + '/oauth/token', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ client_id: MP_CLIENT_ID, client_secret: process.env.MP_CLIENT_SECRET, grant_type: 'refresh_token', refresh_token: refreshToken })
+    });
+    const t = await resp.json();
+    if (!resp.ok || !t.access_token) return null;
+    await fetch(`${SUPABASE_URL}/rest/v1/restaurante_mp?restaurante_id=eq.${restauranteId}`, {
+      method: 'PATCH', headers: { ...headers, 'Prefer': 'return=minimal' },
+      body: JSON.stringify({
+        access_token: t.access_token, refresh_token: t.refresh_token || refreshToken,
+        expira_em: new Date(Date.now() + (Number(t.expires_in) || 15552000) * 1000).toISOString(),
+        atualizado_em: new Date().toISOString()
+      })
+    });
+    return t.access_token;
+  } catch (e) { return null; }
+}
+
+// ===== BOTÃO "CONECTAR COM MERCADO PAGO" (OAuth): o dono autoriza no site do Mercado Pago, sem copiar código =====
+const MP_CLIENT_ID = process.env.MP_CLIENT_ID || '7326941464910090';
+const MP_REDIRECT = `${SITE}/api/consultar-pontos`;
+
+function assinarEstado(restauranteId) {
+  const corpo = Buffer.from(JSON.stringify({ r: restauranteId, t: Date.now(), n: crypto.randomBytes(6).toString('hex') })).toString('base64url');
+  const sig = crypto.createHmac('sha256', process.env.MP_CLIENT_SECRET).update(corpo).digest('base64url');
+  return `${corpo}.${sig}`;
+}
+
+function lerEstado(state) {
+  const [corpo, sig] = String(state || '').split('.');
+  if (!corpo || !sig || !process.env.MP_CLIENT_SECRET) return null;
+  const esperado = crypto.createHmac('sha256', process.env.MP_CLIENT_SECRET).update(corpo).digest('base64url');
+  const a = Buffer.from(sig), b = Buffer.from(esperado);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  try {
+    const dados = JSON.parse(Buffer.from(corpo, 'base64url').toString());
+    if (!dados.r || !dados.t || Date.now() - dados.t > 20 * 60 * 1000) return null;
+    return dados;
+  } catch (e) { return null; }
+}
+
+async function mpOauthUrl(req, res, headers) {
+  const { restauranteId, tokenDono } = req.body || {};
+  if (!restauranteId || !tokenDono || !/^[0-9a-f-]{36}$/i.test(String(restauranteId))) return res.status(400).json({ error: 'Dados incompletos' });
+  if (!process.env.MP_CLIENT_SECRET) return res.status(500).json({ error: 'A conexão com um clique ainda não está ativa. Use a opção de colar o código por enquanto.' });
+  const userResp = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${tokenDono}` }
+  });
+  if (!userResp.ok) return res.status(401).json({ error: 'Sessão inválida. Entre de novo no painel e tente outra vez.' });
+  const user = await userResp.json();
+  const restResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}&select=user_id`, { headers });
+  const rest = await restResp.json();
+  if (!rest?.[0] || rest[0].user_id !== user.id) return res.status(403).json({ error: 'Só o dono do restaurante pode conectar o Mercado Pago.' });
+  const url = 'https://auth.mercadopago.com.br/authorization?' + new URLSearchParams({
+    client_id: MP_CLIENT_ID, response_type: 'code', platform_id: 'mp',
+    state: assinarEstado(restauranteId), redirect_uri: MP_REDIRECT
+  }).toString();
+  return res.status(200).json({ ok: true, url });
+}
+
+async function mpOauthVolta(req, res, headers) {
+  const { code, state, error } = req.query || {};
+  const voltar = (ok, motivo) => {
+    res.writeHead(302, { Location: `${SITE}/painel?mp=${ok ? 'ok' : 'erro'}${motivo ? '&motivo=' + motivo : ''}` });
+    return res.end();
+  };
+  if (error || !code || !state) return voltar(false, 'cancelado');
+  const dados = lerEstado(state);
+  if (!dados) return voltar(false, 'expirou');
+  const resp = await fetch(MP_API + '/oauth/token', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({
+      client_id: MP_CLIENT_ID, client_secret: process.env.MP_CLIENT_SECRET,
+      code: String(code), grant_type: 'authorization_code', redirect_uri: MP_REDIRECT
+    })
+  });
+  const t = await resp.json().catch(() => ({}));
+  if (!resp.ok || !t.access_token) {
+    await reportarErro(new Error('Mercado Pago recusou a autorização: ' + JSON.stringify({ status: resp.status, erro: t.error, msg: t.message }).slice(0, 300)), 'mp-oauth');
+    return voltar(false, 'recusou');
+  }
+  const salvou = await fetch(`${SUPABASE_URL}/rest/v1/restaurante_mp?on_conflict=restaurante_id`, {
+    method: 'POST', headers: { ...headers, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify({
+      restaurante_id: dados.r, access_token: t.access_token, refresh_token: t.refresh_token || null,
+      expira_em: new Date(Date.now() + (Number(t.expires_in) || 15552000) * 1000).toISOString(),
+      mp_user_id: t.user_id ? String(t.user_id) : null, atualizado_em: new Date().toISOString()
+    })
+  });
+  if (!salvou.ok) return voltar(false, 'salvar');
+  const ligou = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${dados.r}`, {
+    method: 'PATCH', headers: { ...headers, 'Prefer': 'return=minimal' }, body: JSON.stringify({ pix_online_ativo: true })
+  });
+  if (!ligou.ok) return voltar(false, 'ligar');
+  return voltar(true);
 }
 
 // Só o dono do restaurante pode conectar/desconectar a conta do Mercado Pago
