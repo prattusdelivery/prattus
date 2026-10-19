@@ -5466,19 +5466,7 @@ async function finalizarPedidoInterno() {
     });
   }
 
-  // Busca/atualiza cliente (fidelidade) via função no servidor, sem expor dados publicamente
-  let clienteId = null;
-  try {
-    const respCliente = await fetch('/api/registrar-cliente', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ restauranteId: restPublico.id, nome, telefone, totalPedido: total, cashbackUsado: cashbackUsadoNessePedido, dataNascimento: document.getElementById('ped-nascimento')?.value || null })
-    });
-    const dataCliente = await respCliente.json();
-    if (dataCliente.ok) clienteId = dataCliente.clienteId;
-  } catch (e) {}
-
-  // Salva pedido no banco
+  // Endereço e modo do pedido
   const enderecoCompleto = modoAtual === 'delivery'
     ? (referencia ? `${endereco} (Ref: ${referencia})` : endereco)
     : (modoAtual === 'retirada' ? `Retirada no local${agendamento ? ' — '+agendamento : ''}` : 'Consumir no local');
@@ -5486,41 +5474,38 @@ async function finalizarPedidoInterno() {
   const mesaInformada = document.getElementById('ped-mesa')?.value?.trim();
   const modoLabel = {delivery:'Delivery', retirada:'Retirar no local', local: mesaInformada ? `Consumir no local — Mesa ${mesaInformada}` : 'Consumir no local'}[modoAtual];
 
-  const novoIdPedido = crypto.randomUUID();
-  const { error: erroPedido } = await db.from('pedidos').insert({
-    id: novoIdPedido,
-    restaurante_id: restPublico.id, cliente_id: clienteId,
-    status: 'novo', endereco: enderecoCompleto, bairro,
-    frete, subtotal: sub, total,
-    cashback_usado: cashbackUsadoNessePedido, cashback_a_creditar: cashbackACreditar || null, cashback_creditado: false,
-    observacao: `Nome: ${nome}\nTelefone: ${telefone}\nModo: ${modoLabel}${agendamento ? '\nAgendado para: '+agendamento : ''}\nPagamento: ${pagamento}${troco ? ' (troco para R$ '+parseFloat(troco).toFixed(2)+')' : ''}${pagamento === 'Pix' ? '\n⚠️ CONFIRME o comprovante do Pix com o cliente antes de liberar o pedido!' : ''}${obs ? '\nObs: '+obs : ''}`
-  });
-  const pedido = erroPedido ? null : { id: novoIdPedido };
+  // O pedido é criado no SERVIDOR (ele confere os valores, limita abuso e só então grava)
+  let pedido = null;
+  try {
+    const respPedido = await fetch('/api/consultar-pontos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        acao: 'pedido_criar', restauranteId: restPublico.id,
+        pedido: {
+          endereco: enderecoCompleto, bairro, frete, desconto: descontoAtual, cashback_usado: cashbackUsadoNessePedido, total,
+          observacao: `Nome: ${nome}\nTelefone: ${telefone}\nModo: ${modoLabel}${agendamento ? '\nAgendado para: '+agendamento : ''}\nPagamento: ${pagamento}${troco ? ' (troco para R$ '+parseFloat(troco).toFixed(2)+')' : ''}${pagamento === 'Pix' ? '\n⚠️ CONFIRME o comprovante do Pix com o cliente antes de liberar o pedido!' : ''}${obs ? '\nObs: '+obs : ''}`
+        },
+        itens: carrinho.map(i => ({ item_id: i.resgate ? null : i.id, nome: i.nome, preco: i.preco, quantidade: i.qtd, observacao: i.resgate ? '🎁 Resgate de fidelidade - GRÁTIS' : ([i.variacao, i.obs].filter(Boolean).join(' · ') || null) })),
+        cliente: { nome, telefone, dataNascimento: document.getElementById('ped-nascimento')?.value || null }
+      })
+    });
+    const dataPedido = await respPedido.json();
+    if (dataPedido && dataPedido.ok && dataPedido.pedido) {
+      pedido = dataPedido.pedido;
+    } else {
+      // O servidor recusou (valores não batem, muitos pedidos, item que não existe mais...): avisa e para aqui
+      toast((dataPedido && dataPedido.error) || 'Não foi possível enviar o pedido. Tente de novo.', 'erro');
+      return;
+    }
+  } catch (e) {
+    // Sem conexão com o servidor: segue só com o WhatsApp, como antes
+    pedido = null;
+  }
 
   if (pedido) {
     cashbackDisponivel = Math.max(0, cashbackDisponivel - cashbackUsadoNessePedido);
     cashbackUsarValor = 0;
-  }
-
-  if (pedido) {
-    const { error: erroItens } = await db.from('pedido_itens').insert(carrinho.map(i => ({
-      pedido_id: pedido.id, item_id: i.resgate ? null : i.id, nome: i.nome,
-      preco: i.preco, quantidade: i.qtd, observacao: i.resgate ? '🎁 Resgate de fidelidade - GRÁTIS' : ([i.variacao, i.obs].filter(Boolean).join(' · ') || null)
-    })));
-    if (erroItens) {
-      console.error('Erro ao salvar itens do pedido:', erroItens);
-    }
-
-    fetch('/api/notificar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tipo: 'pedido',
-        restauranteId: restPublico.id,
-        titulo: '🛵 Novo pedido!',
-        corpo: `Pedido #${pedido.id.slice(-6).toUpperCase()} — R$ ${total.toFixed(2).replace('.',',')}`
-      })
-    }).catch(() => {});
   }
 
   // Salva recibo local
