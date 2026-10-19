@@ -707,7 +707,8 @@ function dadosPagamento(p) {
   const trocoPara = parseFloat((obs.match(/troco para R\$\s*([\d.,]+)/i) || [])[1]?.replace(',', '.'));
   const total = parseFloat(p.total) || 0;
   const dinheiro = /dinheiro/i.test(forma);
-  return { pago: false, forma, quando, dinheiro, trocoPara: isNaN(trocoPara) ? null : trocoPara, total };
+  const pixManual = /^pix$/i.test(forma); // Pix direto na chave do restaurante: precisa conferir o comprovante
+  return { pago: false, forma, quando, dinheiro, pixManual, trocoPara: isNaN(trocoPara) ? null : trocoPara, total };
 }
 
 function faixaPagamento(p) {
@@ -715,6 +716,7 @@ function faixaPagamento(p) {
   if (!d) return '';
   if (d.pago) return `<div style="background:#0F6E56;color:#fff;font-size:13px;font-weight:800;padding:7px 10px;border-radius:8px;margin-bottom:8px;text-align:center;letter-spacing:.3px;">✅ PAGO ${d.online} — não cobrar do cliente</div>`;
   const reais = v => 'R$ ' + v.toFixed(2).replace('.', ',');
+  if (d.pixManual) return `<div style="background:#C2410C;color:#fff;padding:8px 10px;border-radius:8px;margin-bottom:8px;text-align:center;"><div style="font-size:13px;font-weight:900;letter-spacing:.3px;">📲 PIX MANUAL — CONFERIR O COMPROVANTE antes de liberar</div><div style="font-size:12px;font-weight:700;margin-top:3px;">Valor esperado: ${reais(d.total)}</div></div>`;
   let linha = d.dinheiro ? `💵 NÃO PAGO — COBRAR EM DINHEIRO ${d.quando}` : `💳 NÃO PAGO — COBRAR NA MAQUININHA (${esc(d.forma)}) ${d.quando}`;
   let extra = `Cobrar ${reais(d.total)}`;
   if (d.dinheiro) extra += d.trocoPara ? ` · Cliente paga com ${reais(d.trocoPara)} · Levar troco de ${reais(Math.max(0, d.trocoPara - d.total))}` : ' · Sem troco';
@@ -724,7 +726,7 @@ function faixaPagamento(p) {
 function badgeNaoPago(p) {
   const d = dadosPagamento(p);
   if (!d || d.pago) return '';
-  return ` <span style="background:#B42318;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;">${d.dinheiro ? '💵 NÃO PAGO' : '💳 NÃO PAGO'}</span>`;
+  return ` <span style="background:${d.pixManual ? '#C2410C' : '#B42318'};color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;">${d.pixManual ? '📲 CONFERIR PIX' : (d.dinheiro ? '💵 NÃO PAGO' : '💳 NÃO PAGO')}</span>`;
 }
 
 // Faixa azul para retirada no local (quando NÃO é agendada; a agendada já tem a faixa amarela)
