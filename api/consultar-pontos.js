@@ -61,6 +61,11 @@ export default async function handler(req, res) {
 
     if (acao === 'buscar_pix') {
       if (!restauranteId) return res.status(400).json({ error: 'restauranteId é obrigatório' });
+      if (!/^[0-9a-f-]{36}$/i.test(String(restauranteId))) return res.status(400).json({ error: 'restauranteId inválido' });
+      // Só entrega a chave se o restaurante ligou o Pix manual
+      const rPix = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}&select=pgto_pix`, { headers });
+      const dPix = await rPix.json();
+      if (!Array.isArray(dPix) || !dPix[0] || dPix[0].pgto_pix !== 'manual') return res.status(200).json({ chavePix: null });
       const resp = await fetch(
         `${SUPABASE_URL}/rest/v1/restaurante_privado?restaurante_id=eq.${restauranteId}&select=chave_pix`,
         { headers }
@@ -257,9 +262,11 @@ async function pixCriar(req, res, headers) {
   }
   if (itens.length > 80) return res.status(400).json({ error: 'Pedido grande demais.' });
 
-  const restResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}&select=id,nome,slug,pix_online_ativo,pausado_manual`, { headers });
+  const restResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}&select=id,nome,slug,pix_online_ativo,pausado_manual,pgto_pix,pgto_cartao_online`, { headers });
   const rest = (await restResp.json())?.[0];
   if (!rest || !rest.pix_online_ativo) return res.status(400).json({ error: 'Este restaurante não está com pagamento online ligado.' });
+  if (metodo === 'pix' && (rest.pgto_pix || 'auto') !== 'auto') return res.status(400).json({ error: 'Este restaurante não está aceitando Pix automático agora. Escolha outra forma de pagamento.' });
+  if (metodo === 'cartao' && rest.pgto_cartao_online === false) return res.status(400).json({ error: 'Este restaurante não está aceitando cartão online agora. Escolha outra forma de pagamento.' });
   if (rest.pausado_manual) return res.status(400).json({ error: 'O restaurante pausou os pedidos agora. Tente mais tarde.' });
   const token = await tokenDoRestaurante(restauranteId, headers);
   if (!token) return res.status(400).json({ error: 'Pagamento online indisponível. Escolha outra forma de pagamento.' });
