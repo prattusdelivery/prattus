@@ -55,6 +55,9 @@ export default async function handler(req, res) {
     if (acao === 'pix_status') {
       return await pixStatus(req, res, headers);
     }
+    if (acao === 'pedido_criar') {
+      return await pedidoCriar(req, res, headers);
+    }
 
     if (acao === 'buscar_pix') {
       if (!restauranteId) return res.status(400).json({ error: 'restauranteId é obrigatório' });
@@ -545,4 +548,149 @@ async function criarPedidoPago(pend, headers) {
     await reportarErro(e, 'pix-criar-pedido-pago');
     throw e;
   }
+}
+
+
+// =====================================================================
+// PEDIDO NORMAL (dinheiro, maquininha, Pix manual) — criado AQUI no servidor, com checagens.
+// Antes, qualquer pessoa gravava pedido direto no banco (dava pra encher um restaurante de pedido falso).
+// Agora o cardápio manda o pedido pra cá; o servidor confere tudo, limita abuso e só então grava.
+// =====================================================================
+async function pedidoCriar(req, res, headers) {
+  const { restauranteId, pedido, itens, cliente } = req.body || {};
+  if (!restauranteId || !/^[0-9a-f-]{36}$/i.test(String(restauranteId)) || !pedido || !Array.isArray(itens) || itens.length === 0 || !cliente?.nome || !cliente?.telefone) {
+    return res.status(400).json({ error: 'Dados do pedido incompletos.' });
+  }
+  if (itens.length > 80) return res.status(400).json({ error: 'Pedido grande demais.' });
+
+  const nome = String(cliente.nome).trim().slice(0, 120);
+  const telefone = String(cliente.telefone).trim().slice(0, 30);
+  if (nome.length < 2) return res.status(400).json({ error: 'Informe seu nome.' });
+  if (telefone.replace(/\D/g, '').length < 10) return res.status(400).json({ error: 'Informe um telefone válido, com DDD.' });
+
+  const restResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}&select=id,nome,pausado_manual,cashback_percentual`, { headers });
+  const rest = (await restResp.json())?.[0];
+  if (!rest) return res.status(400).json({ error: 'Restaurante não encontrado.' });
+  if (rest.pausado_manual) return res.status(400).json({ error: 'O restaurante pausou os pedidos agora. Tente mais tarde.' });
+
+  // Limite de abuso: por aparelho/rede, por telefone e por restaurante (janela de 10 minutos)
+  const ip = String((req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '')).split(',')[0].trim();
+  const ipHash = ip ? crypto.createHash('sha256').update('sd-pedido:' + ip).digest('hex').slice(0, 32) : null;
+  const desde = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  async function contar(filtro) {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/pedidos?select=id&criado_em=gte.${desde}&${filtro}&limit=100`, { headers });
+    const d = await r.json();
+    return Array.isArray(d) ? d.length : 0;
+  }
+  if (ipHash && await contar(`ip_hash=eq.${ipHash}`) >= 8) {
+    return res.status(429).json({ error: 'Muitos pedidos em pouco tempo. Espere alguns minutos e tente de novo.' });
+  }
+  if (await contar(`restaurante_id=eq.${restauranteId}&observacao=ilike.${encodeURIComponent('*Telefone: ' + telefone + '*')}`) >= 3) {
+    return res.status(429).json({ error: 'Já recebemos pedidos seus agora há pouco. Espere alguns minutos ou fale com o restaurante.' });
+  }
+  if (await contar(`restaurante_id=eq.${restauranteId}`) >= 60) {
+    return res.status(429).json({ error: 'O restaurante está recebendo muitos pedidos agora. Tente de novo em instantes.' });
+  }
+
+  // Confere os números do pedido (mesma regra do pagamento online)
+  let sub = 0;
+  for (const it of itens) {
+    const q = Number(it.quantidade), pr = Number(it.preco);
+    if (!Number.isInteger(q) || q < 1 || q > 99 || !isFinite(pr) || pr < 0 || pr > 5000) {
+      return res.status(400).json({ error: 'Item inválido no pedido.' });
+    }
+    sub += pr * q;
+  }
+  sub = arredonda(sub);
+  const frete = arredonda(Math.max(0, Number(pedido.frete) || 0));
+  const desconto = arredonda(Math.max(0, Number(pedido.desconto) || 0));
+  const cashbackUsado = arredonda(Math.max(0, Number(pedido.cashback_usado) || 0));
+  const total = arredonda(Math.max(0, sub + frete - desconto - cashbackUsado));
+  if (Math.abs(total - Number(pedido.total)) > 0.011) {
+    return res.status(400).json({ error: 'Os valores do pedido não batem. Atualize a página e tente de novo.' });
+  }
+  if (total > 5000) return res.status(400).json({ error: 'Valor do pedido acima do permitido.' });
+
+  // Os itens precisam ser mesmo desse restaurante
+  const idsItens = [...new Set(itens.map(i => i.item_id).filter(Boolean))];
+  if (idsItens.some(id => !/^[0-9a-f-]{36}$/i.test(String(id)))) return res.status(400).json({ error: 'Item inválido no pedido.' });
+  if (idsItens.length) {
+    const rI = await fetch(`${SUPABASE_URL}/rest/v1/itens?restaurante_id=eq.${restauranteId}&id=in.(${idsItens.join(',')})&select=id`, { headers });
+    const dI = await rI.json();
+    if (!Array.isArray(dI) || dI.length !== idsItens.length) return res.status(400).json({ error: 'Um item do pedido não existe mais. Atualize o cardápio.' });
+  }
+
+  // Cliente (fidelidade): mesma regra do registrar-cliente; cashback só se o saldo existir
+  const rC = await fetch(`${SUPABASE_URL}/rest/v1/clientes?restaurante_id=eq.${restauranteId}&telefone=eq.${encodeURIComponent(telefone)}&select=*`, { headers });
+  const existente = (await rC.json())?.[0];
+  if (cashbackUsado > 0 && (!existente || parseFloat(existente.saldo_cashback || 0) + 0.001 < cashbackUsado)) {
+    return res.status(400).json({ error: 'Seu saldo de cashback não é suficiente. Atualize a página.' });
+  }
+
+  // O texto livre do cliente nunca pode dizer que o pedido já foi pago (isso só o pagamento online faz)
+  const observacao = String(pedido.observacao || '').replace(/já\s*pago/gi, 'já pag0').slice(0, 2000);
+  const pct = parseFloat(rest.cashback_percentual || 0);
+  const cashbackACreditar = pct > 0 ? arredonda(total * (pct / 100)) : null;
+
+  let clienteId = null;
+  if (existente) {
+    clienteId = existente.id;
+    await fetch(`${SUPABASE_URL}/rest/v1/clientes?id=eq.${clienteId}`, {
+      method: 'PATCH', headers: { ...headers, 'Prefer': 'return=minimal' },
+      body: JSON.stringify({
+        nome: nome || existente.nome,
+        total_gasto: parseFloat(existente.total_gasto || 0) + total,
+        total_pedidos: (existente.total_pedidos || 0) + 1,
+        saldo_cashback: Math.max(0, parseFloat(existente.saldo_cashback || 0) - cashbackUsado),
+        data_nascimento: existente.data_nascimento || cliente.dataNascimento || null
+      })
+    });
+  } else {
+    const novo = await fetch(`${SUPABASE_URL}/rest/v1/clientes`, {
+      method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' },
+      body: JSON.stringify({ restaurante_id: restauranteId, nome, telefone, total_gasto: total, total_pedidos: 1, saldo_cashback: 0, data_nascimento: cliente.dataNascimento || null })
+    });
+    const dNovo = await novo.json();
+    clienteId = Array.isArray(dNovo) ? dNovo[0]?.id : null;
+  }
+
+  const novoId = crypto.randomUUID();
+  const insPed = await fetch(`${SUPABASE_URL}/rest/v1/pedidos`, {
+    method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' },
+    body: JSON.stringify({
+      id: novoId, restaurante_id: restauranteId, cliente_id: clienteId, status: 'novo',
+      endereco: String(pedido.endereco || '').slice(0, 400), bairro: String(pedido.bairro || '').slice(0, 120),
+      frete, subtotal: sub, total, cashback_usado: cashbackUsado, cashback_a_creditar: cashbackACreditar, cashback_creditado: false,
+      observacao, ip_hash: ipHash
+    })
+  });
+  if (!insPed.ok) {
+    await reportarErro(new Error('pedido_criar: falha ao gravar pedido: ' + (await insPed.text()).slice(0, 300)), 'pedido-criar');
+    return res.status(500).json({ error: 'Não consegui enviar o pedido. Tente de novo.' });
+  }
+  const criado = (await insPed.json())?.[0] || {};
+
+  const insIt = await fetch(`${SUPABASE_URL}/rest/v1/pedido_itens`, {
+    method: 'POST', headers: { ...headers, 'Prefer': 'return=minimal' },
+    body: JSON.stringify(itens.map(i => ({
+      pedido_id: novoId, item_id: i.item_id || null, nome: String(i.nome || '').slice(0, 200),
+      preco: Number(i.preco), quantidade: Number(i.quantidade), observacao: i.observacao ? String(i.observacao).slice(0, 500).replace(/já\s*pago/gi, 'já pag0') : null
+    })))
+  });
+  if (!insIt.ok) {
+    await fetch(`${SUPABASE_URL}/rest/v1/pedidos?id=eq.${novoId}`, { method: 'DELETE', headers }).catch(() => {});
+    await reportarErro(new Error('pedido_criar: falha ao gravar itens: ' + (await insIt.text()).slice(0, 300)), 'pedido-criar');
+    return res.status(500).json({ error: 'Não consegui enviar o pedido. Tente de novo.' });
+  }
+
+  // Avisa o restaurante (push)
+  await fetch(`${SITE}/api/notificar`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      tipo: 'pedido', restauranteId, titulo: '🛵 Novo pedido!',
+      corpo: `Pedido #${novoId.slice(-6).toUpperCase()} — R$ ${total.toFixed(2).replace('.', ',')}`
+    })
+  }).catch(() => {});
+
+  return res.status(200).json({ ok: true, pedido: { id: novoId, criado_em: criado.criado_em || new Date().toISOString() }, clienteId });
 }
