@@ -585,10 +585,10 @@ async function renderComandas() {
   });
 
   document.getElementById('conteudo').innerHTML = `
-    <div class="card" style="margin-bottom:20px;text-align:center;">
+    ${meuPapel !== 'garcom' ? '' : `<div class="card" style="margin-bottom:20px;text-align:center;">
       <button onclick="abrirLeitorQr()" style="width:100%;background:var(--laranja);color:#fff;border:none;border-radius:12px;padding:16px;font-size:17px;font-weight:700;cursor:pointer;">📷 Ler QR Code da comanda</button>
       <div style="font-size:12px;color:var(--texto-muted);margin-top:8px;">Aponte a câmera do celular para o QR Code do cartão da comanda.</div>
-    </div>
+    </div>`}
     ${meuPapel === 'garcom' ? '' : `<div class="card" style="margin-bottom:20px;">
       <div class="card-titulo">🔍 Fechar conta pelo código de barras</div>
       <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Passe o leitor no código de barras da comanda (ou digite o número e aperte Enter).</div>
