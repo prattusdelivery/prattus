@@ -886,7 +886,9 @@ async function avancarStatus(id, novoStatus, nomeCliente, telefone, numPedido) {
   }
 
   if (novoStatus === 'preparando') {
-    imprimirComandaPorId(id);
+    let imprimirAuto = true;
+    try { imprimirAuto = localStorage.getItem('imprimir_auto_' + restauranteAtual.id) !== 'false'; } catch (e) {}
+    if (imprimirAuto) imprimirComandaPorId(id);
   }
 
   if (paginaAtual === 'pedidos') renderPedidos(); else if (paginaAtual === 'comandas') renderComandas();
