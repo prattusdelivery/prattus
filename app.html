@@ -5054,6 +5054,7 @@ function selecionarModo(modo) {
 let cashbackDisponivel = 0;
 let cashbackUsarValor = 0;
 let descontoResgate = 0;
+let resgateAplicado = null; // (corrige erro do Sentry: variavel nunca era declarada)
 
 function chaveLoginFidelidade() {
   return `sd_fidelidade_${restPublico.id}`;
