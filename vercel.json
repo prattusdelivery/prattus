@@ -1,6 +1,7 @@
 {
-  "rewrites": [
-    { "source": "/", "destination": "/institucional.html" },
-    { "source": "/((?!app\\.html|institucional\\.html|privacidade\\.html|manifest\\.json|sw\\.js|icon-192\\.png|icon-512\\.png|api/).*)", "destination": "/app.html" }
-  ]
+"rewrites": [
+{ "source": "/", "destination": "/institucional.html" },
+{ "source": "/teste-gratis", "destination": "/teste-gratis.html" },
+{ "source": "/((?!app\\.html|institucional\\.html|teste-gratis\\.html|privacidade\\.html|manifest\\.json|sw\\.js|icon-192\\.png|icon-512\\.png|api/).*)", "destination": "/app.html" }
+]
 }
