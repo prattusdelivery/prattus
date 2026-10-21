@@ -4697,7 +4697,7 @@ function abrirModalItem(item) {
 
   document.getElementById('mic-titulo').textContent = item.nome;
   document.getElementById('mic-foto-wrap').innerHTML = item.foto_url
-    ? `<img src="${esc(item.foto_url)}" style="width:100%;height:240px;object-fit:cover;border-radius:12px;" onerror="this.parentElement.innerHTML='<div style=\\'width:100%;height:240px;border-radius:12px;background:var(--laranja-light);display:flex;align-items:center;justify-content:center;font-size:60px;\\'>🍽️</div>'">`
+    ? `<img src="${esc(item.foto_url)}" style="width:100%;height:auto;max-height:min(52vh,420px);object-fit:contain;border-radius:12px;background:var(--creme);" onerror="this.parentElement.innerHTML='<div style=\\'width:100%;height:240px;border-radius:12px;background:var(--laranja-light);display:flex;align-items:center;justify-content:center;font-size:60px;\\'>🍽️</div>'">`
     : `<div style="width:100%;height:240px;border-radius:12px;background:var(--laranja-light);display:flex;align-items:center;justify-content:center;font-size:60px;">🍽️</div>`;
   document.getElementById('mic-desc').textContent = item.descricao || '';
   document.getElementById('mic-preco-base').innerHTML = precoExibicaoItem(item);
