@@ -4751,8 +4751,16 @@ function renderItensPublico(itens) {
   // Aba "Todos": agrupa os itens por categoria, com o nome da categoria como título
   let html = '';
   let temItem = false;
+  // Itens fixados (ordem_item negativa) aparecem juntos no topo da aba "Todos"; nas abas de categoria continuam no lugar deles
+  const fixados = itens.filter(i => (parseFloat(i.ordem_item) || 0) < 0)
+    .sort((a, b) => (categorias.findIndex(c => c.id === a.categoria_id) - categorias.findIndex(c => c.id === b.categoria_id)));
+  if (fixados.length >= 2) {
+    temItem = true;
+    html += `<div class="pub-cat-titulo">Escolha o seu!</div><div class="pub-cat-grid">${fixados.map(renderCardItem).join('')}</div>`;
+  }
+  const idsFixados = new Set(fixados.length >= 2 ? fixados.map(f => f.id) : []);
   categorias.forEach(cat => {
-    const doCategoria = itens.filter(i => i.categoria_id === cat.id);
+    const doCategoria = itens.filter(i => i.categoria_id === cat.id && !idsFixados.has(i.id));
     if (!doCategoria.length) return;
     temItem = true;
     html += `<div class="pub-cat-titulo">${esc(cat.nome)}</div><div class="pub-cat-grid">${doCategoria.map(renderCardItem).join('')}</div>`;
