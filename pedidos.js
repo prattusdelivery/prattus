@@ -878,7 +878,8 @@ async function avancarStatus(id, novoStatus, nomeCliente, telefone, numPedido) {
     const modelo = textoCustom || padroes[novoStatus];
     if (modelo) {
       // Link para o cliente acompanhar o pedido (sempre vai junto, exceto ao marcar como entregue)
-      const linkAcomp = `${window.location.origin}/?acompanhar=${id}`;
+      // O link precisa ter o endereço da loja (/slug). Só com "/" ele caía no site institucional.
+      const linkAcomp = `${window.location.origin}/${restauranteAtual?.slug || 'painel'}?acompanhar=${id}`;
       let msg = modelo.replace(/%cliente%/g, nomeCliente).replace(/%pedido%/g, numPedido).replace(/%link%/g, linkAcomp);
       if (novoStatus !== 'entregue' && !modelo.includes('%link%')) {
         msg += `\n\nAcompanhe seu pedido: ${linkAcomp}`;
