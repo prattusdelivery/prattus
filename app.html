@@ -2338,13 +2338,14 @@ async function ativarNotificacoes() {
   if (!restauranteAtual) return;
   if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
     toast('Seu navegador não suporta notificações push.', 'erro');
+    atualizarBotaoNotificacao();
     return;
   }
 
   const jaAtiva = localStorage.getItem('notif_ativada_' + restauranteAtual.id) === 'true' && Notification.permission === 'granted';
 
   if (jaAtiva) {
-    if (!confirm('Desativar as notificações de novo pedido nesse aparelho?')) return;
+    if (!confirm('Desativar as notificações de novo pedido nesse aparelho?')) { atualizarBotaoNotificacao(); return; }
     try {
       const reg = await navigator.serviceWorker.getRegistration();
       const sub = await reg?.pushManager.getSubscription();
@@ -2363,13 +2364,20 @@ async function ativarNotificacoes() {
     return;
   }
 
+  const msgBloqueado = 'O navegador está bloqueando os avisos deste site. Clique no cadeado 🔒 ao lado do endereço (em cima), procure "Notificações", escolha "Permitir" e ligue a chave de novo.';
+  if (Notification.permission === 'denied') {
+    toast(msgBloqueado, 'erro', 9000);
+    atualizarBotaoNotificacao();
+    return;
+  }
   const permissao = await Notification.requestPermission();
   if (permissao !== 'granted') {
-    toast('Permissão de notificação negada. Ative nas configurações do navegador.', 'erro');
+    toast(permissao === 'denied' ? msgBloqueado : 'Você não permitiu os avisos. Ligue a chave de novo e clique em "Permitir".', 'erro', 9000);
+    atualizarBotaoNotificacao();
     return;
   }
   const reg = await registrarServiceWorker();
-  if (!reg) { toast('Erro ao registrar o service worker.', 'erro'); return; }
+  if (!reg) { toast('Erro ao registrar o service worker.', 'erro'); atualizarBotaoNotificacao(); return; }
   try {
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
@@ -2385,6 +2393,7 @@ async function ativarNotificacoes() {
     atualizarBotaoNotificacao();
   } catch (e) {
     toast('Erro ao ativar notificações. Tente de novo.', 'erro');
+    atualizarBotaoNotificacao();
   }
 }
 
@@ -3786,13 +3795,16 @@ async function renderConfig() {
           <button type="button" onclick="navigator.clipboard.writeText('https://servidelivery.com.br/${r.slug||''}');toast('Link copiado!','ok')" style="padding:0 14px;border-radius:8px;border:1px solid var(--creme-borda);background:none;cursor:pointer;white-space:nowrap;">📋 Copiar</button>
         </div>
         <div style="font-size:13px;color:var(--texto-muted);margin-bottom:6px;">📱 Mensagem automática para WhatsApp Business:</div>
-        <div style="background:var(--creme);padding:10px 14px;border-radius:8px;font-size:13px;white-space:pre-wrap;word-break:break-all;">Olá! 👋 Obrigado por entrar em contato com ${r.nome}.
-
-Faça seu pedido pelo nosso cardápio digital:
-https://servidelivery.com.br/${r.slug||''}
-
-Não atendemos pedidos por aqui. Use o link acima 😊</div>
-        <div style="font-size:11px;color:var(--texto-muted);margin-top:6px;">Cole essa mensagem como resposta automática no WhatsApp Business.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+          <button type="button" onclick="usarModeloMsgBusiness('ambos')" style="font-size:12px;padding:6px 10px;border-radius:6px;border:1px solid var(--creme-borda);background:none;cursor:pointer;">Cardápio ou pelo WhatsApp</button>
+          <button type="button" onclick="usarModeloMsgBusiness('cardapio')" style="font-size:12px;padding:6px 10px;border-radius:6px;border:1px solid var(--creme-borda);background:none;cursor:pointer;">Só pelo cardápio</button>
+        </div>
+        <textarea id="cfg-msg-business" rows="7" style="width:100%;box-sizing:border-box;background:var(--creme);padding:10px 14px;border-radius:8px;border:1px solid var(--creme-borda);font-size:13px;font-family:inherit;line-height:1.4;">${esc(msgBusinessTexto(r))}</textarea>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+          <button type="button" class="btn btn-laranja" onclick="salvarMsgBusiness()" style="padding:8px 14px;font-size:13px;">Salvar mensagem</button>
+          <button type="button" onclick="copiarMsgBusiness()" style="padding:8px 14px;font-size:13px;border-radius:8px;border:1px solid var(--creme-borda);background:none;cursor:pointer;">📋 Copiar mensagem</button>
+        </div>
+        <div style="font-size:11px;color:var(--texto-muted);margin-top:6px;">Escolha um modelo ou escreva do seu jeito. Depois clique em "Salvar mensagem", copie e cole como resposta automática no WhatsApp Business. Se você trocar o nome ou o link da loja, o texto salvo acompanha sozinho.</div>
       </div>
 
       <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--creme-borda);">
@@ -3871,6 +3883,45 @@ function copiarHorarioPraTodos() {
   toast('Horário copiado pra todos os dias!', 'ok');
 }
 
+// ===== MENSAGEM AUTOMÁTICA DO WHATSAPP BUSINESS =====
+function msgBusinessModelo(tipo) {
+  if (tipo === 'cardapio') {
+    return 'Olá! 👋 Obrigado por entrar em contato com {nome}.\n\nFaça seu pedido pelo nosso cardápio digital:\n{link}\n\nNão atendemos pedidos por aqui. Use o link acima 😊';
+  }
+  return 'Olá! 👋 Obrigado por entrar em contato com {nome}.\n\nPara pedir mais rápido e sem erro, use nosso cardápio digital:\n{link}\n\nSe preferir, pode mandar seu pedido aqui mesmo por mensagem que a gente atende você 😊';
+}
+function msgBusinessComDados(texto, r) {
+  r = r || restauranteAtual;
+  return String(texto).split('{nome}').join(r.nome || '').split('{link}').join('https://servidelivery.com.br/' + (r.slug || ''));
+}
+function msgBusinessTexto(r) {
+  const salvo = r.avisos_whatsapp?.business;
+  return msgBusinessComDados(salvo || msgBusinessModelo('ambos'), r);
+}
+function usarModeloMsgBusiness(tipo) {
+  const el = document.getElementById('cfg-msg-business');
+  if (el) el.value = msgBusinessComDados(msgBusinessModelo(tipo));
+}
+function copiarMsgBusiness() {
+  const el = document.getElementById('cfg-msg-business');
+  if (!el) return;
+  navigator.clipboard.writeText(el.value).then(() => toast('Mensagem copiada!', 'ok'), () => toast('Não consegui copiar. Selecione o texto e copie.', 'erro'));
+}
+async function salvarMsgBusiness() {
+  const el = document.getElementById('cfg-msg-business');
+  if (!el || !restauranteAtual) return;
+  let texto = el.value.trim();
+  if (!texto) { toast('Escreva a mensagem antes de salvar.', 'erro'); return; }
+  const link = 'https://servidelivery.com.br/' + (restauranteAtual.slug || '');
+  if (restauranteAtual.slug) texto = texto.split(link).join('{link}');
+  if (restauranteAtual.nome) texto = texto.split(restauranteAtual.nome).join('{nome}');
+  const novo = { ...(restauranteAtual.avisos_whatsapp || {}), business: texto };
+  const { error } = await db.from('restaurantes').update({ avisos_whatsapp: novo }).eq('id', restauranteAtual.id);
+  if (error) { toast('Erro ao salvar: ' + error.message, 'erro'); return; }
+  restauranteAtual = { ...restauranteAtual, avisos_whatsapp: novo };
+  toast('Mensagem salva!', 'ok');
+}
+
 async function salvarConfig() {
   const horariosSemana = {};
   const diasMarcados = [];
@@ -3914,7 +3965,8 @@ async function salvarConfig() {
     cashback_percentual: parseFloat(document.getElementById('cfg-cashback').value) || 0,
     avisos_whatsapp: {
       preparando: { ativo: document.getElementById('cfg-aviso-preparando-ativo').checked, texto: document.getElementById('cfg-aviso-preparando-texto').value.trim() || null },
-      entrega: { ativo: document.getElementById('cfg-aviso-entrega-ativo').checked, texto: document.getElementById('cfg-aviso-entrega-texto').value.trim() || null }
+      entrega: { ativo: document.getElementById('cfg-aviso-entrega-ativo').checked, texto: document.getElementById('cfg-aviso-entrega-texto').value.trim() || null },
+      business: restauranteAtual.avisos_whatsapp?.business || null
     },
     tempo_entrega: document.getElementById('cfg-tempo').value || null,
     pedido_minimo: parseFloat(document.getElementById('cfg-minimo').value) || null,
@@ -6184,12 +6236,12 @@ function fecharModal(id) {
     document.getElementById('modal-cat-titulo').textContent = 'Nova categoria';
   }
 }
-function toast(msg, tipo='') {
+function toast(msg, tipo='', ms=3000) {
   const el = document.getElementById('toast');
   if (!el) { console.log('[toast]', msg); return; }
   el.textContent = msg;
   el.className = 'toast show' + (tipo ? ' '+tipo : '');
-  setTimeout(() => el.className = 'toast', 3000);
+  setTimeout(() => el.className = 'toast', ms);
 }
 
 // ===== ROTEAMENTO =====
