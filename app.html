@@ -3497,6 +3497,11 @@ async function desconectarMercadoPago() {
 // ===== CONFIG =====
 async function renderConfig() {
   if (!restauranteAtual) return;
+  // Sempre lê os dados mais novos do banco antes de mostrar (evita salvar por cima com informação velha, ex.: logo que sumia)
+  try {
+    const { data: fresco } = await db.from('restaurantes').select('*').eq('id', restauranteAtual.id).maybeSingle();
+    if (fresco) restauranteAtual = { ...restauranteAtual, ...fresco };
+  } catch (e) {}
   const r = restauranteAtual;
 
   const { data: privadoCfg } = await db.from('restaurante_privado').select('chave_pix').eq('restaurante_id', r.id).maybeSingle();
@@ -3941,7 +3946,22 @@ async function salvarConfig() {
     if (existente) { toast('Esse link já está em uso por outra loja!', 'erro'); return; }
   }
 
+  // As formas de pagamento também são salvas pelo botão principal (antes só o botão próprio delas salvava e o resto voltava pro padrão)
+  let pgtoExtra = {};
+  if (document.getElementById('pg-pix-auto')) {
+    const pAuto = document.getElementById('pg-pix-auto').checked;
+    const pManual = document.getElementById('pg-pix-manual').checked;
+    const pPix = pAuto ? 'auto' : (pManual ? 'manual' : 'nenhum');
+    if (pPix === 'manual' && !normalizarChavePix(document.getElementById('cfg-pix')?.value)) { toast('Digite a sua chave Pix pra usar o Pix manual.', 'erro'); return; }
+    pgtoExtra = {
+      pgto_pix: pPix,
+      pgto_cartao_online: document.getElementById('pg-cartao-auto').checked,
+      pgto_maquininha: document.getElementById('pg-maquininha').checked
+    };
+  }
+
   const dados = {
+    ...pgtoExtra,
     nome: document.getElementById('cfg-nome').value,
     slug: novoSlug,
     descricao: document.getElementById('cfg-desc').value,
@@ -3977,11 +3997,12 @@ async function salvarConfig() {
   };
   const { error } = await db.from('restaurantes').update(dados).eq('id', restauranteAtual.id);
   await db.from('restaurante_privado').upsert(
-    { restaurante_id: restauranteAtual.id, chave_pix: document.getElementById('cfg-pix').value || null },
+    { restaurante_id: restauranteAtual.id, chave_pix: normalizarChavePix(document.getElementById('cfg-pix').value) || null },
     { onConflict: 'restaurante_id' }
   );
   if (!error) {
     restauranteAtual = { ...restauranteAtual, ...dados };
+    chavePixPublica = { restId: null, chave: null };
     document.getElementById('sb-rest-nome').textContent = dados.nome;
     document.getElementById('topbar-rest').textContent = dados.nome;
     toast('Configurações salvas!', 'ok');
