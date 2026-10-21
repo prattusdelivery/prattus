@@ -797,6 +797,9 @@ function imprimirComanda(p) {
     <div class="cp-item">${i.quantidade}x ${esc(i.nome)}${i.observacao ? `<br>&nbsp;&nbsp;Obs: ${esc(i.observacao)}` : ''}</div>
   `).join('');
 
+  let tamLetra = 'normal';
+  try { tamLetra = localStorage.getItem('imprimir_tam_' + restauranteAtual.id) || 'normal'; } catch (e) {}
+  document.getElementById('comanda-print').className = tamLetra === 'extra' ? 'cp-xg' : (tamLetra === 'grande' ? 'cp-g' : '');
   document.getElementById('comanda-print').innerHTML = `
     <h2>${esc(restauranteAtual?.nome) || 'Pedido'}</h2>
     <div style="text-align:center;">Pedido #${p.id.slice(-4).toUpperCase()}</div>

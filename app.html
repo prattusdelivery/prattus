@@ -629,6 +629,13 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
   #comanda-print .cp-linha{border-top:1px dashed #000;margin:6px 0;}
   #comanda-print .cp-item{margin-bottom:5px;}
   #comanda-print .cp-total{font-weight:bold;font-size:14px;margin-top:8px;}
+  /* Letra da impressão: Normal (padrão), Grande e Extra grande — mesmo desenho, só maior */
+  #comanda-print.cp-g{font-size:16px;}
+  #comanda-print.cp-g h2{font-size:20px;}
+  #comanda-print.cp-g .cp-total{font-size:19px;}
+  #comanda-print.cp-xg{font-size:20px;}
+  #comanda-print.cp-xg h2{font-size:25px;}
+  #comanda-print.cp-xg .cp-total{font-size:24px;}
 }
 </style>
 </head>
@@ -3710,6 +3717,14 @@ async function renderConfig() {
           <input type="checkbox" id="cfg-imprimir-auto" ${localStorage.getItem('imprimir_auto_' + restauranteAtual.id) !== 'false' ? 'checked' : ''} onchange="try{localStorage.setItem('imprimir_auto_' + restauranteAtual.id, this.checked ? 'true' : 'false');}catch(e){} toast(this.checked ? 'Impressão automática ligada neste aparelho.' : 'Impressão automática desligada neste aparelho.');">
           <span class="toggle-slider"></span>
         </label>
+      </div>
+
+      <div class="form-group" style="background:var(--creme);border-radius:10px;padding:14px;margin-top:10px;">
+        <label style="font-weight:700;">🔠 Tamanho da letra da impressão</label>
+        <div style="font-size:12px;color:var(--texto-muted);margin:2px 0 8px;">O pedido sai igual, só com a letra maior pra quem enxerga mal. Vale só neste aparelho. Depois de trocar, aperte 🖨️ em um pedido pra ver.</div>
+        <select id="cfg-tam-impressao" style="width:100%;" onchange="try{localStorage.setItem('imprimir_tam_' + restauranteAtual.id, this.value);}catch(e){} toast('Tamanho da letra salvo neste aparelho.', 'ok');">
+          ${(() => { let t = 'normal'; try { t = localStorage.getItem('imprimir_tam_' + restauranteAtual.id) || 'normal'; } catch (e) {} return [['normal','Normal'],['grande','Grande'],['extra','Extra grande']].map(o => `<option value="${o[0]}" ${t === o[0] ? 'selected' : ''}>${o[1]}</option>`).join(''); })()}
+        </select>
       </div>
 
       <div class="form-group" style="margin-top:24px;">
