@@ -211,15 +211,18 @@ function renderGruposOpcoes() {
           <button type="button" class="btn-sm perigo" onclick="removerOpcaoDoGrupo(${gi},${oi})" title="Remover subgrupo" style="padding:6px 10px;">×</button>
         </div>
       ` : `
-        <div style="display:flex;gap:8px;margin-bottom:6px;align-items:center;">
-          <input type="text" placeholder="Ex: 2 bifes" value="${esc(o.nome)}" oninput="atualizarOpcaoCampo(${gi},${oi},'nome',this.value)" style="flex:2;">
-          <input type="number" placeholder="0.00" step="0.01" value="${o.preco}" oninput="atualizarOpcaoCampo(${gi},${oi},'preco',this.value)" style="flex:1;">
-          <button type="button" class="btn-sm perigo" onclick="removerOpcaoDoGrupo(${gi},${oi})" title="Remover opção" style="padding:6px 10px;">×</button>
+        <div style="margin-bottom:8px;">
+          <div style="display:flex;gap:8px;margin-bottom:3px;align-items:center;">
+            <input type="text" placeholder="Ex: 2 bifes" value="${esc(o.nome)}" oninput="atualizarOpcaoCampo(${gi},${oi},'nome',this.value)" style="flex:2;">
+            <input type="number" placeholder="0.00" step="0.01" value="${o.preco}" oninput="atualizarOpcaoCampo(${gi},${oi},'preco',this.value)" style="flex:1;">
+            <button type="button" class="btn-sm perigo" onclick="removerOpcaoDoGrupo(${gi},${oi})" title="Remover opção" style="padding:6px 10px;">×</button>
+          </div>
+          <input type="text" placeholder="O que vem (opcional, letra pequena)" value="${esc(o.descricao || '')}" oninput="atualizarOpcaoCampo(${gi},${oi},'descricao',this.value)" style="width:100%;font-size:12px;padding:6px 10px;">
         </div>
       `).join('')}
       <div style="display:flex;gap:8px;">
         <button type="button" class="btn-sm" onclick="adicionarOpcaoNoGrupo(${gi})">+ Adicionar opção</button>
-        ${g.tipo === 'multipla' ? `<button type="button" class="btn-sm" onclick="adicionarSubgrupoNoGrupo(${gi})">📁 Adicionar subgrupo</button>` : ''}
+        <button type="button" class="btn-sm" onclick="adicionarSubgrupoNoGrupo(${gi})">📁 Adicionar subgrupo</button>
       </div>
     </div>
   `).join('');
