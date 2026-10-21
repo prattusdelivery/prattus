@@ -4195,6 +4195,7 @@ async function carregarPublico(restId) {
   mostrarBotaoPedirNovo();
   verificarAvaliacaoPendente();
   mostrarTela('cliente');
+  iniciarProtecaoVoltar();
 
   // Se veio de um QR Code de mesa, já seleciona "consumir no local" com a mesa preenchida
   const mesaParam = new URLSearchParams(window.location.search).get('mesa');
@@ -6209,6 +6210,32 @@ async function redefinirSenhaFuncionario(vinculoId) {
       if (!resp.ok) { msg(data.error || 'Erro ao redefinir a senha.', 'erro'); return; }
       msg('Senha redefinida! Avise o funcionário.', 'ok');
     }
+  });
+}
+
+// ===== Botão "voltar" do aparelho no cardápio do cliente =====
+// 1º voltar: fecha a janela aberta (item, carrinho...) ou sobe pro começo do cardápio.
+// Com itens no carrinho, avisa antes de sair. Só então sai de verdade.
+let protecaoVoltarAtiva = false, avisoSairAte = 0;
+function iniciarProtecaoVoltar() {
+  if (protecaoVoltarAtiva) return;
+  try { history.pushState({ sdGuard: 1 }, '', window.location.href); } catch (e) { return; }
+  protecaoVoltarAtiva = true;
+  const segurar = () => { try { history.pushState({ sdGuard: 1 }, '', window.location.href); } catch (e) {} };
+  window.addEventListener('popstate', () => {
+    const tela = document.getElementById('tela-cliente');
+    if (!tela || !tela.classList.contains('ativa')) return;
+    if (document.getElementById('overlay-pix')) { segurar(); toast('Pagamento em andamento. Use o botão Fechar da tela se quiser sair.', '', 3500); return; }
+    const aberta = document.querySelector('.modal-overlay.aberto');
+    if (aberta) { fecharModal(aberta.id); segurar(); return; }
+    if (window.scrollY > 120) { window.scrollTo({ top: 0, behavior: 'smooth' }); segurar(); return; }
+    if (carrinho.length && Date.now() > avisoSairAte) {
+      avisoSairAte = Date.now() + 5000;
+      segurar();
+      toast('Você tem itens no carrinho. Toque em voltar de novo para sair.', '', 4500);
+      return;
+    }
+    history.back();
   });
 }
 
