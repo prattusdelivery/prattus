@@ -1236,7 +1236,7 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
       <span id="mic-qtd" style="font-size:16px;font-weight:700;min-width:24px;text-align:center;">1</span>
       <button class="carr-btn" onclick="micMudarQtd(1)">+</button>
     </div>
-    <button class="btn btn-laranja" style="width:auto;padding:12px 22px;white-space:nowrap;" onclick="micAdicionar()">Adicionar · R$ <span id="mic-total">0,00</span></button>
+    <button class="btn btn-laranja" style="width:auto;padding:12px 22px;white-space:nowrap;" onclick="micAdicionar()">Adicionar<span id="mic-total-wrap"> · R$ <span id="mic-total">0,00</span></span></button>
   </div>
   </div>
 </div>
@@ -4904,7 +4904,10 @@ function micMudarQtd(delta) {
 function micAtualizarTotal() {
   if (!micItemAtual) return;
   const unit = micCalcularUnitario();
+  const faltaEscolher = (micItemAtual.opcoes || []).some((g, gi) => (g.tipo === 'unica' || g.tipo === 'unica_preco') && micSelecoes[gi] == null);
   document.getElementById('mic-total').textContent = (unit * micQtd).toFixed(2).replace('.',',');
+  const wrapTotal = document.getElementById('mic-total-wrap');
+  if (wrapTotal) wrapTotal.style.display = faltaEscolher ? 'none' : '';
 }
 
 function micAdicionar() {
