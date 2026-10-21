@@ -195,6 +195,12 @@ function renderGruposOpcoes() {
         </select>
         <button type="button" class="btn-sm perigo" onclick="removerGrupoOpcao(${gi})" title="Remover grupo">🗑️</button>
       </div>
+      ${g.tipo !== 'multipla' ? `
+      <label style="display:flex;gap:8px;align-items:center;font-size:12px;color:var(--texto-muted);margin-bottom:10px;cursor:pointer;">
+        <input type="checkbox" ${g.semPadrao ? 'checked' : ''} onchange="gruposOpcoesEditando[${gi}].semPadrao = this.checked" style="width:16px;height:16px;">
+        Começar sem nada marcado (o cliente precisa escolher uma opção)
+      </label>
+      ` : ''}
       ${g.tipo === 'multipla' ? `
       <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;">
         <label style="font-size:12px;color:var(--texto-muted);flex-shrink:0;">Mínimo</label>
@@ -273,7 +279,7 @@ function atualizarOpcaoCampo(gi, oi, campo, valor) {
 
 function gruposOpcoesValidos() {
   const limpos = gruposOpcoesEditando
-    .map(g => ({ nome: (g.nome||'').trim(), tipo: g.tipo, opcoes: g.opcoes.filter(o => (o.nome||'').trim()), min: g.tipo === 'multipla' ? (g.min ?? 0) : undefined, max: g.tipo === 'multipla' ? (g.max ?? null) : undefined }))
+    .map(g => ({ nome: (g.nome||'').trim(), tipo: g.tipo, opcoes: g.opcoes.filter(o => (o.nome||'').trim()), semPadrao: g.tipo !== 'multipla' && g.semPadrao ? true : undefined, min: g.tipo === 'multipla' ? (g.min ?? 0) : undefined, max: g.tipo === 'multipla' ? (g.max ?? null) : undefined }))
     .filter(g => g.nome && g.opcoes.length > 0);
   return limpos.length ? limpos : null;
 }

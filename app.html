@@ -4795,8 +4795,8 @@ function abrirModalItem(item) {
   const grupos = item.opcoes || [];
   grupos.forEach((g, gi) => {
     if (g.tipo === 'unica' || g.tipo === 'unica_preco') {
-      // Grupo com títulos (ex.: Salgados/Doces) começa sem nada marcado: o cliente precisa escolher
-      micSelecoes[gi] = (g.opcoes || []).some(o => o.subgrupo) ? null : (g.opcoes || []).findIndex(o => !o.subgrupo);
+      // Grupo com títulos (ex.: Salgados/Doces) ou marcado como "cliente escolhe" começa sem nada marcado: o cliente precisa escolher
+      micSelecoes[gi] = (g.semPadrao || (g.opcoes || []).some(o => o.subgrupo)) ? null : (g.opcoes || []).findIndex(o => !o.subgrupo);
     } else micSelecoes[gi] = [];
   });
 
