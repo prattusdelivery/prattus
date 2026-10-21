@@ -4689,7 +4689,7 @@ async function gerarSlugUnico(nome) {
 function precoExibicaoItem(item) {
   const grupoPreco = (item.opcoes || []).find(g => g.tipo === 'unica_preco');
   if (grupoPreco && grupoPreco.opcoes.length) {
-    const min = Math.min(...grupoPreco.opcoes.map(o => parseFloat(o.preco) || 0));
+    const min = Math.min(...grupoPreco.opcoes.filter(o => !o.subgrupo).map(o => parseFloat(o.preco) || 0));
     return `A partir de R$ ${min.toFixed(2).replace('.',',')}`;
   }
   if (item.preco_promocional && parseFloat(item.preco_promocional) < parseFloat(item.preco)) {
@@ -4793,7 +4793,12 @@ function abrirModalItem(item) {
   document.getElementById('mic-preco-base').innerHTML = precoExibicaoItem(item);
 
   const grupos = item.opcoes || [];
-  grupos.forEach((g, gi) => { micSelecoes[gi] = (g.tipo === 'unica' || g.tipo === 'unica_preco') ? 0 : []; });
+  grupos.forEach((g, gi) => {
+    if (g.tipo === 'unica' || g.tipo === 'unica_preco') {
+      // Grupo com títulos (ex.: Salgados/Doces) começa sem nada marcado: o cliente precisa escolher
+      micSelecoes[gi] = (g.opcoes || []).some(o => o.subgrupo) ? null : (g.opcoes || []).findIndex(o => !o.subgrupo);
+    } else micSelecoes[gi] = [];
+  });
 
   document.getElementById('mic-grupos').innerHTML = grupos.map((g, gi) => {
     const ehUnica = g.tipo === 'unica' || g.tipo === 'unica_preco';
@@ -4820,7 +4825,7 @@ function abrirModalItem(item) {
         return `
         <label class="pub-opt-card">
           <span style="display:flex;align-items:center;gap:10px;">
-            <input type="${ehUnica?'radio':'checkbox'}" name="mic-grupo-${gi}" ${ehUnica && oi===0 ? 'checked':''} onchange="micSelecionar(${gi},${oi},this)">
+            <input type="${ehUnica?'radio':'checkbox'}" name="mic-grupo-${gi}" ${ehUnica && oi===micSelecoes[gi] ? 'checked':''} onchange="micSelecionar(${gi},${oi},this)">
             <span>${esc(o.nome)}</span>
           </span>
           <span style="color:var(--texto-muted);font-size:13px;font-weight:600;">${precoTxt}</span>
@@ -4913,6 +4918,10 @@ function micAdicionar() {
 
   for (let gi = 0; gi < grupos.length; gi++) {
     const g = grupos[gi];
+    if ((g.tipo === 'unica' || g.tipo === 'unica_preco') && micSelecoes[gi] == null) {
+      toast(`Escolha uma opção em "${g.nome}".`, 'erro');
+      return;
+    }
     if (g.tipo === 'multipla' && g.min > 0) {
       const qtdSelecionada = (micSelecoes[gi] || []).length;
       if (qtdSelecionada < g.min) {
