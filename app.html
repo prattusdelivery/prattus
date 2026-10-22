@@ -3820,13 +3820,14 @@ async function renderConfig() {
       <div class="form-group" style="background:var(--creme);border-radius:10px;padding:14px;margin-top:14px;">
         <label style="font-weight:700;">Quando a loja estiver fechada (fora do horário)</label>
         <div style="font-size:12px;color:var(--texto-muted);margin:4px 0 10px;">O cliente sempre consegue abrir o cardápio. Escolha o que ele pode fazer:</div>
+        ${r.pix_online_ativo ? '' : '<div style="font-size:12px;background:#FFF3E0;color:#B26A00;border-radius:8px;padding:8px 10px;margin-bottom:10px;">⚠️ O Mercado Pago ainda não está conectado. A opção "Só agendamento" só passa a valer depois que você conectar (quadro "Receber Pix e cartão online", mais acima). Enquanto isso, o cardápio funciona como "Sempre aberto".</div>'}
         <label style="display:flex;align-items:flex-start;gap:10px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;font-size:13px;">
           <input type="radio" name="cfg-fechado-modo" id="cfg-fechado-agendar" value="agendar" ${r.avisos_whatsapp?.fechado_so_agendar !== false ? 'checked' : ''} style="width:18px;height:18px;margin-top:2px;">
-          <span><b>📅 Só agendamento (recomendado)</b><br><span style="font-size:11px;color:var(--texto-muted);">Fechado, o cliente precisa escolher o dia e a hora para receber, dentro do seu horário de funcionamento.</span></span>
+          <span><b>📅 Só agendamento (recomendado)</b><br><span style="font-size:11px;color:var(--texto-muted);">Fechado, o cliente pode abrir o cardápio e fazer o pedido, mas <b>só agendado</b>: escolhe o dia e a hora, dentro do seu horário de funcionamento, e <b>paga na hora pelo Pix ou cartão online</b> (pagamento automático). Agendar para outro dia também exige pagamento online. <b>Precisa estar ligado ao Mercado Pago.</b></span></span>
         </label>
         <label style="display:flex;align-items:flex-start;gap:10px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;cursor:pointer;font-size:13px;">
           <input type="radio" name="cfg-fechado-modo" id="cfg-fechado-normal" value="normal" ${r.avisos_whatsapp?.fechado_so_agendar === false ? 'checked' : ''} style="width:18px;height:18px;margin-top:2px;">
-          <span><b>🛎️ Aceitar pedido normal mesmo fechado</b><br><span style="font-size:11px;color:var(--texto-muted);">O cliente pode pedir para agora, e o agendamento continua opcional.</span></span>
+          <span><b>🛎️ Sempre aberto (aceitar pedido mesmo fechado)</b><br><span style="font-size:11px;color:var(--texto-muted);">O cliente pode pedir para agora, com <b>qualquer forma de pagamento</b> (dinheiro, maquininha, Pix ou cartão). Agendar continua opcional.</span></span>
         </label>
       </div>
 
@@ -4221,7 +4222,7 @@ async function carregarPublico(restId) {
         elFechado.textContent = diaConfig.ativo
           ? `🔴 Fechado · Funciona ${diaConfig.abre} às ${diaConfig.fecha}`
           : `🔴 Fechado hoje`;
-        if (rest.avisos_whatsapp?.fechado_so_agendar !== false) {
+        if (rest.avisos_whatsapp?.fechado_so_agendar !== false && !!rest.pix_online_ativo) {
           elFechado.innerHTML = esc(elFechado.textContent) + '<br><span style="font-size:12px;font-weight:400;">Você pode agendar seu pedido 📅</span>';
         }
       }
@@ -5196,16 +5197,13 @@ function selecionarModo(modo) {
   const avisoAg = document.getElementById('agend-aviso');
   if (avisoAg) {
     if (fechadoSoAgendamento()) {
-      avisoAg.innerHTML = '<b>🔴 Estamos fechados agora.</b> Escolha o dia e o horário para receber o seu pedido (obrigatório).';
+      avisoAg.innerHTML = '<b>🔴 Estamos fechados agora.</b> Escolha o dia e o horário para receber o seu pedido (obrigatório) e pague agora pelo Pix ou cartão online.';
       avisoAg.style.color = '#C0392B';
     } else {
       avisoAg.textContent = 'Quer agendar? Escolha a data e o horário. Deixe em branco para pedir agora.';
       avisoAg.style.color = '';
     }
-    try {
-      const opA = opcoesPagamento(restPublico || {});
-      if (opA.pixAuto || opA.cartaoAuto) avisoAg.innerHTML += '<br><span style="font-size:11px;color:var(--texto-muted);font-weight:400;">📌 Pedido para outro dia: o pagamento é feito agora, pelo Pix ou cartão online.</span>';
-    } catch (e) {}
+    if (modoSoAgendamento() && !fechadoSoAgendamento()) avisoAg.innerHTML += '<br><span style="font-size:11px;color:var(--texto-muted);font-weight:400;">📌 Pedido para outro dia: o pagamento é feito agora, pelo Pix ou cartão online.</span>';
   }
   if (modo !== 'delivery') {
     fretesSelecionado = 0;
@@ -5703,8 +5701,13 @@ function lojaFechadaPorHorario() {
   return !dentroDoHorario(min, ah * 60 + am, fh * 60 + fm);
 }
 // Fechado e o dono escolheu "só agendamento" (padrão)?
+// "Só agendamento" só vale quando o restaurante recebe Pix/cartão online (Mercado Pago conectado); senão funciona como "sempre aberto"
+function modoSoAgendamento() {
+  if (restPublico?.avisos_whatsapp?.fechado_so_agendar === false) return false;
+  try { const o = opcoesPagamento(restPublico || {}); return !!(o.pixAuto || o.cartaoAuto); } catch (e) { return false; }
+}
 function fechadoSoAgendamento() {
-  return restPublico?.avisos_whatsapp?.fechado_so_agendar !== false && lojaFechadaPorHorario();
+  return modoSoAgendamento() && lojaFechadaPorHorario();
 }
 
 // Confere se a data/hora de retirada agendada faz sentido (futuro, até 7 dias, dentro do horário da loja)
@@ -5820,7 +5823,7 @@ async function finalizarPedidoInterno() {
 
   // Loja fechada + dono escolheu "só agendamento": delivery e retirada precisam de data e hora
   if ((modoAtual === 'delivery' || modoAtual === 'retirada') && fechadoSoAgendamento() && !agendamento) {
-    toast('Estamos fechados agora. Escolha o dia e o horário para receber o seu pedido.', 'erro');
+    toast('Estamos fechados agora. Escolha o dia e o horário para receber o seu pedido e pague pelo Pix ou cartão online.', 'erro');
     document.getElementById('ped-data')?.focus();
     return;
   }
@@ -5830,12 +5833,10 @@ async function finalizarPedidoInterno() {
     const dataAg = document.getElementById('ped-data')?.value;
     const h = new Date();
     const hojeISO = h.getFullYear() + '-' + String(h.getMonth()+1).padStart(2,'0') + '-' + String(h.getDate()).padStart(2,'0');
-    if (agendamento && dataAg && dataAg !== hojeISO && (modoAtual === 'delivery' || modoAtual === 'retirada')) {
-      const opAg = opcoesPagamento(restPublico);
-      if ((opAg.pixAuto || opAg.cartaoAuto) && pagamento !== 'Pix online' && pagamento !== 'Cartão online') {
-        toast('Para agendar em outro dia, o pagamento é feito agora pelo Pix ou cartão online. Escolha uma dessas formas.', 'erro');
-        return;
-      }
+    const exigeOnline = modoSoAgendamento() && agendamento && (fechadoSoAgendamento() || (dataAg && dataAg !== hojeISO));
+    if (exigeOnline && (modoAtual === 'delivery' || modoAtual === 'retirada') && pagamento !== 'Pix online' && pagamento !== 'Cartão online') {
+      toast('Pedido agendado: o pagamento é feito agora pelo Pix ou cartão online. Escolha uma dessas formas.', 'erro');
+      return;
     }
   }
 
