@@ -3817,6 +3817,19 @@ async function renderConfig() {
         `}).join('')}
       </div>
 
+      <div class="form-group" style="background:var(--creme);border-radius:10px;padding:14px;margin-top:14px;">
+        <label style="font-weight:700;">Quando a loja estiver fechada (fora do horário)</label>
+        <div style="font-size:12px;color:var(--texto-muted);margin:4px 0 10px;">O cliente sempre consegue abrir o cardápio. Escolha o que ele pode fazer:</div>
+        <label style="display:flex;align-items:flex-start;gap:10px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;font-size:13px;">
+          <input type="radio" name="cfg-fechado-modo" id="cfg-fechado-agendar" value="agendar" ${r.avisos_whatsapp?.fechado_so_agendar !== false ? 'checked' : ''} style="width:18px;height:18px;margin-top:2px;">
+          <span><b>📅 Só agendamento (recomendado)</b><br><span style="font-size:11px;color:var(--texto-muted);">Fechado, o cliente precisa escolher o dia e a hora para receber, dentro do seu horário de funcionamento.</span></span>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:10px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;cursor:pointer;font-size:13px;">
+          <input type="radio" name="cfg-fechado-modo" id="cfg-fechado-normal" value="normal" ${r.avisos_whatsapp?.fechado_so_agendar === false ? 'checked' : ''} style="width:18px;height:18px;margin-top:2px;">
+          <span><b>🛎️ Aceitar pedido normal mesmo fechado</b><br><span style="font-size:11px;color:var(--texto-muted);">O cliente pode pedir para agora, e o agendamento continua opcional.</span></span>
+        </label>
+      </div>
+
       <button class="btn btn-laranja" onclick="salvarConfig()">Salvar configurações</button>
 
       <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--creme-borda);">
@@ -4015,7 +4028,8 @@ async function salvarConfig() {
       preparando: { ativo: document.getElementById('cfg-aviso-preparando-ativo').checked, texto: document.getElementById('cfg-aviso-preparando-texto').value.trim() || null },
       entrega: { ativo: document.getElementById('cfg-aviso-entrega-ativo').checked, texto: document.getElementById('cfg-aviso-entrega-texto').value.trim() || null },
       business: restauranteAtual.avisos_whatsapp?.business || null,
-      abrir_apos_pedido: document.getElementById('cfg-abrir-whats') ? document.getElementById('cfg-abrir-whats').checked : (restauranteAtual.avisos_whatsapp?.abrir_apos_pedido !== false)
+      abrir_apos_pedido: document.getElementById('cfg-abrir-whats') ? document.getElementById('cfg-abrir-whats').checked : (restauranteAtual.avisos_whatsapp?.abrir_apos_pedido !== false),
+      fechado_so_agendar: document.getElementById('cfg-fechado-agendar') ? document.getElementById('cfg-fechado-agendar').checked : (restauranteAtual.avisos_whatsapp?.fechado_so_agendar !== false)
     },
     tempo_entrega: document.getElementById('cfg-tempo').value || null,
     pedido_minimo: parseFloat(document.getElementById('cfg-minimo').value) || null,
@@ -4197,7 +4211,7 @@ async function carregarPublico(restId) {
       const [fechaH, fechaM] = diaConfig.fecha.split(':').map(Number);
       const abre = abreH * 60 + abreM;
       const fecha = fechaH * 60 + fechaM;
-      const aberto = diaConfig.ativo && horaAtual >= abre && horaAtual <= fecha;
+      const aberto = diaConfig.ativo && dentroDoHorario(horaAtual, abre, fecha);
       elFechado.style.display = 'block';
       if (aberto) {
         elFechado.style.background = 'rgba(46,160,67,0.55)';
@@ -4207,6 +4221,9 @@ async function carregarPublico(restId) {
         elFechado.textContent = diaConfig.ativo
           ? `🔴 Fechado · Funciona ${diaConfig.abre} às ${diaConfig.fecha}`
           : `🔴 Fechado hoje`;
+        if (rest.avisos_whatsapp?.fechado_so_agendar !== false) {
+          elFechado.innerHTML = esc(elFechado.textContent) + '<br><span style="font-size:12px;font-weight:400;">Você pode agendar seu pedido 📅</span>';
+        }
       }
     }
   }
@@ -5176,6 +5193,20 @@ function selecionarModo(modo) {
     }
   }
   if (campoMesa) campoMesa.style.display = modo === 'local' ? 'block' : 'none';
+  const avisoAg = document.getElementById('agend-aviso');
+  if (avisoAg) {
+    if (fechadoSoAgendamento()) {
+      avisoAg.innerHTML = '<b>🔴 Estamos fechados agora.</b> Escolha o dia e o horário para receber o seu pedido (obrigatório).';
+      avisoAg.style.color = '#C0392B';
+    } else {
+      avisoAg.textContent = 'Quer agendar? Escolha a data e o horário. Deixe em branco para pedir agora.';
+      avisoAg.style.color = '';
+    }
+    try {
+      const opA = opcoesPagamento(restPublico || {});
+      if (opA.pixAuto || opA.cartaoAuto) avisoAg.innerHTML += '<br><span style="font-size:11px;color:var(--texto-muted);font-weight:400;">📌 Pedido para outro dia: o pagamento é feito agora, pelo Pix ou cartão online.</span>';
+    } catch (e) {}
+  }
   if (modo !== 'delivery') {
     fretesSelecionado = 0;
     atualizarTotalCarrinho();
@@ -5648,6 +5679,34 @@ function mudarQtd(idx, delta) {
   abrirCarrinho();
 }
 
+// Minuto do dia está dentro do horário? Aceita horário que passa da meia-noite (ex.: 18:00 às 01:00)
+function dentroDoHorario(min, abreMin, fechaMin) {
+  if (fechaMin >= abreMin) return min >= abreMin && min <= fechaMin;
+  return min >= abreMin || min <= fechaMin;
+}
+// A loja está fechada agora (fora do horário ou dia desligado)? Só vale pra quem cadastrou horário.
+function lojaFechadaPorHorario() {
+  const rest = restPublico || {};
+  const agora = new Date();
+  const dia = agora.getDay();
+  const min = agora.getHours() * 60 + agora.getMinutes();
+  let cfg = null;
+  if (rest.horarios_semana && rest.horarios_semana[dia]) cfg = rest.horarios_semana[dia];
+  else if (rest.horario_abre && rest.horario_fecha && rest.dias_funcionamento?.length) {
+    cfg = { ativo: rest.dias_funcionamento.includes(dia), abre: rest.horario_abre, fecha: rest.horario_fecha };
+  }
+  if (!cfg) return false;
+  if (!cfg.ativo) return true;
+  if (!cfg.abre || !cfg.fecha) return false;
+  const [ah, am] = cfg.abre.split(':').map(Number);
+  const [fh, fm] = cfg.fecha.split(':').map(Number);
+  return !dentroDoHorario(min, ah * 60 + am, fh * 60 + fm);
+}
+// Fechado e o dono escolheu "só agendamento" (padrão)?
+function fechadoSoAgendamento() {
+  return restPublico?.avisos_whatsapp?.fechado_so_agendar !== false && lojaFechadaPorHorario();
+}
+
 // Confere se a data/hora de retirada agendada faz sentido (futuro, até 7 dias, dentro do horário da loja)
 function validarAgendamentoRetirada(data, hora, modo) {
   modo = modo || 'retirada';
@@ -5684,7 +5743,7 @@ function validarAgendamentoRetirada(data, hora, modo) {
         const [rh, rm] = limite.split(':').map(Number);
         if (!isNaN(rh) && min > rh * 60 + rm) return `A retirada no local vai até as ${limite}. Escolha um horário até lá.`;
       }
-      if (min < ah * 60 + am || min > fh * 60 + fm) return `Nesse dia o restaurante funciona das ${cfg.abre} às ${cfg.fecha}. Escolha um horário dentro desse período.`;
+      if (!dentroDoHorario(min, ah * 60 + am, fh * 60 + fm)) return `Nesse dia o restaurante funciona das ${cfg.abre} às ${cfg.fecha}. Escolha um horário dentro desse período.`;
     }
   }
   return '';
@@ -5757,6 +5816,27 @@ async function finalizarPedidoInterno() {
       if (erroAgend) { toast(erroAgend, 'erro'); return; }
     }
     agendamento = data && hora ? `${data.split('-').reverse().join('/')} às ${hora}` : '';
+  }
+
+  // Loja fechada + dono escolheu "só agendamento": delivery e retirada precisam de data e hora
+  if ((modoAtual === 'delivery' || modoAtual === 'retirada') && fechadoSoAgendamento() && !agendamento) {
+    toast('Estamos fechados agora. Escolha o dia e o horário para receber o seu pedido.', 'erro');
+    document.getElementById('ped-data')?.focus();
+    return;
+  }
+
+  // Pedido agendado para OUTRO dia: se o restaurante recebe Pix/cartão online, o cliente paga agora (evita pedido esquecido, sem pagamento)
+  {
+    const dataAg = document.getElementById('ped-data')?.value;
+    const h = new Date();
+    const hojeISO = h.getFullYear() + '-' + String(h.getMonth()+1).padStart(2,'0') + '-' + String(h.getDate()).padStart(2,'0');
+    if (agendamento && dataAg && dataAg !== hojeISO && (modoAtual === 'delivery' || modoAtual === 'retirada')) {
+      const opAg = opcoesPagamento(restPublico);
+      if ((opAg.pixAuto || opAg.cartaoAuto) && pagamento !== 'Pix online' && pagamento !== 'Cartão online') {
+        toast('Para agendar em outro dia, o pagamento é feito agora pelo Pix ou cartão online. Escolha uma dessas formas.', 'erro');
+        return;
+      }
+    }
   }
 
   if (!nome || !telefone) { toast('Preencha nome e telefone!', 'erro'); return; }

@@ -545,6 +545,7 @@ async function renderPedidos() {
 
   document.getElementById('conteudo').innerHTML = `
     <div style="font-size:14px;color:var(--texto-muted);margin-bottom:16px;">${lista.length} pedido(s) no total</div>
+    ${blocoAgendadosHoje(lista)}
     <div class="kanban">
       <div class="kanban-col col-novo">
         <div class="kanban-col-titulo"><span class="kanban-dot novo"></span>Novos pedidos <span class="kanban-count">${novos.length}</span></div>
@@ -704,6 +705,52 @@ async function renderAvaliacoes() {
       }
     </div>
   `;
+}
+
+// ===== AGENDADOS PARA HOJE: lista no topo de Pedidos, com botão pra confirmar com o cliente no WhatsApp =====
+function dataDoAgendamento(p) {
+  const t = textoAgendamento(p);
+  const m = t.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?\s+às\s+(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  const ano = m[3] ? parseInt(m[3]) : new Date().getFullYear();
+  return { dia: parseInt(m[1]), mes: parseInt(m[2]), ano, hora: m[4].padStart(2,'0') + ':' + m[5] };
+}
+function blocoAgendadosHoje(lista) {
+  const h = new Date();
+  const ativos = (lista || []).filter(p => p.status === 'novo' || p.status === 'preparando');
+  const comData = ativos.map(p => ({ p, ag: dataDoAgendamento(p) })).filter(x => x.ag);
+  const hoje = comData.filter(x => x.ag.dia === h.getDate() && x.ag.mes === h.getMonth() + 1 && x.ag.ano === h.getFullYear())
+    .sort((a, b) => a.ag.hora.localeCompare(b.ag.hora));
+  const outros = comData.length - hoje.length;
+  if (!hoje.length && !outros) return '';
+  const linhas = hoje.map(({ p, ag }) => {
+    const nome = ((p.observacao || '').match(/Nome:\s*([^\n]+)/) || [])[1]?.trim() || 'Cliente';
+    const pago = (p.observacao || '').includes('JÁ PAGO');
+    return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border:1px solid #E0B400;border-radius:8px;padding:8px 10px;margin-top:6px;">
+      <b style="font-size:15px;color:#C00000;">⏰ ${ag.hora}</b>
+      <span style="font-size:13px;font-weight:700;">#${p.id.slice(-4).toUpperCase()}</span>
+      <span style="font-size:13px;">${esc(nome)} · ${tipoAgendamento(p) === 'ENTREGA' ? 'Entrega' : 'Retirada'} · R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</span>
+      <span style="font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px;color:#fff;background:${pago ? '#0F6E56' : '#B42318'};">${pago ? '✅ PAGO' : 'NÃO PAGO'}</span>
+      ${meuPapel === 'garcom' ? '' : `<button class="btn-sm" style="margin-left:auto;background:#25D366;color:#fff;border:none;font-weight:700;" onclick="confirmarAgendadoWhats('${p.id}')">💬 Confirmar com o cliente</button>`}
+    </div>`;
+  }).join('');
+  return `<div style="background:#FFF7CC;border:2px solid #E0B400;border-radius:10px;padding:12px 14px;margin-bottom:16px;">
+    <div style="font-size:14px;font-weight:800;color:#7A5A00;">📅 Agendados para hoje (${hoje.length})</div>
+    ${hoje.length ? linhas : '<div style="font-size:12px;color:#7A5A00;margin-top:4px;">Nenhum pedido agendado para hoje.</div>'}
+    ${outros > 0 ? `<div style="font-size:12px;color:#7A5A00;margin-top:8px;">Mais ${outros} pedido(s) agendado(s) para outros dias (aparecem nos cartões abaixo).</div>` : ''}
+  </div>`;
+}
+function confirmarAgendadoWhats(id) {
+  const p = pedidosCache.find(x => x.id === id);
+  if (!p) { toast('Pedido não encontrado.', 'erro'); return; }
+  const ag = dataDoAgendamento(p);
+  let fone = (extrairTelefone(p) || '').replace(/\D/g, '');
+  if (!fone) { toast('Esse pedido não tem telefone do cliente.', 'erro'); return; }
+  if (fone.length <= 11) fone = '55' + fone;
+  const nome = ((p.observacao || '').match(/Nome:\s*([^\n]+)/) || [])[1]?.trim() || '';
+  const tipo = tipoAgendamento(p) === 'ENTREGA' ? 'a entrega' : 'a retirada';
+  const msg = `Olá${nome ? ', ' + nome : ''}! Aqui é do ${restauranteAtual?.nome || 'restaurante'}. Seu pedido #${p.id.slice(-4).toUpperCase()} está agendado para hoje às ${ag ? ag.hora : ''} (${tipo}). Está tudo certo? Responda SIM para a gente confirmar e preparar o seu pedido. 😊`;
+  window.open(`https://wa.me/${fone}?text=${encodeURIComponent(msg)}`, 'wa_servidelivery');
 }
 
 function extrairTelefone(p) {
