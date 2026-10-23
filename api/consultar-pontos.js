@@ -92,7 +92,7 @@ export default async function handler(req, res) {
     if (acao === 'acompanhar_pedido') {
       if (!pedidoId) return res.status(400).json({ error: 'pedidoId é obrigatório' });
       const resp = await fetch(
-        `${SUPABASE_URL}/rest/v1/pedidos?id=eq.${pedidoId}&select=id,status,saiu_entrega_em,criado_em,total,avaliacao,pedido_itens(nome,quantidade,preco,observacao)`,
+        `${SUPABASE_URL}/rest/v1/pedidos?id=eq.${pedidoId}&select=id,status,saiu_entrega_em,criado_em,total,frete,subtotal,avaliacao,pedido_itens(nome,quantidade,preco,observacao)`,
         { headers }
       );
       const data = await resp.json();
