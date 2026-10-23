@@ -758,6 +758,78 @@ function extrairTelefone(p) {
   return match ? match[1].trim() : null;
 }
 
+// ===== Pedido de comanda (mesa) ou de delivery? =====
+function ehComandaPedido(p) {
+  return !!p.codigo_comanda_id || (p.observacao || '').includes('Modo: Consumir no local');
+}
+
+// ===== Ajustes por aparelho: aceitar sozinho e imprimir sozinho (delivery e comanda separados) =====
+function ajusteAparelho(chave, padrao) {
+  try {
+    const v = localStorage.getItem(chave + '_' + restauranteAtual.id);
+    if (v === 'true') return true;
+    if (v === 'false') return false;
+  } catch (e) {}
+  return padrao;
+}
+// Só comandas (mesas) podem ser aceitas sozinhas. Delivery o dono aceita sempre (várias formas de pagamento).
+function aceitarAutoPara(ehCom) { return ehCom ? ajusteAparelho('aceitar_auto_comanda', false) : false; }
+function imprimirAutoPara(ehCom) {
+  // delivery usa a chave antiga (imprimir_auto); comanda usa a sua e, se nunca mexeram, segue a do delivery
+  const delivery = ajusteAparelho('imprimir_auto', true);
+  return ehCom ? ajusteAparelho('imprimir_auto_comanda', delivery) : delivery;
+}
+
+// Texto "Seu pedido" que vai pro cliente no WhatsApp quando o dono aceita (itens, frete e total)
+function blocoItensWhats(ped) {
+  const din = v => 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ',');
+  const itens = ped.pedido_itens || [];
+  const sub = itens.reduce((s, i) => s + (parseFloat(i.preco) || 0) * (i.quantidade || 1), 0);
+  const frete = parseFloat(ped.frete) || 0;
+  const total = parseFloat(ped.total) || 0;
+  const ehDelivery = /Modo:\s*Delivery/i.test(ped.observacao || '');
+  const linhas = ['*Seu pedido:*'];
+  itens.forEach(i => linhas.push(`${i.quantidade}x ${i.nome}${i.observacao ? ' (' + i.observacao + ')' : ''} — ${din((parseFloat(i.preco) || 0) * (i.quantidade || 1))}`));
+  if (ehDelivery || frete > 0) linhas.push(`Frete: ${frete > 0 ? din(frete) : 'Grátis'}`);
+  const desc = sub + frete - total;
+  if (desc > 0.009) linhas.push(`Desconto: - ${din(desc)}`);
+  linhas.push(`*Total: ${din(total)}*`);
+  return linhas.join('\n');
+}
+
+// Aceita sozinho os pedidos novos (só no aparelho que ligou a chave) e imprime se estiver ligado
+var autoAceitando = false;
+async function autoAceitarPedidos() {
+  if (!restauranteAtual || meuPapel === 'garcom' || autoAceitando) return;
+  const aD = aceitarAutoPara(false), aC = aceitarAutoPara(true);
+  if (!aD && !aC) return;
+  autoAceitando = true;
+  try {
+    const { data } = await db.from('pedidos')
+      .select('*,pedido_itens(nome,quantidade,preco,observacao)')
+      .eq('restaurante_id', restauranteAtual.id).eq('status', 'novo').order('criado_em');
+    for (const p of data || []) {
+      const com = ehComandaPedido(p);
+      if (com ? !aC : !aD) continue;
+      // Pix manual (cliente manda comprovante) precisa de conferência: fica esperando o dono
+      if (!com) { const d = dadosPagamento(p); if (d && d.pixManual) continue; }
+      // "Reserva" o pedido: só segue se ele ainda estava novo (evita aceitar/imprimir duas vezes)
+      const { data: ok } = await db.from('pedidos')
+        .update({ status: 'preparando', aceito_em: new Date().toISOString() })
+        .eq('id', p.id).eq('status', 'novo').select('id');
+      if (!ok || !ok.length) continue;
+      p.status = 'preparando';
+      pedidosCache = [p, ...(pedidosCache || []).filter(x => x.id !== p.id)];
+      toast(`✅ Pedido #${p.id.slice(-4).toUpperCase()} aceito automaticamente`, 'ok');
+      if (imprimirAutoPara(com)) imprimirComanda(p);
+    }
+  } catch (e) {
+    console.error('autoAceitarPedidos', e);
+  } finally {
+    autoAceitando = false;
+  }
+}
+
 function imprimirComandaPorId(id) {
   const pedido = pedidosCache.find(p => p.id === id);
   if (!pedido) { toast('Pedido não encontrado pra imprimir.', 'erro'); return; }
@@ -844,16 +916,29 @@ function imprimirComanda(p) {
     <div class="cp-item">${i.quantidade}x ${esc(i.nome)}${i.observacao ? `<br>&nbsp;&nbsp;Obs: ${esc(i.observacao)}` : ''}</div>
   `).join('');
 
-  let tamLetra = 'normal';
-  try { tamLetra = localStorage.getItem('imprimir_tam_' + restauranteAtual.id) || 'normal'; } catch (e) {}
-  document.getElementById('comanda-print').className = tamLetra === 'extra' ? 'cp-xg' : (tamLetra === 'grande' ? 'cp-g' : '');
+  let tamLetra = 'normal', negrito = false;
+  try {
+    tamLetra = localStorage.getItem('imprimir_tam_' + restauranteAtual.id) || 'normal';
+    negrito = localStorage.getItem('imprimir_negrito_' + restauranteAtual.id) === 'true';
+  } catch (e) {}
+  document.getElementById('comanda-print').className =
+    (tamLetra === 'gigante' ? 'cp-gg' : tamLetra === 'extra' ? 'cp-xg' : (tamLetra === 'grande' ? 'cp-g' : '')) + (negrito ? ' cp-neg' : '');
+
+  // Comanda (mesa): o número da mesa vai grande no topo, em negrito
+  const ehCom = ehComandaPedido(p);
+  const mesa = ehCom ? ((obs.match(/Mesa\s+(\S+)/) || [])[1] || (String(p.endereco || '').match(/Mesa\s+(\S+)/) || [])[1] || '') : '';
+  const ehDelivery = /Modo:\s*Delivery/i.test(obs);
+  const frete = parseFloat(p.frete) || 0;
+  const linhaFrete = ehDelivery ? `<div>Frete: ${frete > 0 ? 'R$ ' + frete.toFixed(2).replace('.', ',') : 'Grátis'}</div>` : '';
+
   document.getElementById('comanda-print').innerHTML = `
+    ${mesa ? `<div class="cp-mesa">MESA ${esc(mesa)}</div>` : ''}
     <h2>${esc(restauranteAtual?.nome) || 'Pedido'}</h2>
     <div style="text-align:center;">Pedido #${p.id.slice(-4).toUpperCase()}</div>
     <div style="text-align:center;">${dataDoBanco(p.criado_em).toLocaleString('pt-BR')}</div>
     <div class="cp-linha"></div>
-    <div><strong>${esc(modo)}</strong></div>
-    <div>Cliente: ${esc(nome)}</div>
+    <div><strong>${esc(modo || (ehCom ? 'Comanda' : ''))}</strong></div>
+    ${ehCom && nome === 'Cliente' ? '' : `<div>Cliente: ${esc(nome)}</div>`}
     ${telefone ? `<div>Tel: ${esc(telefone)}</div>` : ''}
     ${textoAgendamento(p) ? `<div style="text-align:center;font-weight:900;font-size:16px;border:2px solid #000;padding:4px;margin:4px 0;">*** ${tipoAgendamento(p)} AGENDADA PARA ${esc(textoAgendamento(p))} ***</div>` : ''}
     ${p.endereco ? `<div>End: ${esc(p.endereco)}</div>` : ''}
@@ -862,7 +947,8 @@ function imprimirComanda(p) {
     ${itensHtml}
     <div class="cp-linha"></div>
     <div>Pagamento: ${esc(pagamento)}</div>
-    ${obsGeral ? `<div>Obs geral: ${esc(obsGeral)}</div>` : ''}
+    ${obsGeral ? `<div class="cp-item">Obs geral: ${esc(obsGeral)}</div>` : ''}
+    ${linhaFrete}
     <div class="cp-total">TOTAL: R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
   `;
   window.print();
@@ -927,7 +1013,13 @@ async function avancarStatus(id, novoStatus, nomeCliente, telefone, numPedido) {
       // Link para o cliente acompanhar o pedido (sempre vai junto, exceto ao marcar como entregue)
       // O link precisa ter o endereço da loja (/slug). Só com "/" ele caía no site institucional.
       const linkAcomp = `${window.location.origin}/${restauranteAtual?.slug || 'painel'}?acompanhar=${id}`;
-      let msg = modelo.replace(/%cliente%/g, nomeCliente).replace(/%pedido%/g, numPedido).replace(/%link%/g, linkAcomp);
+      const pedAceito = (pedidosCache || []).find(x => x.id === id);
+      const blocoItens = pedAceito ? blocoItensWhats(pedAceito) : '';
+      let msg = modelo.replace(/%cliente%/g, nomeCliente).replace(/%pedido%/g, numPedido).replace(/%link%/g, linkAcomp).replace(/%itens%/g, blocoItens);
+      // Ao aceitar, o cliente recebe também o que comprou (itens, valor de cada um, frete e total)
+      if (novoStatus === 'preparando' && blocoItens && !modelo.includes('%itens%')) {
+        msg += `\n\n${blocoItens}`;
+      }
       if (novoStatus !== 'entregue' && !modelo.includes('%link%')) {
         msg += `\n\nAcompanhe seu pedido: ${linkAcomp}`;
       }
@@ -937,9 +1029,8 @@ async function avancarStatus(id, novoStatus, nomeCliente, telefone, numPedido) {
   }
 
   if (novoStatus === 'preparando') {
-    let imprimirAuto = true;
-    try { imprimirAuto = localStorage.getItem('imprimir_auto_' + restauranteAtual.id) !== 'false'; } catch (e) {}
-    if (imprimirAuto) imprimirComandaPorId(id);
+    const pedParaImprimir = (pedidosCache || []).find(x => x.id === id);
+    if (imprimirAutoPara(pedParaImprimir ? ehComandaPedido(pedParaImprimir) : false)) imprimirComandaPorId(id);
   }
 
   if (paginaAtual === 'pedidos') renderPedidos(); else if (paginaAtual === 'comandas') renderComandas();

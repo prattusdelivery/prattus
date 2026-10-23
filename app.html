@@ -627,15 +627,24 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
   }
   #comanda-print h2{font-size:15px;text-align:center;margin-bottom:2px;}
   #comanda-print .cp-linha{border-top:1px dashed #000;margin:6px 0;}
-  #comanda-print .cp-item{margin-bottom:5px;}
-  #comanda-print .cp-total{font-weight:bold;font-size:14px;margin-top:8px;}
-  /* Letra da impressão: Normal (padrão), Grande e Extra grande — mesmo desenho, só maior */
-  #comanda-print.cp-g{font-size:16px;}
-  #comanda-print.cp-g h2{font-size:20px;}
-  #comanda-print.cp-g .cp-total{font-size:19px;}
-  #comanda-print.cp-xg{font-size:20px;}
-  #comanda-print.cp-xg h2{font-size:25px;}
-  #comanda-print.cp-xg .cp-total{font-size:24px;}
+  /* Itens do pedido (o que a cozinha faz), observações e valor total: sempre em negrito.
+     O tamanho da letra (Normal, Grande, Extra grande, Gigante) vale só para eles;
+     nome do restaurante, endereço, cliente etc. ficam pequenos. */
+  #comanda-print .cp-item{margin-bottom:6px;font-weight:bold;font-size:15px;}
+  #comanda-print .cp-total{font-weight:bold;font-size:17px;margin-top:8px;}
+  #comanda-print.cp-g .cp-item{font-size:18px;}
+  #comanda-print.cp-g .cp-total{font-size:21px;}
+  #comanda-print.cp-xg .cp-item{font-size:22px;}
+  #comanda-print.cp-xg .cp-total{font-size:25px;}
+  #comanda-print.cp-gg .cp-item{font-size:26px;}
+  #comanda-print.cp-gg .cp-total{font-size:27px;}
+  /* "Todo o texto em negrito" (opcional) */
+  #comanda-print.cp-neg, #comanda-print.cp-neg *{font-weight:bold;}
+  /* Número da mesa: bem grande, em negrito, no topo da comanda */
+  #comanda-print .cp-mesa{font-size:46px;font-weight:900;text-align:center;line-height:1.1;border:3px solid #000;padding:6px 0;margin-bottom:8px;}
+  #comanda-print.cp-g .cp-mesa{font-size:50px;}
+  #comanda-print.cp-xg .cp-mesa{font-size:54px;}
+  #comanda-print.cp-gg .cp-mesa{font-size:58px;}
 }
 </style>
 </head>
@@ -1648,6 +1657,8 @@ function iniciarAutoRefresh() {
       toast('🛵 Novo pedido chegou!', 'ok');
     }
     ultimosPedidosIds = novosIds;
+    // Aceita (e imprime) sozinho, se esse aparelho estiver com a chave ligada
+    if (temNovo || lista.length) { try { await autoAceitarPedidos(); } catch (e) {} }
     if (paginaAtual === 'pedidos' || paginaAtual === 'comandas') {
       const posicaoScroll = window.scrollY;
       if (paginaAtual === 'pedidos') await renderPedidos(); else await renderComandas();
@@ -3655,6 +3666,7 @@ async function renderConfig() {
         <div style="font-size:12px;color:var(--texto-muted);margin-top:6px;line-height:1.6;">
           <code style="background:var(--branco);padding:2px 6px;border-radius:4px;">%cliente%</code> — nome do cliente<br>
           <code style="background:var(--branco);padding:2px 6px;border-radius:4px;">%pedido%</code> — código do pedido<br>
+          <code style="background:var(--branco);padding:2px 6px;border-radius:4px;">%itens%</code> — o que o cliente comprou, com o valor de cada item, o frete e o total (ao aceitar o pedido já vai automático; use esta tag só se quiser escolher o lugar)<br>
           <code style="background:var(--branco);padding:2px 6px;border-radius:4px;">%link%</code> — link para o cliente acompanhar o pedido (já vai automático ao final da mensagem; use esta tag só se quiser escolher o lugar)
         </div>
       </div>
@@ -3720,28 +3732,47 @@ async function renderConfig() {
           <span class="toggle-slider"></span>
         </label>
       </div>
-      <div class="form-group" style="display:flex;justify-content:space-between;align-items:center;background:var(--creme);border-radius:10px;padding:14px;margin-top:10px;">
-        <div>
-          <label style="font-weight:700;">🖨️ Imprimir o pedido sozinho ao aceitar</label>
-          <div style="font-size:12px;color:var(--texto-muted);margin-top:2px;">Desligue se esse aparelho não tem impressora: o pedido só aparece na tela, sem abrir a janela de impressão. O botão 🖨️ de cada pedido continua funcionando.</div>
-        </div>
-        <label class="toggle-switch" style="flex-shrink:0;margin-left:14px;">
-          <input type="checkbox" id="cfg-imprimir-auto" ${localStorage.getItem('imprimir_auto_' + restauranteAtual.id) !== 'false' ? 'checked' : ''} onchange="try{localStorage.setItem('imprimir_auto_' + restauranteAtual.id, this.checked ? 'true' : 'false');}catch(e){} toast(this.checked ? 'Impressão automática ligada neste aparelho.' : 'Impressão automática desligada neste aparelho.');">
-          <span class="toggle-slider"></span>
-        </label>
+      <div class="form-group" style="background:var(--creme);border-radius:10px;padding:14px;margin-top:10px;">
+        <label style="font-weight:700;">⚡ Aceitar e imprimir sozinho (só neste aparelho)</label>
+        <div style="font-size:12px;color:var(--texto-muted);margin:2px 0 10px;line-height:1.5;">Escolha separado para <b>delivery</b> e para <b>comandas (mesas)</b>. Funciona no aparelho que está com o sistema aberto (o computador da impressora, por exemplo). O pedido de delivery sempre é aceito por você (por causa das várias formas de pagamento); só a comanda pode ser enviada sozinha para a cozinha.</div>
+        ${(() => {
+          const lig = (chave, padrao) => { try { const v = localStorage.getItem(chave + '_' + restauranteAtual.id); return v === null ? padrao : v === 'true'; } catch (e) { return padrao; } };
+          const imprDel = lig('imprimir_auto', true);
+          const linha = (chave, titulo, ajuda, marcado, aviso) => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--creme-borda);">
+              <div><div style="font-weight:600;font-size:13px;">${titulo}</div><div style="font-size:12px;color:var(--texto-muted);margin-top:2px;">${ajuda}</div></div>
+              <label class="toggle-switch" style="flex-shrink:0;margin-left:14px;">
+                <input type="checkbox" ${marcado ? 'checked' : ''} onchange="try{localStorage.setItem('${chave}_' + restauranteAtual.id, this.checked ? 'true' : 'false');}catch(e){} toast(this.checked ? '${aviso} ligado neste aparelho.' : '${aviso} desligado neste aparelho.', 'ok');">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>`;
+          return `
+            <div style="font-weight:700;font-size:13px;margin-top:4px;">🛵 Pedidos de delivery</div>
+            ${linha('imprimir_auto', 'Imprimir o pedido sozinho ao aceitar', 'Desligue se esse aparelho não tem impressora. O botão 🖨️ de cada pedido continua funcionando.', imprDel, 'Impressão automática (delivery)')}
+            <div style="font-weight:700;font-size:13px;margin-top:12px;">🍽️ Comandas (mesas)</div>
+            ${linha('aceitar_auto_comanda', 'Enviar para a cozinha sozinho', 'O pedido da mesa já vai para "Em preparo" sem esperar o seu clique.', lig('aceitar_auto_comanda', false), 'Envio sozinho (comanda)')}
+            ${linha('imprimir_auto_comanda', 'Imprimir a comanda sozinha', 'Imprime o pedido da mesa, com o número da mesa grande no topo.', lig('imprimir_auto_comanda', imprDel), 'Impressão automática (comanda)')}`;
+        })()}
       </div>
 
       <div class="form-group" style="background:var(--creme);border-radius:10px;padding:14px;margin-top:10px;">
         <label style="font-weight:700;">🔠 Tamanho da letra da impressão</label>
-        <div style="font-size:12px;color:var(--texto-muted);margin:2px 0 8px;">O pedido sai igual, só com a letra maior pra quem enxerga mal. Vale só neste aparelho. Depois de trocar, aperte 🖨️ em um pedido pra ver.</div>
+        <div style="font-size:12px;color:var(--texto-muted);margin:2px 0 8px;">Os itens do pedido e o valor sempre saem em negrito. Aqui você escolhe o tamanho dessa letra (o nome do restaurante e o endereço ficam pequenos). Vale para delivery e comandas, só neste aparelho. Depois de trocar, aperte 🖨️ em um pedido pra ver.</div>
         <select id="cfg-tam-impressao" style="width:100%;" onchange="try{localStorage.setItem('imprimir_tam_' + restauranteAtual.id, this.value);}catch(e){} toast('Tamanho da letra salvo neste aparelho.', 'ok');">
-          ${(() => { let t = 'normal'; try { t = localStorage.getItem('imprimir_tam_' + restauranteAtual.id) || 'normal'; } catch (e) {} return [['normal','Normal'],['grande','Grande'],['extra','Extra grande']].map(o => `<option value="${o[0]}" ${t === o[0] ? 'selected' : ''}>${o[1]}</option>`).join(''); })()}
+          ${(() => { let t = 'normal'; try { t = localStorage.getItem('imprimir_tam_' + restauranteAtual.id) || 'normal'; } catch (e) {} return [['normal','Normal'],['grande','Grande'],['extra','Extra grande'],['gigante','Gigante']].map(o => `<option value="${o[0]}" ${t === o[0] ? 'selected' : ''}>${o[1]}</option>`).join(''); })()}
         </select>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+          <div style="font-size:13px;font-weight:600;">Deixar todo o texto em negrito</div>
+          <label class="toggle-switch" style="flex-shrink:0;margin-left:14px;">
+            <input type="checkbox" ${(() => { try { return localStorage.getItem('imprimir_negrito_' + restauranteAtual.id) === 'true' ? 'checked' : ''; } catch (e) { return ''; } })()} onchange="try{localStorage.setItem('imprimir_negrito_' + restauranteAtual.id, this.checked ? 'true' : 'false');}catch(e){} toast(this.checked ? 'Negrito ligado neste aparelho.' : 'Negrito desligado neste aparelho.', 'ok');">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
       </div>
 
       <div class="form-group" style="margin-top:24px;">
         <label style="font-size:14px;font-weight:700;">Comandas</label>
-        <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Todo pedido de mesa passa por "Aguardando Confirmação" antes do preparo — garante que alguém sempre veja e avise a cozinha.</div>
+        <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Todo pedido de mesa passa por "Aguardando Confirmação" antes do preparo — garante que alguém sempre veja e avise a cozinha. Se preferir, ligue "Enviar para a cozinha sozinho" ali em cima (só no aparelho da cozinha/impressora).</div>
       </div>
 
       <div class="form-group" style="margin-top:24px;">
@@ -4249,13 +4280,12 @@ async function carregarPublico(restId) {
 
   // Fretes no select
   const sel = document.getElementById('ped-bairro');
-  sel.innerHTML = (fretes||[]).map(f => `<option value="${f.bairro}" data-val="${f.valor}">
+  // Começa em branco ("Selecione o bairro"): o cliente escolhe, porque o frete muda com o bairro
+  sel.innerHTML = `<option value="" data-val="0">Selecione o bairro</option>` + (fretes||[]).map(f => `<option value="${f.bairro}" data-val="${f.valor}">
     ${f.bairro} — R$ ${parseFloat(f.valor).toFixed(2).replace('.',',')}
   </option>`).join('');
-  if (fretes && fretes.length) {
-    fretesSelecionado = parseFloat(fretes[0].valor);
-    atualizarCarrinho();
-  }
+  fretesSelecionado = 0;
+  atualizarCarrinho();
 
   const blocoFid = document.getElementById('bloco-fidelidade');
   if (blocoFid) blocoFid.style.display = parseFloat(rest.cashback_percentual || 0) > 0 ? 'block' : 'none';
@@ -5098,6 +5128,18 @@ async function mostrarAcompanhamento(pedidoId) {
             <span style="color:var(--laranja);font-weight:600;">R$ ${(parseFloat(i.preco)*i.quantidade).toFixed(2).replace('.',',')}</span>
           </div>
         `).join('')}
+        ${(() => {
+          // Frete e desconto (só aparecem quando o servidor já manda esses valores)
+          if (!pedido || pedido.frete == null) return '';
+          const din = v => 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.',',');
+          const soma = (pedido.pedido_itens||[]).reduce((s,i) => s + (parseFloat(i.preco)||0) * (i.quantidade||1), 0);
+          const frete = parseFloat(pedido.frete) || 0;
+          const desc = soma + frete - (parseFloat(pedido.total) || 0);
+          let h = '';
+          if (frete > 0) h += `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--creme-borda);font-size:13px;"><span>🛵 Frete (entrega)</span><span style="color:var(--laranja);font-weight:600;">${din(frete)}</span></div>`;
+          if (desc > 0.009) h += `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--creme-borda);font-size:13px;"><span>Desconto</span><span style="color:#0F6E56;font-weight:600;">- ${din(desc)}</span></div>`;
+          return h;
+        })()}
         <div style="display:flex;justify-content:space-between;padding:10px 0 0;font-size:15px;font-weight:700;">
           <span>Total</span>
           <span style="color:var(--laranja);">R$ ${parseFloat(pedido?.total||0).toFixed(2).replace('.',',')}</span>
