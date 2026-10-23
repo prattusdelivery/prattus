@@ -1321,7 +1321,7 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
 <div class="modal-overlay" id="modal-frete">
 <div class="modal">
   <div class="modal-header">
-    <div class="modal-titulo">Novo bairro/frete</div>
+    <div class="modal-titulo" id="frete-titulo">Novo bairro/frete</div>
     <button class="modal-fechar" onclick="fecharModal('modal-frete')">×</button>
   </div>
   <div class="form-group">
@@ -2971,10 +2971,12 @@ async function cardapioEmergencia() {
 async function renderFretes() {
   if (!restauranteAtual) return;
   const { data: fretes } = await db.from('fretes').select('*').eq('restaurante_id', restauranteAtual.id).order('bairro');
+  window._fretesLista = {};
+  (fretes||[]).forEach(f => { window._fretesLista[f.id] = f; });
 
   document.getElementById('conteudo').innerHTML = `
     <div style="margin-bottom:20px;">
-      <button class="btn btn-laranja" style="width:auto;padding:10px 20px" onclick="abrirModal('modal-frete')">+ Novo bairro</button>
+      <button class="btn btn-laranja" style="width:auto;padding:10px 20px" onclick="novoFrete()">+ Novo bairro</button>
     </div>
     <div class="card">
       <div class="card-titulo">Bairros e fretes</div>
@@ -2983,6 +2985,7 @@ async function renderFretes() {
           <div class="frete-row">
             <div style="flex:1;font-size:14px;font-weight:500;">${f.bairro}</div>
             <div style="font-size:14px;font-weight:700;color:var(--laranja)">R$ ${parseFloat(f.valor).toFixed(2).replace('.',',')}</div>
+            <button class="btn-sm" onclick="editarFrete('${f.id}')">Editar</button>
             <button class="btn-sm perigo" onclick="excluirFrete('${f.id}')">Excluir</button>
           </div>
         `).join('')
@@ -2991,15 +2994,38 @@ async function renderFretes() {
   `;
 }
 
+let freteEditandoId = null;
+function novoFrete() {
+  freteEditandoId = null;
+  document.getElementById('frete-titulo').textContent = 'Novo bairro/frete';
+  document.getElementById('frete-bairro').value = '';
+  document.getElementById('frete-valor').value = '';
+  abrirModal('modal-frete');
+}
+function editarFrete(id) {
+  const f = (window._fretesLista || {})[id];
+  if (!f) return;
+  freteEditandoId = id;
+  document.getElementById('frete-titulo').textContent = 'Editar bairro/frete';
+  document.getElementById('frete-bairro').value = f.bairro || '';
+  document.getElementById('frete-valor').value = parseFloat(f.valor);
+  abrirModal('modal-frete');
+}
 async function salvarFrete() {
-  const bairro = document.getElementById('frete-bairro').value;
+  const bairro = document.getElementById('frete-bairro').value.trim();
   const valor = parseFloat(document.getElementById('frete-valor').value);
-  if (!bairro || isNaN(valor)) return;
-  await db.from('fretes').insert({ restaurante_id: restauranteAtual.id, bairro, valor });
+  if (!bairro || isNaN(valor)) { toast('Preencha o bairro e o valor!', 'erro'); return; }
+  if (freteEditandoId) {
+    await db.from('fretes').update({ bairro, valor }).eq('id', freteEditandoId).eq('restaurante_id', restauranteAtual.id);
+  } else {
+    await db.from('fretes').insert({ restaurante_id: restauranteAtual.id, bairro, valor });
+  }
+  const editou = !!freteEditandoId;
+  freteEditandoId = null;
   fecharModal('modal-frete');
   document.getElementById('frete-bairro').value = '';
   document.getElementById('frete-valor').value = '';
-  toast('Bairro salvo!', 'ok');
+  toast(editou ? 'Bairro atualizado!' : 'Bairro salvo!', 'ok');
   renderFretes();
 }
 
