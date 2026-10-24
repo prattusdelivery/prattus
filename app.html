@@ -1771,10 +1771,51 @@ async function toggleDetalhesSA(restauranteId) {
         <button onclick="ativarAssinaturaSA('${restauranteId}')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:#2ea043;color:#fff;border:none;cursor:pointer;">Ativar assinatura</button>
         <button onclick="gerenciarLojaSA('${restauranteId}','desativar')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:#c0392b;color:#fff;border:none;cursor:pointer;">Desativar assinatura</button>
         <button onclick="estenderTesteSA('${restauranteId}')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:var(--laranja);color:#fff;border:none;cursor:pointer;">📅 Ajustar dias de teste</button>
+        <button onclick="redefinirSenhaDonoSA('${restauranteId}')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:#3b4a63;color:#fff;border:none;cursor:pointer;">🔑 Redefinir senha do dono</button>
       </div>
+      <div id="sa-senha-${restauranteId}" style="margin-top:10px;"></div>
     `;
   } catch (e) {
     el.innerHTML = '<span style="color:#e57373;">Erro de conexão.</span>';
+  }
+}
+
+async function redefinirSenhaDonoSA(restauranteId) {
+  const r = restaurantesSA.find(x => x.id === restauranteId);
+  if (!confirm(`Criar uma senha temporária nova pro dono de "${r?.nome || 'essa loja'}"? A senha que ele usa hoje deixa de funcionar.`)) return;
+
+  const caixa = document.getElementById('sa-senha-' + restauranteId);
+  if (caixa) caixa.innerHTML = '<span style="color:rgba(255,255,255,0.6);">Criando a senha...</span>';
+
+  const { data: sessao } = await db.auth.getSession();
+  const tokenAdmin = sessao?.session?.access_token;
+
+  try {
+    const resp = await fetch('/api/super-admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ restauranteId, tokenAdmin, acao: 'redefinir_senha_dono' })
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      if (caixa) caixa.innerHTML = `<span style="color:#e57373;">${data.error || 'Erro ao trocar a senha.'}</span>`;
+      return;
+    }
+    const msgPronta = `Oi! Sua senha temporária do ServiDelivery é: ${data.senhaTemporaria}\nEntre em https://www.servidelivery.com.br/painel com o e-mail ${data.email || '(o seu e-mail)'}.\nDepois de entrar, troque por uma senha sua: clique na sua letra (canto de cima, à direita) e em "Alterar minha senha".`;
+    window._saSenhaMsg = msgPronta;
+    window._saSenhaTemp = data.senhaTemporaria;
+    if (caixa) caixa.innerHTML = `
+      <div style="background:rgba(46,160,67,0.15);border:1px solid #2ea043;border-radius:10px;padding:12px;">
+        <div style="font-size:12px;margin-bottom:6px;color:rgba(255,255,255,0.8);">Senha temporária (aparece só agora, anote ou copie):</div>
+        <div style="font-size:22px;font-weight:700;letter-spacing:1px;color:#fff;font-family:monospace;margin-bottom:8px;">${data.senhaTemporaria}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.7);margin-bottom:8px;">E-mail do dono: <strong>${data.email || '—'}</strong></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button onclick="navigator.clipboard.writeText(window._saSenhaTemp).then(()=>toast('Senha copiada!','ok'))" style="font-size:11px;padding:5px 10px;border-radius:6px;background:#2ea043;color:#fff;border:none;cursor:pointer;">Copiar a senha</button>
+          <button onclick="navigator.clipboard.writeText(window._saSenhaMsg).then(()=>toast('Mensagem copiada! É só colar no WhatsApp.','ok'))" style="font-size:11px;padding:5px 10px;border-radius:6px;background:var(--laranja);color:#fff;border:none;cursor:pointer;">Copiar mensagem pro WhatsApp</button>
+        </div>
+      </div>`;
+  } catch (e) {
+    if (caixa) caixa.innerHTML = '<span style="color:#e57373;">Erro de conexão.</span>';
   }
 }
 
