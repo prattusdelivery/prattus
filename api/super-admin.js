@@ -1,4 +1,5 @@
 import { reportarErro } from './_sentry.js';
+import { randomInt } from 'crypto';
 // Devolve detalhes protegidos de uma loja, ou ativa/desativa/estende teste — só se quem chamar for o Super Admin de verdade.
 const SUPABASE_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
 const ADMIN_EMAIL = 'alessandro.reval@hotmail.com';
@@ -104,6 +105,32 @@ export default async function handler(req, res) {
         body: JSON.stringify({ trial_extra_dias: atual + diasNum })
       });
       return res.status(200).json({ ok: true });
+    }
+
+    if (acao === 'redefinir_senha_dono') {
+      // Cria uma senha temporária nova pro dono da loja (a senha antiga ninguém consegue ver) e devolve só pra você, uma vez.
+      const restResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${encodeURIComponent(restauranteId)}&select=user_id,nome`, { headers: svcHeaders });
+      const restData = await restResp.json();
+      const dono = Array.isArray(restData) ? restData[0] : null;
+      if (!dono || !dono.user_id) return res.status(404).json({ error: 'Restaurante não encontrado.' });
+
+      // Sem letras parecidas (0/O, 1/l/I) pra ficar fácil de ler e digitar
+      const letras = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let senhaTemp = '';
+      for (let i = 0; i < 10; i++) senhaTemp += letras[randomInt(letras.length)];
+
+      const upResp = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${dono.user_id}`, {
+        method: 'PUT', headers: svcHeaders, body: JSON.stringify({ password: senhaTemp })
+      });
+      if (!upResp.ok) {
+        const t = await upResp.json().catch(() => ({}));
+        return res.status(400).json({ error: t?.msg || t?.message || 'Não foi possível trocar a senha.' });
+      }
+
+      let email = null;
+      const authResp = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${dono.user_id}`, { headers: svcHeaders });
+      if (authResp.ok) { const a = await authResp.json(); email = a.email || null; }
+      return res.status(200).json({ ok: true, senhaTemporaria: senhaTemp, email, nome: dono.nome || null });
     }
 
     if (acao === 'criar_restaurante') {
