@@ -916,20 +916,19 @@ function imprimirComanda(p) {
     <div class="cp-item">${i.quantidade}x ${esc(i.nome)}${i.observacao ? `<br>&nbsp;&nbsp;Obs: ${esc(i.observacao)}` : ''}</div>
   `).join('');
 
-  let tamLetra = 'normal', negrito = false;
+  let tamLetra = 'normal';
   try {
     tamLetra = localStorage.getItem('imprimir_tam_' + restauranteAtual.id) || 'normal';
-    negrito = localStorage.getItem('imprimir_negrito_' + restauranteAtual.id) === 'true';
   } catch (e) {}
   document.getElementById('comanda-print').className =
-    (tamLetra === 'gigante' ? 'cp-gg' : tamLetra === 'extra' ? 'cp-xg' : (tamLetra === 'grande' ? 'cp-g' : '')) + (negrito ? ' cp-neg' : '');
+    (tamLetra === 'gigante' ? 'cp-gg' : tamLetra === 'extra' ? 'cp-xg' : (tamLetra === 'grande' ? 'cp-g' : ''));
 
   // Comanda (mesa): o número da mesa vai grande no topo, em negrito
   const ehCom = ehComandaPedido(p);
   const mesa = ehCom ? ((obs.match(/Mesa\s+(\S+)/) || [])[1] || (String(p.endereco || '').match(/Mesa\s+(\S+)/) || [])[1] || '') : '';
   const ehDelivery = /Modo:\s*Delivery/i.test(obs);
   const frete = parseFloat(p.frete) || 0;
-  const linhaFrete = ehDelivery ? `<div>Frete: ${frete > 0 ? 'R$ ' + frete.toFixed(2).replace('.', ',') : 'Grátis'}</div>` : '';
+  const linhaFrete = ehDelivery ? `<div class="cp-info">Frete: ${frete > 0 ? 'R$ ' + frete.toFixed(2).replace('.', ',') : 'Grátis'}</div>` : '';
 
   document.getElementById('comanda-print').innerHTML = `
     ${mesa ? `<div class="cp-mesa">MESA ${esc(mesa)}</div>` : ''}
@@ -937,16 +936,16 @@ function imprimirComanda(p) {
     <div style="text-align:center;">Pedido #${p.id.slice(-4).toUpperCase()}</div>
     <div style="text-align:center;">${dataDoBanco(p.criado_em).toLocaleString('pt-BR')}</div>
     <div class="cp-linha"></div>
-    <div><strong>${esc(modo || (ehCom ? 'Comanda' : ''))}</strong></div>
-    ${ehCom && nome === 'Cliente' ? '' : `<div>Cliente: ${esc(nome)}</div>`}
-    ${telefone ? `<div>Tel: ${esc(telefone)}</div>` : ''}
+    <div class="cp-info">${esc(modo || (ehCom ? 'Comanda' : ''))}</div>
+    ${ehCom && nome === 'Cliente' ? '' : `<div class="cp-info">Cliente: ${esc(nome)}</div>`}
+    ${telefone ? `<div class="cp-info">Tel: ${esc(telefone)}</div>` : ''}
     ${textoAgendamento(p) ? `<div style="text-align:center;font-weight:900;font-size:16px;border:2px solid #000;padding:4px;margin:4px 0;">*** ${tipoAgendamento(p)} AGENDADA PARA ${esc(textoAgendamento(p))} ***</div>` : ''}
-    ${p.endereco ? `<div>End: ${esc(p.endereco)}</div>` : ''}
-    ${p.bairro ? `<div>Bairro: ${esc(p.bairro)}</div>` : ''}
+    ${p.endereco ? `<div class="cp-info">End: ${esc(p.endereco)}</div>` : ''}
+    ${p.bairro ? `<div class="cp-info">Bairro: ${esc(p.bairro)}</div>` : ''}
     <div class="cp-linha"></div>
     ${itensHtml}
     <div class="cp-linha"></div>
-    <div>Pagamento: ${esc(pagamento)}</div>
+    <div class="cp-info">Pagamento: ${esc(pagamento)}</div>
     ${obsGeral ? `<div class="cp-item">Obs geral: ${esc(obsGeral)}</div>` : ''}
     ${linhaFrete}
     <div class="cp-total">TOTAL: R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>

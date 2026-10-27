@@ -627,19 +627,20 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
   }
   #comanda-print h2{font-size:15px;text-align:center;margin-bottom:2px;}
   #comanda-print .cp-linha{border-top:1px dashed #000;margin:6px 0;}
-  /* Itens do pedido (o que a cozinha faz), observações e valor total: sempre em negrito.
-     O tamanho da letra (Normal, Grande, Extra grande, Gigante) vale só para eles;
-     nome do restaurante, endereço, cliente etc. ficam pequenos. */
-  #comanda-print .cp-item{margin-bottom:6px;font-weight:bold;font-size:15px;}
-  #comanda-print .cp-total{font-weight:bold;font-size:17px;margin-top:8px;}
-  #comanda-print.cp-g .cp-item{font-size:18px;}
+  /* TUDO sai em negrito (fica mais fácil de ler). O tamanho da letra (Normal, Grande,
+     Extra grande, Gigante) vale para itens, observações, valor total e também para os
+     dados de entrega (cliente, telefone, endereço, bairro, pagamento, frete), para o
+     motoboy enxergar bem. Só o nome do restaurante, o número e a data ficam menores. */
+  #comanda-print, #comanda-print *{font-weight:bold;}
+  #comanda-print .cp-item{margin-bottom:6px;font-size:15px;}
+  #comanda-print .cp-info{margin-bottom:3px;font-size:15px;line-height:1.25;}
+  #comanda-print .cp-total{font-size:17px;margin-top:8px;}
+  #comanda-print.cp-g .cp-item, #comanda-print.cp-g .cp-info{font-size:18px;}
   #comanda-print.cp-g .cp-total{font-size:21px;}
-  #comanda-print.cp-xg .cp-item{font-size:22px;}
+  #comanda-print.cp-xg .cp-item, #comanda-print.cp-xg .cp-info{font-size:22px;}
   #comanda-print.cp-xg .cp-total{font-size:25px;}
-  #comanda-print.cp-gg .cp-item{font-size:26px;}
+  #comanda-print.cp-gg .cp-item, #comanda-print.cp-gg .cp-info{font-size:26px;}
   #comanda-print.cp-gg .cp-total{font-size:27px;}
-  /* "Todo o texto em negrito" (opcional) */
-  #comanda-print.cp-neg, #comanda-print.cp-neg *{font-weight:bold;}
   /* Número da mesa: bem grande, em negrito, no topo da comanda */
   #comanda-print .cp-mesa{font-size:46px;font-weight:900;text-align:center;line-height:1.1;border:3px solid #000;padding:6px 0;margin-bottom:8px;}
   #comanda-print.cp-g .cp-mesa{font-size:50px;}
@@ -3100,7 +3101,7 @@ async function renderCupons() {
           <div class="frete-row">
             <div style="flex:1;">
               <div style="font-size:14px;font-weight:700;letter-spacing:1px;">${c.codigo}</div>
-              <div style="font-size:12px;color:var(--texto-muted);">${c.desconto_percent ? c.desconto_percent+'% de desconto' : 'R$ '+parseFloat(c.desconto_fixo||0).toFixed(2)+' de desconto'}</div>
+              <div style="font-size:12px;color:var(--texto-muted);">${c.desconto_percent ? c.desconto_percent+'% de desconto' : 'R$ '+parseFloat(c.desconto_fixo||0).toFixed(2).replace('.',',')+' de desconto'}</div>
             </div>
             <span style="font-size:11px;padding:3px 8px;border-radius:10px;background:${c.ativo?'#E1F5EE':'#F1EFE8'};color:${c.ativo?'#0F6E56':'#5F5E5A'}">${c.ativo?'Ativo':'Inativo'}</span>
             <button class="btn-sm" onclick="copiarTextoCupom('${esc(c.codigo)}',${c.desconto_percent||'null'},${c.desconto_fixo||'null'})">📋 Copiar texto</button>
@@ -3405,7 +3406,7 @@ async function removerFuncionario(vinculoId) {
   }
 }
 async function salvarCupom() {
-  const codigo = document.getElementById('cupom-codigo').value.toUpperCase();
+  const codigo = document.getElementById('cupom-codigo').value.trim().toUpperCase();
   const tipo = document.getElementById('cupom-tipo').value;
   const valor = parseFloat(document.getElementById('cupom-valor').value) || 0;
   if (!codigo) return;
@@ -3830,17 +3831,10 @@ async function renderConfig() {
 
       <div class="form-group" style="background:var(--creme);border-radius:10px;padding:14px;margin-top:10px;">
         <label style="font-weight:700;">🔠 Tamanho da letra da impressão</label>
-        <div style="font-size:12px;color:var(--texto-muted);margin:2px 0 8px;">Os itens do pedido e o valor sempre saem em negrito. Aqui você escolhe o tamanho dessa letra (o nome do restaurante e o endereço ficam pequenos). Vale para delivery e comandas, só neste aparelho. Depois de trocar, aperte 🖨️ em um pedido pra ver.</div>
+        <div style="font-size:12px;color:var(--texto-muted);margin:2px 0 8px;">Tudo sai em negrito. Aqui você escolhe o tamanho da letra dos itens, do valor e dos dados de entrega (cliente, telefone, endereço e bairro). Vale para delivery e comandas, só neste aparelho. Depois de trocar, aperte 🖨️ em um pedido pra ver.</div>
         <select id="cfg-tam-impressao" style="width:100%;" onchange="try{localStorage.setItem('imprimir_tam_' + restauranteAtual.id, this.value);}catch(e){} toast('Tamanho da letra salvo neste aparelho.', 'ok');">
           ${(() => { let t = 'normal'; try { t = localStorage.getItem('imprimir_tam_' + restauranteAtual.id) || 'normal'; } catch (e) {} return [['normal','Normal'],['grande','Grande'],['extra','Extra grande'],['gigante','Gigante']].map(o => `<option value="${o[0]}" ${t === o[0] ? 'selected' : ''}>${o[1]}</option>`).join(''); })()}
         </select>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
-          <div style="font-size:13px;font-weight:600;">Deixar todo o texto em negrito</div>
-          <label class="toggle-switch" style="flex-shrink:0;margin-left:14px;">
-            <input type="checkbox" ${(() => { try { return localStorage.getItem('imprimir_negrito_' + restauranteAtual.id) === 'true' ? 'checked' : ''; } catch (e) { return ''; } })()} onchange="try{localStorage.setItem('imprimir_negrito_' + restauranteAtual.id, this.checked ? 'true' : 'false');}catch(e){} toast(this.checked ? 'Negrito ligado neste aparelho.' : 'Negrito desligado neste aparelho.', 'ok');">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
       </div>
 
       <div class="form-group" style="margin-top:24px;">
@@ -3866,7 +3860,7 @@ async function renderConfig() {
         <div class="form-group"><label>CEP</label><input type="text" id="cfg-end-cep" value="${esc(r.endereco_cep||'')}" placeholder="00000-000"></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div class="form-group"><label>Cor principal (hex)</label><input type="color" id="cfg-cor" value="${r.cor_primaria||'#E86339'}"></div>
+        <div class="form-group"><label>Cor principal</label><input type="color" id="cfg-cor" value="${r.cor_primaria||'#E86339'}" style="width:100%;height:44px;padding:4px;cursor:pointer;"></div>
         <div class="form-group">
           <label>Tema do cardápio</label>
           <select id="cfg-tema">
@@ -6352,7 +6346,7 @@ function abrirCaixaDialogo({ titulo, descricao, campos, textoBotao, aoConfirmar 
   const fundo = document.createElement('div');
   fundo.id = 'caixa-dialogo';
   fundo.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:5000;display:flex;align-items:center;justify-content:center;padding:20px;font-family:var(--font-body,system-ui,sans-serif);';
-  const estiloInput = 'width:100%;padding:11px 14px;border:1px solid #E8DFD3;border-radius:8px;font-size:14px;color:#231914;background:#fff;outline:none;';
+  const estiloInput = 'width:100%;box-sizing:border-box;padding:11px 14px;border:1px solid #E8DFD3;border-radius:8px;font-size:14px;color:#231914;background:#fff;outline:none;';
   fundo.innerHTML = `
     <div style="background:#fff;color:#231914;border-radius:16px;padding:24px;width:100%;max-width:400px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px -16px rgba(0,0,0,0.5);">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px;">
