@@ -913,10 +913,6 @@ function imprimirComanda(p) {
   const pagamento = (obs.match(/Pagamento:\s*([^\n]+)/) || [])[1]?.trim() || '';
   const obsGeral = (obs.match(/Obs:\s*([^\n]+)/) || [])[1]?.trim() || '';
 
-  const itensHtml = (p.pedido_itens||[]).map(i => `
-    <div class="cp-item">${i.quantidade}x ${esc(i.nome)}${i.observacao ? `<br>&nbsp;&nbsp;Obs: ${esc(i.observacao)}` : ''}</div>
-  `).join('');
-
   let tamLetra = 'normal';
   try {
     tamLetra = localStorage.getItem('imprimir_tam_' + restauranteAtual.id) || 'normal';
@@ -929,27 +925,92 @@ function imprimirComanda(p) {
   const mesa = ehCom ? ((obs.match(/Mesa\s+(\S+)/) || [])[1] || (String(p.endereco || '').match(/Mesa\s+(\S+)/) || [])[1] || '') : '';
   const ehDelivery = /Modo:\s*Delivery/i.test(obs);
   const frete = parseFloat(p.frete) || 0;
+
+  // Impressão anterior: continua igual nas outras lojas até a impressão nova ser aprovada.
+  if (!usarTelaPedidosNova()) {
+    const itensHtml = (p.pedido_itens||[]).map(i => `
+      <div class="cp-item">${i.quantidade}x ${esc(i.nome)}${i.observacao ? `<br>&nbsp;&nbsp;Obs: ${esc(i.observacao)}` : ''}</div>
+    `).join('');
   const linhaFrete = ehDelivery ? `<div class="cp-info">Frete: ${frete > 0 ? 'R$ ' + frete.toFixed(2).replace('.', ',') : 'Grátis'}</div>` : '';
+    document.getElementById('comanda-print').innerHTML = `
+      ${mesa ? `<div class="cp-mesa">MESA ${esc(mesa)}</div>` : ''}
+      <h2>${esc(restauranteAtual?.nome) || 'Pedido'}</h2>
+      <div style="text-align:center;">Pedido #${p.id.slice(-4).toUpperCase()}</div>
+      <div style="text-align:center;">${dataDoBanco(p.criado_em).toLocaleString('pt-BR')}</div>
+      <div class="cp-linha"></div>
+      <div class="cp-info">${esc(modo || (ehCom ? 'Comanda' : ''))}</div>
+      ${ehCom && nome === 'Cliente' ? '' : `<div class="cp-info">Cliente: ${esc(nome)}</div>`}
+      ${telefone ? `<div class="cp-info">Tel: ${esc(telefone)}</div>` : ''}
+      ${textoAgendamento(p) ? `<div style="text-align:center;font-weight:900;font-size:16px;border:2px solid #000;padding:4px;margin:4px 0;">*** ${tipoAgendamento(p)} AGENDADA PARA ${esc(textoAgendamento(p))} ***</div>` : ''}
+      ${p.endereco ? `<div class="cp-info">End: ${esc(p.endereco)}</div>` : ''}
+      ${p.bairro ? `<div class="cp-info">Bairro: ${esc(p.bairro)}</div>` : ''}
+      <div class="cp-linha"></div>
+      ${itensHtml}
+      <div class="cp-linha"></div>
+      <div class="cp-info">Pagamento: ${esc(pagamento)}</div>
+      ${obsGeral ? `<div class="cp-item">Obs geral: ${esc(obsGeral)}</div>` : ''}
+      ${linhaFrete}
+      <div class="cp-total">TOTAL: R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
+    `;
+    window.print();
+    return;
+  }
+
+  const reais = v => 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ',');
+  const ret = ehRetirada(p);
+  const itens = p.pedido_itens || [];
+  const subtotal = itens.reduce((t, i) => t + (parseFloat(i.preco) || 0) * (parseInt(i.quantidade) || 1), 0);
+  const totalPedido = parseFloat(p.total) || 0;
+  const desconto = Math.round((subtotal + frete - totalPedido) * 100) / 100;
+  const itensHtml = itens.map(i => `
+    <div class="cp-par cp-item"><span>${parseInt(i.quantidade) || 1}x ${esc(i.nome)}</span><span>${reais((parseFloat(i.preco) || 0) * (parseInt(i.quantidade) || 1))}</span></div>
+    ${i.observacao ? `<div class="cp-info">&nbsp;&nbsp;Obs: ${esc(i.observacao)}</div>` : ''}
+  `).join('');
+
+  const tipoPedido = ehCom ? 'COMANDA' : (ret ? 'RETIRADA' : 'ENTREGA');
+  const d = dadosPagamento(p);
+  let blocoPagamento = '';
+  if (d) {
+    const forma = d.pago ? (d.online === 'NO CARTÃO' ? 'Cartão online' : 'Pix online') : d.forma;
+    const aviso = d.pago ? 'NÃO COBRAR (JÁ PAGO)' : (d.pixManual ? 'CONFERIR O COMPROVANTE DO PIX' : 'COBRAR DO CLIENTE');
+    let troco = '';
+    if (!d.pago && d.dinheiro) {
+      troco = d.trocoPara
+        ? `<div class="cp-par cp-info"><span>Troco para</span><span>${reais(d.trocoPara)}</span></div><div class="cp-par cp-info"><span>Levar de troco</span><span>${reais(Math.max(0, d.trocoPara - d.total))}</span></div>`
+        : `<div class="cp-info">Sem troco</div>`;
+    }
+    blocoPagamento = `<div class="cp-linha"></div><div class="cp-tit">PAGAMENTO</div><div class="cp-info">${esc(forma)}</div><div class="cp-caixa">${aviso}</div>${troco}`;
+  } else if (pagamento) {
+    blocoPagamento = `<div class="cp-linha"></div><div class="cp-tit">PAGAMENTO</div><div class="cp-info">${esc(pagamento)}</div>`;
+  }
+
+  const temCliente = ehCom ? (nome !== 'Cliente' || !!telefone) : true;
+  const blocoCliente = temCliente ? `
+    <div class="cp-linha"></div>
+    <div class="cp-tit">CLIENTE</div>
+    ${ehCom && nome === 'Cliente' ? '' : `<div class="cp-info">${esc(nome)}</div>`}
+    ${telefone ? `<div class="cp-info">Tel: ${esc(telefone)}</div>` : ''}
+    ${p.endereco && !ehCom ? `<div class="cp-info">${ret ? '' : 'End: '}${esc(p.endereco)}</div>` : ''}
+    ${p.bairro ? `<div class="cp-info">Bairro: ${esc(p.bairro)}</div>` : ''}` : '';
 
   document.getElementById('comanda-print').innerHTML = `
     ${mesa ? `<div class="cp-mesa">MESA ${esc(mesa)}</div>` : ''}
     <h2>${esc(restauranteAtual?.nome) || 'Pedido'}</h2>
     <div style="text-align:center;">Pedido #${p.id.slice(-4).toUpperCase()}</div>
-    <div style="text-align:center;">${dataDoBanco(p.criado_em).toLocaleString('pt-BR')}</div>
-    <div class="cp-linha"></div>
-    <div class="cp-info">${esc(modo || (ehCom ? 'Comanda' : ''))}</div>
-    ${ehCom && nome === 'Cliente' ? '' : `<div class="cp-info">Cliente: ${esc(nome)}</div>`}
-    ${telefone ? `<div class="cp-info">Tel: ${esc(telefone)}</div>` : ''}
+    <div style="text-align:center;">${dataDoBanco(p.criado_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+    <div class="cp-caixa">${tipoPedido}</div>
     ${textoAgendamento(p) ? `<div style="text-align:center;font-weight:900;font-size:16px;border:2px solid #000;padding:4px;margin:4px 0;">*** ${tipoAgendamento(p)} AGENDADA PARA ${esc(textoAgendamento(p))} ***</div>` : ''}
-    ${p.endereco ? `<div class="cp-info">End: ${esc(p.endereco)}</div>` : ''}
-    ${p.bairro ? `<div class="cp-info">Bairro: ${esc(p.bairro)}</div>` : ''}
     <div class="cp-linha"></div>
+    <div class="cp-tit">ITENS</div>
     ${itensHtml}
+    ${obsGeral ? `<div class="cp-info" style="margin-top:4px;">Obs do pedido: ${esc(obsGeral)}</div>` : ''}
+    ${blocoCliente}
+    ${blocoPagamento}
     <div class="cp-linha"></div>
-    <div class="cp-info">Pagamento: ${esc(pagamento)}</div>
-    ${obsGeral ? `<div class="cp-item">Obs geral: ${esc(obsGeral)}</div>` : ''}
-    ${linhaFrete}
-    <div class="cp-total">TOTAL: R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
+    <div class="cp-par cp-info"><span>Subtotal</span><span>${reais(subtotal)}</span></div>
+    ${ehDelivery ? `<div class="cp-par cp-info"><span>Frete</span><span>${frete > 0 ? reais(frete) : 'Grátis'}</span></div>` : ''}
+    ${desconto > 0.009 ? `<div class="cp-par cp-info"><span>Desconto</span><span>- ${reais(desconto)}</span></div>` : ''}
+    <div class="cp-par cp-total"><span>TOTAL</span><span>${reais(totalPedido)}</span></div>
   `;
   window.print();
 }
@@ -1250,6 +1311,7 @@ function pnMinutos(iso) {
 function pnTempoTxt(min) {
   if (min < 1) return 'agora mesmo';
   if (min < 60) return 'há ' + min + ' min';
+  if (min >= 1440) { const d = Math.floor(min / 1440); return 'há ' + d + (d === 1 ? ' dia' : ' dias'); }
   const h = Math.floor(min / 60), m = min % 60;
   return 'há ' + h + 'h' + (m > 0 ? m + 'min' : '');
 }
@@ -1274,7 +1336,7 @@ function pnTempo(p) {
   else if (p.status === 'preparando') { m = pnMinutos(p.aceito_em || p.criado_em); rot = 'Em preparo '; }
   else if (p.status === 'entrega') { m = pnMinutos(p.saiu_entrega_em || p.aceito_em || p.criado_em); rot = 'Saiu '; }
   if (m === null) return null;
-  return { txt: rot + pnTempoTxt(m), alerta: p.status === 'novo' && m >= 10 && !textoAgendamento(p) };
+  return { txt: rot + pnTempoTxt(m), alerta: (p.status === 'novo' && m >= 10 && !textoAgendamento(p)) || (p.status !== 'novo' && m >= 90) };
 }
 
 function pnBotaoPrincipal(p) {

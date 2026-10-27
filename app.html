@@ -641,6 +641,12 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
   #comanda-print.cp-xg .cp-total{font-size:25px;}
   #comanda-print.cp-gg .cp-item, #comanda-print.cp-gg .cp-info{font-size:26px;}
   #comanda-print.cp-gg .cp-total{font-size:27px;}
+  /* Títulos de bloco (Itens, Cliente, Pagamento), linhas com valor à direita e caixas de destaque.
+     Tudo com borda (não com fundo preto), porque o Chrome não imprime cor de fundo por padrão. */
+  #comanda-print .cp-tit{font-size:13px;letter-spacing:1px;border:2px solid #000;padding:1px 8px;display:inline-block;margin:2px 0 6px;}
+  #comanda-print .cp-par{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  #comanda-print .cp-par > span:last-child{white-space:nowrap;}
+  #comanda-print .cp-caixa{text-align:center;border:3px solid #000;padding:5px 2px;margin:6px 0;font-size:19px;line-height:1.2;}
   /* Número da mesa: bem grande, em negrito, no topo da comanda */
   #comanda-print .cp-mesa{font-size:46px;font-weight:900;text-align:center;line-height:1.1;border:3px solid #000;padding:6px 0;margin-bottom:8px;}
   #comanda-print.cp-g .cp-mesa{font-size:50px;}
