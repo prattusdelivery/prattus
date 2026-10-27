@@ -513,6 +513,7 @@ async function renderPedidos() {
   const ehComanda = p => !!p.codigo_comanda_id || (p.observacao||'').includes('Modo: Consumir no local');
   const lista = (pedidos || []).filter(p => !ehComanda(p));
   pedidosCache = lista;
+  if (usarTelaPedidosNova()) { renderPedidosNovo(lista); return; }
   const novos = lista.filter(p => p.status === 'novo');
   const preparando = lista.filter(p => p.status === 'preparando');
   const finalizados = lista.filter(p => p.status === 'entrega' || p.status === 'entregue');
@@ -1169,4 +1170,318 @@ async function abrirLeitorQr() {
     setTimeout(tentarLer, 250);
   }
   tentarLer();
+}
+
+
+// ===================================================================
+// TELA DE PEDIDOS NOVA (mais simples e limpa)
+// Por enquanto aparece só na loja demo (slug servidelivery-demo), até o dono aprovar.
+// Para ligar/desligar num aparelho: localStorage.setItem('tela_pedidos_nova','true' ou 'false').
+// ===================================================================
+function usarTelaPedidosNova() {
+  try {
+    const v = localStorage.getItem('tela_pedidos_nova');
+    if (v === 'true') return true;
+    if (v === 'false') return false;
+  } catch (e) {}
+  return restauranteAtual?.slug === 'servidelivery-demo';
+}
+
+var pnFiltro = 'todos', pnBusca = '', pnTimer = null, pnTeclaEsc = false;
+
+function pnInjetarCss() {
+  if (document.getElementById('css-pedidos-novo')) return;
+  const st = document.createElement('style');
+  st.id = 'css-pedidos-novo';
+  st.textContent = `
+.pn-topo{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+.pn-chips{display:flex;gap:8px;flex-wrap:wrap;}
+.pn-chip{font-family:inherit;font-size:13px;font-weight:500;padding:9px 16px;min-height:40px;border-radius:20px;border:1px solid #D9CBBB;background:#fff;color:var(--texto);cursor:pointer;}
+.pn-chip.on{background:var(--texto);color:#fff;border-color:var(--texto);}
+.pn-busca{width:300px;max-width:100%;box-sizing:border-box;padding:10px 14px;border:1px solid #D9CBBB;border-radius:10px;font-size:14px;font-family:inherit;background:#fff;color:var(--texto);}
+.pn-ag{background:#FFF1D6;border-radius:10px;padding:10px 14px;margin-bottom:14px;color:#7A4300;}
+.pn-ag-topo{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:13px;font-weight:600;}
+.pn-ag-linha{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border-radius:8px;padding:8px 10px;margin-top:8px;font-size:13px;color:var(--texto);}
+.pn-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start;}
+.pn-col{display:flex;flex-direction:column;gap:12px;min-width:0;}
+.pn-coltit{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;padding:2px 4px;}
+.pn-cnt{font-size:12px;font-weight:600;background:var(--creme-borda);border-radius:10px;padding:1px 9px;}
+.pn-vazio{font-size:13px;color:#6B5B50;text-align:center;padding:22px 8px;border:1px dashed #D9CBBB;border-radius:12px;}
+.pn-card{background:#fff;border:1px solid var(--creme-borda);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;}
+.pn-lin{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+.pn-nome{font-size:16px;font-weight:600;word-break:break-word;}
+.pn-valor{font-size:16px;font-weight:700;white-space:nowrap;}
+.pn-sub{font-size:13px;color:#6B5B50;}
+.pn-pag{font-size:13px;font-weight:600;border-radius:8px;padding:8px 10px;line-height:1.35;}
+.pn-pag.ok{background:#E3F4EE;color:#0B5C47;}
+.pn-pag.cobrar{background:#FFF1D6;color:#7A4300;}
+.pn-pag.pix{background:#FDE8DC;color:#8F3010;}
+.pn-tempo{font-size:12px;color:#6B5B50;}
+.pn-tempo.alerta{color:#8F3010;font-weight:600;}
+.pn-btn{font-family:inherit;font-size:15px;font-weight:600;color:#fff;border:none;border-radius:10px;padding:12px 14px;min-height:44px;cursor:pointer;}
+.pn-btn.verde{background:var(--verde);}
+.pn-btn.laranja{background:#C8481F;}
+.pn-btn.escuro{background:var(--texto);}
+.pn-btn.zap{background:#fff;color:#0B5C47;border:1.5px solid var(--verde);font-size:13px;padding:8px 14px;min-height:40px;}
+.pn-btn.claro{background:#fff;color:var(--texto);border:1.5px solid #D9CBBB;font-size:14px;}
+.pn-links{display:flex;justify-content:flex-start;align-items:center;gap:16px;flex-wrap:wrap;}
+.pn-link{font-family:inherit;font-size:13px;color:#6B5B50;background:none;border:none;cursor:pointer;padding:6px 0;text-decoration:underline;}
+.pn-link.perigo{color:#8F3010;margin-left:auto;}
+.pn-nota{font-size:12px;color:#6B5B50;padding:4px;line-height:1.5;}
+.pn-fundo{position:fixed;inset:0;background:rgba(35,25,20,.45);z-index:9000;display:flex;justify-content:flex-end;}
+.pn-gaveta{background:#fff;width:520px;max-width:100%;height:100%;overflow-y:auto;box-sizing:border-box;padding:24px 28px;display:flex;flex-direction:column;}
+.pn-bloco{border-top:1px solid var(--creme-borda);padding:14px 0;}
+.pn-rot{font-size:12px;font-weight:600;letter-spacing:.6px;color:#6B5B50;margin-bottom:6px;}
+.pn-item{display:flex;justify-content:space-between;gap:12px;font-size:14px;padding:3px 0;}
+.pn-chipinfo{font-size:12px;font-weight:600;background:var(--creme-borda);border-radius:12px;padding:3px 12px;}
+.pn-chipinfo.alerta{background:#FDE8DC;color:#8F3010;}
+@media(max-width:900px){.pn-grid{grid-template-columns:1fr;}.pn-gaveta{padding:20px;}.pn-busca{width:100%;}}
+`;
+  document.head.appendChild(st);
+}
+
+function pnReais(v) { return 'R$\u00a0' + (parseFloat(v) || 0).toFixed(2).replace('.', ','); }
+function pnNome(p) { return ((p.observacao || '').match(/Nome:\s*([^\n]+)/) || [])[1]?.trim() || 'Cliente'; }
+function pnQtd(p) { return (p.pedido_itens || []).reduce((s, i) => s + (parseInt(i.quantidade) || 1), 0); }
+function pnMinutos(iso) {
+  const d = iso ? dataDoBanco(iso) : null;
+  return d ? Math.max(0, Math.floor((Date.now() - d.getTime()) / 60000)) : null;
+}
+function pnTempoTxt(min) {
+  if (min < 1) return 'agora mesmo';
+  if (min < 60) return 'há ' + min + ' min';
+  const h = Math.floor(min / 60), m = min % 60;
+  return 'há ' + h + 'h' + (m > 0 ? m + 'min' : '');
+}
+
+// Uma linha só dizendo o que fazer com o dinheiro
+function pnPagamento(p) {
+  const d = dadosPagamento(p);
+  if (!d) return null;
+  if (d.pago) return { cls: 'ok', txt: 'Pago ' + (d.online === 'NO CARTÃO' ? 'no cartão' : 'no Pix') + ' · não cobrar' };
+  if (d.pixManual) return { cls: 'pix', txt: 'Conferir o comprovante do Pix antes de liberar · ' + pnReais(d.total) };
+  if (d.dinheiro) {
+    let t = 'Cobrar ' + pnReais(d.total) + ' em dinheiro';
+    t += d.trocoPara ? ' · troco para ' + pnReais(d.trocoPara) + ' (levar ' + pnReais(Math.max(0, d.trocoPara - d.total)) + ')' : ' · sem troco';
+    return { cls: 'cobrar', txt: t };
+  }
+  return { cls: 'cobrar', txt: 'Cobrar ' + pnReais(d.total) + ' na maquininha · ' + d.forma };
+}
+
+function pnTempo(p) {
+  let m = null, rot = '';
+  if (p.status === 'novo') { m = pnMinutos(p.criado_em); rot = 'Chegou '; }
+  else if (p.status === 'preparando') { m = pnMinutos(p.aceito_em || p.criado_em); rot = 'Em preparo '; }
+  else if (p.status === 'entrega') { m = pnMinutos(p.saiu_entrega_em || p.aceito_em || p.criado_em); rot = 'Saiu '; }
+  if (m === null) return null;
+  return { txt: rot + pnTempoTxt(m), alerta: p.status === 'novo' && m >= 10 && !textoAgendamento(p) };
+}
+
+function pnBotaoPrincipal(p) {
+  if (meuPapel === 'garcom') return '';
+  const tel = String(extrairTelefone(p) || '').replace(/['"\\<>]/g, '');
+  const nome = pnNome(p).replace(/['"\\<>]/g, '');
+  const num = p.id.slice(-4).toUpperCase();
+  const ret = ehRetirada(p);
+  if (p.status === 'novo') return `<button class="pn-btn verde" onclick="pnFecharGaveta();avancarStatus('${p.id}','preparando','${nome}','${tel}','${num}')">Aceitar pedido</button>`;
+  if (p.status === 'preparando') return `<button class="pn-btn laranja" onclick="pnFecharGaveta();avancarStatus('${p.id}','entrega','${nome}','${tel}','${num}')">${ret ? 'Pronto para o cliente retirar' : 'Pronto, saiu para entrega'}</button>`;
+  if (p.status === 'entrega') return `<button class="pn-btn escuro" onclick="pnFecharGaveta();mudarStatus('${p.id}','entregue')">${ret ? 'Cliente retirou o pedido' : 'Marcar como entregue'}</button>`;
+  return '';
+}
+
+function pnRecusar(id) {
+  if (!confirm('Recusar este pedido?')) return;
+  pnFecharGaveta();
+  mudarStatus(id, 'cancelado');
+}
+
+function pnCard(p) {
+  const ag = textoAgendamento(p);
+  const ret = ehRetirada(p);
+  const qtd = pnQtd(p);
+  const partes = [ag ? (ret ? 'Retirada' : 'Entrega') + ' agendada para ' + ag : (ret ? 'Retirada' : 'Entrega')];
+  if (!ret && p.bairro && String(p.bairro).trim()) partes.push(p.bairro);
+  partes.push(qtd + (qtd === 1 ? ' item' : ' itens'));
+  const pag = pnPagamento(p);
+  const tp = pnTempo(p);
+  return `
+    <div class="pn-card">
+      <div class="pn-lin"><div class="pn-nome">${esc(pnNome(p))}</div><div class="pn-valor">${pnReais(p.total)}</div></div>
+      <div class="pn-sub">${partes.map(esc).join(' · ')}</div>
+      ${pag ? `<div class="pn-pag ${pag.cls}">${esc(pag.txt)}</div>` : ''}
+      ${tp ? `<div class="pn-tempo${tp.alerta ? ' alerta' : ''}">${esc(tp.txt)}</div>` : ''}
+      ${pnBotaoPrincipal(p)}
+      <div class="pn-links">
+        <button class="pn-link" onclick="pnDetalhes('${p.id}')">Ver detalhes</button>
+        <button class="pn-link" onclick="imprimirComandaPorId('${p.id}')">Imprimir</button>
+        ${p.status === 'novo' && meuPapel !== 'garcom' ? `<button class="pn-link perigo" onclick="pnRecusar('${p.id}')">Recusar</button>` : ''}
+      </div>
+    </div>`;
+}
+
+function pnAtualizarColunas() {
+  const alvo = document.getElementById('pn-colunas');
+  if (!alvo) return;
+  const q = (pnBusca || '').trim().toLowerCase().replace(/^#/, '');
+  const qd = q.replace(/\D/g, '');
+  let lista = (pedidosCache || []).filter(p => ['novo', 'preparando', 'entrega'].includes(p.status));
+  if (pnFiltro === 'entregas') lista = lista.filter(p => !ehRetirada(p));
+  if (pnFiltro === 'retirada') lista = lista.filter(p => ehRetirada(p));
+  if (q) lista = lista.filter(p =>
+    pnNome(p).toLowerCase().includes(q) ||
+    p.id.slice(-4).toLowerCase().includes(q) ||
+    (qd && String(extrairTelefone(p) || '').replace(/\D/g, '').includes(qd)));
+  const novos = lista.filter(p => p.status === 'novo');
+  const prep = lista.filter(p => p.status === 'preparando');
+  const cam = lista.filter(p => p.status === 'entrega');
+  const col = (titulo, arr, vazio, nota) => `
+    <div class="pn-col">
+      <div class="pn-coltit">${titulo} <span class="pn-cnt">${arr.length}</span></div>
+      ${arr.length ? arr.map(pnCard).join('') : `<div class="pn-vazio">${vazio}</div>`}
+      ${nota || ''}
+    </div>`;
+  const nota = `<div class="pn-nota">Pedido entregue sai desta tela${meuPapel === 'dono' ? ' e fica guardado no <button class="pn-link" style="padding:0;font-size:12px;" onclick="pnIrHistorico()">Histórico de pedidos</button>' : ''}.</div>`;
+  alvo.innerHTML = `<div class="pn-grid">
+    ${col('Novos', novos, 'Nenhum pedido novo')}
+    ${col('Em preparo', prep, 'Nenhum pedido em preparo')}
+    ${col('A caminho', cam, 'Nenhum pedido a caminho', nota)}
+  </div>`;
+}
+
+function pnIrHistorico() {
+  const el = document.querySelector('[onclick="irPara(\'historico\')"]');
+  if (el) el.click(); else irPara('historico');
+}
+function pnFiltrar(f) {
+  pnFiltro = f;
+  document.querySelectorAll('.pn-chip').forEach(b => b.classList.toggle('on', b.dataset.f === f));
+  pnAtualizarColunas();
+}
+function pnBuscar(v) { pnBusca = v || ''; pnAtualizarColunas(); }
+
+function pnFaixaAgendados(lista) {
+  const h = new Date();
+  const ativos = (lista || []).filter(p => p.status === 'novo' || p.status === 'preparando');
+  const comData = ativos.map(p => ({ p, ag: dataDoAgendamento(p) })).filter(x => x.ag);
+  const hoje = comData.filter(x => x.ag.dia === h.getDate() && x.ag.mes === h.getMonth() + 1 && x.ag.ano === h.getFullYear())
+    .sort((a, b) => a.ag.hora.localeCompare(b.ag.hora));
+  const outros = comData.length - hoje.length;
+  if (!hoje.length && !outros) return '';
+  const resumo = hoje.length
+    ? `${hoje.length} pedido${hoje.length > 1 ? 's' : ''} agendado${hoje.length > 1 ? 's' : ''} para hoje: ` + hoje.slice(0, 3).map(({ p, ag }) => ag.hora + ' · ' + esc(pnNome(p))).join(' · ') + (hoje.length > 3 ? '…' : '')
+    : 'Nenhum pedido agendado para hoje';
+  const linhas = hoje.map(({ p, ag }) => {
+    const pag = pnPagamento(p);
+    return `<div class="pn-ag-linha">
+      <b>${ag.hora}</b>
+      <span>${esc(pnNome(p))} · ${tipoAgendamento(p) === 'ENTREGA' ? 'Entrega' : 'Retirada'} · ${pnReais(p.total)}</span>
+      ${pag ? `<span style="font-weight:600;">${esc(pag.txt)}</span>` : ''}
+      ${meuPapel === 'garcom' ? '' : `<button class="pn-btn zap" style="margin-left:auto;" onclick="confirmarAgendadoWhats('${p.id}')">Confirmar com o cliente</button>`}
+    </div>`;
+  }).join('');
+  return `<div class="pn-ag">
+    <div class="pn-ag-topo"><span>${resumo}</span>
+      <button class="pn-link" style="color:#7A4300;" onclick="const l=document.getElementById('pn-ag-lista');const abrir=l.style.display==='none';l.style.display=abrir?'block':'none';this.textContent=abrir?'Esconder':'Ver agendados';">Ver agendados</button>
+    </div>
+    <div id="pn-ag-lista" style="display:none;">
+      ${linhas}
+      ${outros > 0 ? `<div style="font-size:12px;margin-top:8px;">Mais ${outros} pedido${outros > 1 ? 's' : ''} agendado${outros > 1 ? 's' : ''} para outros dias (aparece${outros > 1 ? 'm' : ''} nas colunas abaixo).</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function pnFecharGaveta() {
+  const f = document.getElementById('pn-gaveta');
+  if (f) f.remove();
+}
+
+function pnDetalhes(id) {
+  const p = (pedidosCache || []).find(x => x.id === id);
+  if (!p) { toast('Pedido não encontrado.', 'erro'); return; }
+  pnFecharGaveta();
+  const num = p.id.slice(-4).toUpperCase();
+  const quando = dataDoBanco(p.criado_em);
+  const ret = ehRetirada(p);
+  const ag = textoAgendamento(p);
+  const tel = extrairTelefone(p) || '';
+  let fone = tel.replace(/\D/g, '');
+  if (fone && fone.length <= 11) fone = '55' + fone;
+  const itens = p.pedido_itens || [];
+  const sub = itens.reduce((s, i) => s + (parseFloat(i.preco) || 0) * (parseInt(i.quantidade) || 1), 0);
+  const frete = parseFloat(p.frete) || 0;
+  const total = parseFloat(p.total) || 0;
+  const desc = Math.round((sub + frete - total) * 100) / 100;
+  const pag = pnPagamento(p);
+  const tp = pnTempo(p);
+  const obsGeral = ((p.observacao || '').match(/Obs:\s*([^\n]+)/) || [])[1]?.trim() || '';
+  const botao = pnBotaoPrincipal(p);
+  const ehNovo = p.status === 'novo' && meuPapel !== 'garcom';
+  const fundo = document.createElement('div');
+  fundo.id = 'pn-gaveta';
+  fundo.className = 'pn-fundo';
+  fundo.onclick = e => { if (e.target === fundo) pnFecharGaveta(); };
+  fundo.innerHTML = `
+    <div class="pn-gaveta" role="dialog" aria-label="Detalhes do pedido">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:13px;color:#6B5B50;">Pedido #${num}${quando ? ' · ' + quando.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</div>
+        <button aria-label="Fechar" onclick="pnFecharGaveta()" style="background:none;border:none;cursor:pointer;font-size:24px;line-height:1;padding:4px 8px;color:var(--texto);">×</button>
+      </div>
+      <div style="font-size:26px;font-weight:700;margin-top:6px;word-break:break-word;">${esc(pnNome(p))}</div>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+        <span class="pn-chipinfo">${ret ? 'Retirada' : 'Entrega'}</span>
+        ${ag ? `<span class="pn-chipinfo alerta">Agendado para ${esc(ag)}</span>` : ''}
+        ${tp ? `<span class="pn-chipinfo${tp.alerta ? ' alerta' : ''}">${esc(tp.txt)}</span>` : ''}
+      </div>
+      ${tel ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:16px 0 4px;flex-wrap:wrap;">
+        <div style="font-size:15px;font-weight:500;">${esc(tel)}</div>
+        ${fone ? `<button class="pn-btn zap" onclick="window.open('https://wa.me/${fone}','wa_servidelivery')">Chamar no WhatsApp</button>` : ''}
+      </div>` : ''}
+      <div class="pn-bloco" style="margin-top:12px;">
+        <div class="pn-rot">${ret ? 'RETIRADA' : 'ENDEREÇO'}</div>
+        ${ret ? '<div style="font-size:16px;font-weight:600;">O cliente vem buscar no local</div>' : `
+          <div style="font-size:16px;font-weight:600;line-height:1.4;">${esc(p.endereco || 'Endereço não informado')}</div>
+          ${p.bairro ? `<div style="font-size:14px;color:#6B5B50;">Bairro: ${esc(p.bairro)}</div>` : ''}`}
+      </div>
+      <div class="pn-bloco">
+        <div class="pn-rot">ITENS</div>
+        ${itens.map(i => `
+          <div class="pn-item"><span style="font-weight:600;">${parseInt(i.quantidade) || 1}x ${esc(i.nome)}</span><span>${pnReais((parseFloat(i.preco) || 0) * (parseInt(i.quantidade) || 1))}</span></div>
+          ${i.observacao ? `<div style="font-size:13px;color:#6B5B50;padding:0 0 4px;">${esc(i.observacao)}</div>` : ''}`).join('')}
+        ${obsGeral ? `<div style="font-size:13px;margin-top:8px;"><b>Observação do pedido:</b> ${esc(obsGeral)}</div>` : ''}
+      </div>
+      <div class="pn-bloco">
+        <div class="pn-rot">PAGAMENTO</div>
+        ${pag ? `<div class="pn-pag ${pag.cls}" style="margin-bottom:10px;">${esc(pag.txt)}</div>` : ''}
+        <div class="pn-item" style="color:#6B5B50;"><span>Subtotal</span><span>${pnReais(sub)}</span></div>
+        ${!ret ? `<div class="pn-item" style="color:#6B5B50;"><span>Frete</span><span>${frete > 0 ? pnReais(frete) : 'Grátis'}</span></div>` : ''}
+        ${desc > 0.009 ? `<div class="pn-item" style="color:#6B5B50;"><span>Desconto</span><span>- ${pnReais(desc)}</span></div>` : ''}
+        <div class="pn-item" style="font-size:18px;font-weight:700;padding-top:8px;"><span>Total</span><span>${pnReais(total)}</span></div>
+      </div>
+      <div style="flex:1;"></div>
+      <div style="display:flex;flex-direction:column;gap:10px;padding-top:12px;">
+        ${botao}
+        <div style="display:flex;gap:10px;">
+          <button class="pn-btn claro" style="flex:1;" onclick="imprimirComandaPorId('${p.id}')">Imprimir</button>
+          ${ehNovo ? `<button class="pn-btn claro" style="flex:1;color:#8F3010;border-color:#E5B9A5;" onclick="pnRecusar('${p.id}')">Recusar pedido</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(fundo);
+  if (!pnTeclaEsc) { pnTeclaEsc = true; document.addEventListener('keydown', e => { if (e.key === 'Escape') pnFecharGaveta(); }); }
+}
+
+function renderPedidosNovo(lista) {
+  pnInjetarCss();
+  pnFecharGaveta();
+  document.getElementById('conteudo').innerHTML = `
+    <div class="pn-topo">
+      <div class="pn-chips">${[['todos', 'Todos'], ['entregas', 'Entregas'], ['retirada', 'Retirada']].map(([k, t]) => `<button class="pn-chip${pnFiltro === k ? ' on' : ''}" data-f="${k}" onclick="pnFiltrar('${k}')">${t}</button>`).join('')}</div>
+      <input class="pn-busca" type="search" placeholder="Buscar por nome, telefone ou número" value="${esc(pnBusca)}" oninput="pnBuscar(this.value)" aria-label="Buscar pedido">
+    </div>
+    ${pnFaixaAgendados(lista)}
+    <div id="pn-colunas"></div>`;
+  pnAtualizarColunas();
+  if (!pnTimer) pnTimer = setInterval(() => {
+    if (paginaAtual === 'pedidos' && usarTelaPedidosNova() && !document.getElementById('pn-gaveta')) pnAtualizarColunas();
+  }, 60000);
 }
