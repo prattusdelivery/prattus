@@ -4021,7 +4021,7 @@ async function renderConfig() {
 }
 
 // ===== CONFIGURAÇÕES EM ABAS (tela mais simples para quem está começando) =====
-// Aparece só na loja demo por enquanto. Para ligar/desligar num aparelho:
+// Liberada para todas as lojas. Para desligar num aparelho:
 // localStorage.setItem('config_em_abas','true' ou 'false')
 var cfgAbaAtual = 'loja';
 function usarConfigEmAbas() {
@@ -4030,7 +4030,7 @@ function usarConfigEmAbas() {
     if (v === 'true') return true;
     if (v === 'false') return false;
   } catch (e) {}
-  return restauranteAtual?.slug === 'servidelivery-demo';
+  return true;
 }
 const CFG_ABAS = [
   ['loja', 'Minha loja', 'Nome, logo, endereço e cores do seu cardápio.'],
