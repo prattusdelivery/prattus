@@ -4017,6 +4017,113 @@ async function renderConfig() {
       <a href="${qrConsultaUrl}" download="cardapio-consulta.png" style="font-size:11px;color:var(--laranja);">Baixar</a>
     </div>
   `;
+  if (usarConfigEmAbas()) cfgOrganizarEmAbas();
+}
+
+// ===== CONFIGURAÇÕES EM ABAS (tela mais simples para quem está começando) =====
+// Aparece só na loja demo por enquanto. Para ligar/desligar num aparelho:
+// localStorage.setItem('config_em_abas','true' ou 'false')
+var cfgAbaAtual = 'loja';
+function usarConfigEmAbas() {
+  try {
+    const v = localStorage.getItem('config_em_abas');
+    if (v === 'true') return true;
+    if (v === 'false') return false;
+  } catch (e) {}
+  return restauranteAtual?.slug === 'servidelivery-demo';
+}
+const CFG_ABAS = [
+  ['loja', 'Minha loja', 'Nome, logo, endereço e cores do seu cardápio.'],
+  ['pagamentos', 'Receber pagamentos', 'Pix, cartão e cashback para o seu cliente.'],
+  ['entrega', 'Entrega e horários', 'Retirada, tempo de entrega, pedido mínimo e horário de funcionamento.'],
+  ['avisos', 'Avisos e WhatsApp', 'Mensagens para o cliente e alertas de pedido novo.'],
+  ['impressao', 'Impressão e comandas', 'Imprimir sozinho e tamanho da letra.'],
+  ['divulgar', 'Divulgar e backup', 'Link do cardápio, QR Codes e cópia de segurança.']
+];
+function cfgInjetarCss() {
+  if (document.getElementById('css-cfg-abas')) return;
+  const st = document.createElement('style');
+  st.id = 'css-cfg-abas';
+  st.textContent = `
+.cfg-abas{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px;}
+.cfg-aba-bt{font-family:inherit;font-size:14px;font-weight:500;padding:10px 16px;min-height:42px;border-radius:20px;border:1px solid #D9CBBB;background:#fff;color:var(--texto);cursor:pointer;}
+.cfg-aba-bt.on{background:var(--texto);color:#fff;border-color:var(--texto);font-weight:600;}
+.cfg-intro{font-size:13px;color:var(--texto-muted);margin:0 0 16px;}
+.cfg-salvar{padding:16px 0 4px;margin-top:20px;border-top:1px solid var(--creme-borda);}
+.cfg-intro + div[style*="border-top"]{border-top:none !important;margin-top:0 !important;padding-top:0 !important;}
+.cfg-salvar .btn{width:100%;}
+`;
+  document.head.appendChild(st);
+}
+function cfgIrAba(id) {
+  cfgAbaAtual = id;
+  document.querySelectorAll('.cfg-aba-bt').forEach(b => b.classList.toggle('on', b.dataset.aba === id));
+  document.querySelectorAll('.cfg-secao').forEach(s => { s.style.display = s.dataset.aba === id ? 'block' : 'none'; });
+  const barra = document.getElementById('cfg-barra-salvar');
+  if (barra) barra.style.display = id === 'divulgar' ? 'none' : 'block';
+}
+function cfgOrganizarEmAbas() {
+  const card = document.querySelector('#conteudo > .card');
+  if (!card || card.querySelector('.cfg-abas')) return;
+  cfgInjetarCss();
+  const txt = el => (el.textContent || '').replace(/\s+/g, ' ').trim();
+  const ehTitulo = (el, t) => el.classList.contains('config-titulo') && txt(el).startsWith(t);
+  // Cada regra marca o começo de um grupo; os blocos seguintes ficam no mesmo grupo até a próxima regra.
+  const regras = [
+    [el => el.querySelector('#cfg-mp-token'), 'pagamentos'],
+    [el => txt(el).startsWith('💰 Formas de pagamento'), 'pagamentos'],
+    [el => txt(el).startsWith('Cashback pro cliente'), 'pagamentos'],
+    [el => txt(el).startsWith('Mensagens WhatsApp'), 'avisos'],
+    [el => el.querySelector('#cfg-logo-arquivo'), 'loja'],
+    [el => el.querySelector('#cfg-retirada-disponivel'), 'entrega'],
+    [el => txt(el).startsWith('Notificações'), 'avisos'],
+    [el => txt(el).startsWith('⚡ Aceitar e imprimir'), 'impressao'],
+    [el => txt(el).startsWith('Endereço da empresa'), 'loja'],
+    [el => el.querySelector('#cfg-som'), 'avisos'],
+    [el => ehTitulo(el, 'Entrega'), 'entrega'],
+    [el => ehTitulo(el, 'Comanda (restaurante'), 'impressao'],
+    [el => ehTitulo(el, 'Horário de funcionamento'), 'entrega']
+  ];
+  const secoes = {};
+  const nav = document.createElement('div');
+  nav.className = 'cfg-abas';
+  CFG_ABAS.forEach(([id, nome, ajuda]) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'cfg-aba-bt';
+    b.dataset.aba = id;
+    b.textContent = nome;
+    b.onclick = () => { cfgIrAba(id); window.scrollTo({ top: 0 }); };
+    nav.appendChild(b);
+    const s = document.createElement('div');
+    s.className = 'cfg-secao';
+    s.dataset.aba = id;
+    s.style.display = 'none';
+    s.innerHTML = `<div class="cfg-intro">${ajuda}</div>`;
+    secoes[id] = s;
+  });
+  const barra = document.createElement('div');
+  barra.id = 'cfg-barra-salvar';
+  barra.className = 'cfg-salvar';
+  let atual = 'loja';
+  let depoisDoSalvar = false;
+  [...card.children].forEach(el => {
+    if (el.tagName === 'BUTTON' && (el.getAttribute('onclick') || '').includes('salvarConfig')) {
+      barra.appendChild(el);
+      depoisDoSalvar = true;
+      atual = 'divulgar';
+      return;
+    }
+    if (!depoisDoSalvar) {
+      const regra = regras.find(([teste]) => teste(el));
+      if (regra) atual = regra[1];
+    }
+    secoes[atual].appendChild(el);
+  });
+  card.appendChild(nav);
+  CFG_ABAS.forEach(([id]) => card.appendChild(secoes[id]));
+  card.appendChild(barra);
+  cfgIrAba(secoes[cfgAbaAtual] ? cfgAbaAtual : 'loja');
 }
 
 function alternarDiaHorario(dia) {
@@ -4091,10 +4198,10 @@ async function salvarConfig() {
   }
 
   const novoSlug = gerarSlug(document.getElementById('cfg-slug').value);
-  if (!novoSlug) { toast('O link da loja não pode ficar vazio!', 'erro'); return; }
+  if (!novoSlug) { if (document.querySelector('.cfg-abas')) cfgIrAba('loja'); toast('O link da loja não pode ficar vazio!', 'erro'); return; }
   if (novoSlug !== restauranteAtual.slug) {
     const { data: existente } = await db.from('restaurantes').select('id').eq('slug', novoSlug).maybeSingle();
-    if (existente) { toast('Esse link já está em uso por outra loja!', 'erro'); return; }
+    if (existente) { if (document.querySelector('.cfg-abas')) cfgIrAba('loja'); toast('Esse link já está em uso por outra loja!', 'erro'); return; }
   }
 
   // As formas de pagamento também são salvas pelo botão principal (antes só o botão próprio delas salvava e o resto voltava pro padrão)
