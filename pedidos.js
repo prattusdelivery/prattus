@@ -972,12 +972,15 @@ function imprimirComanda(p) {
   let blocoPagamento = '';
   if (d) {
     const forma = d.pago ? (d.online === 'NO CARTÃO' ? 'Cartão online' : 'Pix online') : d.forma;
-    const aviso = d.pago ? 'NÃO COBRAR (JÁ PAGO)' : (d.pixManual ? 'CONFERIR O COMPROVANTE DO PIX' : 'COBRAR DO CLIENTE');
+    const valorCobrar = reais(d.total > 0 ? d.total : totalPedido);
+    const aviso = d.pago ? 'NÃO COBRAR (JÁ PAGO)' : (d.pixManual ? 'CONFERIR O COMPROVANTE DO PIX' : 'COBRAR ' + valorCobrar);
     let troco = '';
-    if (!d.pago && d.dinheiro) {
+    if (!d.pago && d.pixManual) {
+      troco = `<div class="cp-info">Valor do Pix: ${valorCobrar}</div>`;
+    } else if (!d.pago && d.dinheiro) {
       troco = d.trocoPara
-        ? `<div class="cp-par cp-info"><span>Troco para</span><span>${reais(d.trocoPara)}</span></div><div class="cp-par cp-info"><span>Levar de troco</span><span>${reais(Math.max(0, d.trocoPara - d.total))}</span></div>`
-        : `<div class="cp-info">Sem troco</div>`;
+        ? `<div class="cp-par cp-info"><span>Cliente vai pagar com</span><span>${reais(d.trocoPara)}</span></div><div class="cp-par cp-prod"><span>DEVOLVER AO CLIENTE</span><span>${reais(Math.max(0, d.trocoPara - d.total))}</span></div>`
+        : `<div class="cp-info">Cliente tem o valor certo, sem troco</div>`;
     }
     blocoPagamento = `<div class="cp-linha"></div><div class="cp-tit">PAGAMENTO</div><div class="cp-info">${esc(forma)}</div><div class="cp-caixa">${aviso}</div>${troco}`;
   } else if (pagamento) {
