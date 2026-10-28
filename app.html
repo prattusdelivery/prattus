@@ -1215,6 +1215,26 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
     <label>Categoria</label>
     <select id="item-cat"></select>
   </div>
+  <div class="form-group" id="item-dias-bloco" style="display:none;">
+    <label>Em quais dias esse item aparece? (opcional)</label>
+    <div style="font-size:11px;color:var(--texto-muted);margin-bottom:8px;">Deixe tudo em branco para aparecer todos os dias. Exemplo: o prato de segunda-feira → marque só "Seg".</div>
+    <div id="item-dias-wrap" style="display:flex;gap:8px;flex-wrap:wrap;">
+      <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;border:1px solid var(--creme-borda);padding:6px 12px;border-radius:20px;"><input type="checkbox" value="1" style="width:auto;margin:0;"> Seg</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;border:1px solid var(--creme-borda);padding:6px 12px;border-radius:20px;"><input type="checkbox" value="2" style="width:auto;margin:0;"> Ter</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;border:1px solid var(--creme-borda);padding:6px 12px;border-radius:20px;"><input type="checkbox" value="3" style="width:auto;margin:0;"> Qua</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;border:1px solid var(--creme-borda);padding:6px 12px;border-radius:20px;"><input type="checkbox" value="4" style="width:auto;margin:0;"> Qui</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;border:1px solid var(--creme-borda);padding:6px 12px;border-radius:20px;"><input type="checkbox" value="5" style="width:auto;margin:0;"> Sex</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;border:1px solid var(--creme-borda);padding:6px 12px;border-radius:20px;"><input type="checkbox" value="6" style="width:auto;margin:0;"> Sáb</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;border:1px solid var(--creme-borda);padding:6px 12px;border-radius:20px;"><input type="checkbox" value="0" style="width:auto;margin:0;"> Dom</label>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap;">
+      <span style="font-size:13px;">Só nesse horário (opcional): das</span>
+      <input type="time" id="item-hora-ini" style="width:130px;">
+      <span style="font-size:13px;">às</span>
+      <input type="time" id="item-hora-fim" style="width:130px;">
+    </div>
+    <div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Fora dos dias e do horário marcados, o cliente não vê esse item no cardápio.</div>
+  </div>
   <div class="form-group">
     <label>Foto do item</label>
     <div style="font-size:11px;color:var(--texto-muted);margin-bottom:6px;">Dica: foto bem iluminada, de perto e quadrada funciona melhor que foto escura ou de longe.</div>
@@ -3005,7 +3025,8 @@ async function baixarBackup() {
 async function cardapioEmergencia() {
   if (!restauranteAtual) return;
   const { data: cats } = await db.from('categorias').select('*').eq('restaurante_id', restauranteAtual.id).is('excluido_em', null).order('ordem');
-  const { data: itens } = await db.from('itens').select('*').eq('restaurante_id', restauranteAtual.id).eq('disponivel', true).is('excluido_em', null).order('criado_em');
+  const { data: itensTodos } = await db.from('itens').select('*').eq('restaurante_id', restauranteAtual.id).eq('disponivel', true).is('excluido_em', null).order('criado_em');
+  const itens = (itensTodos || []).filter(i => itemNoDiaHora(i));
 
   let msg = `🍽️ *Cardápio — ${restauranteAtual.nome}*\n\n`;
 
@@ -4638,10 +4659,10 @@ async function carregarRankingPublico(restId) {
     const ordenado = Object.entries(contagem).sort((a,b) => b[1] - a[1]).map(([nome]) => nome);
     let porVendas = ordenado
       .map(nome => todosItensPublico.find(it => it.nome.toLowerCase() === nome.toLowerCase()))
-      .filter(item => item && !(item.esgotado_ate && new Date(item.esgotado_ate) > new Date()));
+      .filter(item => item && itemNoDiaHora(item) && !(item.esgotado_ate && new Date(item.esgotado_ate) > new Date()));
 
     // Itens que o dono forçou em destaque entram sempre primeiro, mesmo sem venda ainda
-    const destacados = todosItensPublico.filter(it => it.destaque_manual && !(it.esgotado_ate && new Date(it.esgotado_ate) > new Date()));
+    const destacados = todosItensPublico.filter(it => it.destaque_manual && itemNoDiaHora(it) && !(it.esgotado_ate && new Date(it.esgotado_ate) > new Date()));
     const idsDestacados = new Set(destacados.map(d => d.id));
     porVendas = porVendas.filter(it => !idsDestacados.has(it.id));
 
@@ -4972,6 +4993,7 @@ function adicionarItemRapidoPorId(id) {
   }
   const item = todosItensPublico.find(i => i.id === id);
   if (!item) return;
+  if (!modoComandaAtivo && !itemNoDiaHora(item)) { toast('Este prato não está disponível agora (' + textoDiasItem(item) + ').', 'erro'); return; }
   const precoFinal = (item.preco_promocional && parseFloat(item.preco_promocional) < parseFloat(item.preco)) ? parseFloat(item.preco_promocional) : parseFloat(item.preco);
   const idx = carrinho.findIndex(c => c.id === item.id && !c.variacao && !c.obs);
   if (idx >= 0) {
@@ -4985,6 +5007,8 @@ function adicionarItemRapidoPorId(id) {
 
 function renderItensPublico(itens) {
   const container = document.getElementById('pub-itens');
+  // Prato com dia/horário próprio só aparece no dia certo (o garçom/caixa na comanda vê tudo)
+  if (!modoComandaAtivo) itens = (itens || []).filter(i => itemNoDiaHora(i));
 
   // Categoria específica selecionada: só a grade normal, sem título repetido
   if (catAtiva !== 'todas') {
@@ -5032,6 +5056,10 @@ function abrirModalItemPorId(id) {
 }
 
 function abrirModalItem(item) {
+  if (!modoComandaAtivo && !itemNoDiaHora(item)) {
+    toast('Este prato não está disponível agora (' + textoDiasItem(item) + ').', 'erro');
+    return;
+  }
   if (item.esgotado_ate && new Date(item.esgotado_ate) > new Date()) {
     toast('Este item esgotou por hoje.', 'erro');
     return;
@@ -5910,6 +5938,39 @@ function dentroDoHorario(min, abreMin, fechaMin) {
   if (fechaMin >= abreMin) return min >= abreMin && min <= fechaMin;
   return min >= abreMin || min <= fechaMin;
 }
+// Item com dias e/ou horário próprios (ex.: prato do dia, Alaminuta só à noite): está disponível nesse momento?
+// Sem dias e sem horário cadastrados = disponível sempre.
+function itemNoDiaHora(item, quando) {
+  const dias = Array.isArray(item && item.dias_semana) ? item.dias_semana : [];
+  const ini = item && item.hora_ini, fim = item && item.hora_fim;
+  const temHora = !!(ini && fim);
+  if (!dias.length && !temHora) return true;
+  const q = quando || new Date();
+  const dia = q.getDay();
+  const min = q.getHours() * 60 + q.getMinutes();
+  if (!temHora) return dias.includes(dia);
+  const [ih, im] = String(ini).split(':').map(Number);
+  const [fh, fm] = String(fim).split(':').map(Number);
+  const a = ih * 60 + im, f = fh * 60 + fm;
+  if (f >= a) return (!dias.length || dias.includes(dia)) && min >= a && min <= f;
+  // Horário que passa da meia-noite: depois da meia-noite ainda vale o dia anterior
+  if (min >= a) return !dias.length || dias.includes(dia);
+  if (min <= f) return !dias.length || dias.includes((dia + 6) % 7);
+  return false;
+}
+// Texto curto dos dias/horário do item (ex.: "seg a sex · 18:00 às 23:00")
+function textoDiasItem(item) {
+  const nomes = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  const dias = [...(Array.isArray(item && item.dias_semana) ? item.dias_semana : [])].sort((x, y) => x - y);
+  let t = '';
+  if (dias.length === 1) t = nomes[dias[0]];
+  else if (dias.length > 1) {
+    const seguidos = dias.every((d, i) => i === 0 || d === dias[i - 1] + 1);
+    t = (seguidos && dias.length > 2) ? nomes[dias[0]] + ' a ' + nomes[dias[dias.length - 1]] : dias.map(d => nomes[d]).join(', ');
+  }
+  if (item && item.hora_ini && item.hora_fim) t += (t ? ' · ' : '') + item.hora_ini + ' às ' + item.hora_fim;
+  return t;
+}
 // A loja está fechada agora (fora do horário ou dia desligado)? Só vale pra quem cadastrou horário.
 function lojaFechadaPorHorario() {
   const rest = restPublico || {};
@@ -6054,6 +6115,21 @@ async function finalizarPedidoInterno() {
     toast('Estamos fechados agora. Escolha o dia e o horário para receber o seu pedido e pague pelo Pix ou cartão online.', 'erro');
     document.getElementById('ped-data')?.focus();
     return;
+  }
+
+  // Prato com dia/horário próprio: confere se está disponível agora (ou no dia/horário agendado)
+  {
+    let quando = new Date();
+    const dAg = document.getElementById('ped-data')?.value, hAg = document.getElementById('ped-hora')?.value;
+    if (agendamento && dAg && hAg) {
+      const [a, m, d] = dAg.split('-').map(Number); const [hh, mm] = hAg.split(':').map(Number);
+      quando = new Date(a, m - 1, d, hh, mm);
+    }
+    const fora = carrinho.filter(c => !c.resgate).map(c => todosItensPublico.find(i => i.id === c.id)).filter(it => it && !itemNoDiaHora(it, quando));
+    if (fora.length) {
+      toast(`"${fora[0].nome}" só está disponível: ${textoDiasItem(fora[0])}. ${agendamento ? 'Escolha outro dia ou horário, ou tire o prato do carrinho.' : 'Tire o prato do carrinho para continuar.'}`, 'erro');
+      return;
+    }
   }
 
   // Pedido agendado para OUTRO dia: se o restaurante recebe Pix/cartão online, o cliente paga agora (evita pedido esquecido, sem pagamento)

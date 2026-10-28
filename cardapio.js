@@ -62,7 +62,7 @@ async function renderCardapio() {
             <div style="color:var(--texto-muted);font-size:16px;align-self:center;padding-right:2px;user-select:none;">☰</div>
             <div class="item-foto">${item.foto_url ? `<img src="${item.foto_url}" onerror="this.parentElement.textContent='🍽️'">` : '🍽️'}</div>
             <div style="flex:1;">
-              <div class="item-nome">${esc(item.nome)} ${esgotado?'<span style="font-size:10px;background:#FBE1DE;color:#B3261E;padding:2px 8px;border-radius:10px;font-weight:700;">ESGOTADO HOJE</span>':''} ${destacado?'<span style="font-size:10px;background:#FFF1E6;color:#C4522E;padding:2px 8px;border-radius:10px;font-weight:700;">⭐ EM DESTAQUE</span>':''}</div>
+              <div class="item-nome">${esc(item.nome)} ${esgotado?'<span style="font-size:10px;background:#FBE1DE;color:#B3261E;padding:2px 8px;border-radius:10px;font-weight:700;">ESGOTADO HOJE</span>':''} ${destacado?'<span style="font-size:10px;background:#FFF1E6;color:#C4522E;padding:2px 8px;border-radius:10px;font-weight:700;">⭐ EM DESTAQUE</span>':''} ${(item.dias_semana?.length || item.hora_ini) ? `<span style="font-size:10px;background:#E5F3EE;color:#0F6E56;padding:2px 8px;border-radius:10px;font-weight:700;">📅 ${esc(textoDiasItem(item))}</span>` : ''}</div>
               <div class="item-desc">${esc(item.descricao)}</div>
               <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
                 ${(item.etiquetas_ids||[]).map(eid => {
@@ -348,6 +348,28 @@ async function uploadFotoItem(inputEl) {
   }
 }
 
+// Campos "dias da semana" e "horário" do item (prato do dia). Aparecem só no demo e na Skina até o dono aprovar.
+// Para ligar/desligar num aparelho: localStorage.setItem('item_por_dia','true' ou 'false')
+var itemTinhaAgenda = false;
+function usarItemPorDia() {
+  try {
+    const v = localStorage.getItem('item_por_dia');
+    if (v === 'true') return true;
+    if (v === 'false') return false;
+  } catch (e) {}
+  return ['servidelivery-demo', 'sorveteria-skina'].includes(restauranteAtual?.slug);
+}
+function preencherAgendaItem(item) {
+  const bloco = document.getElementById('item-dias-bloco');
+  if (!bloco) return;
+  bloco.style.display = usarItemPorDia() || (item && (item.dias_semana?.length || item.hora_ini)) ? 'block' : 'none';
+  const dias = (item && Array.isArray(item.dias_semana)) ? item.dias_semana : [];
+  document.querySelectorAll('#item-dias-wrap input').forEach(cb => { cb.checked = dias.includes(parseInt(cb.value, 10)); });
+  document.getElementById('item-hora-ini').value = (item && item.hora_ini) || '';
+  document.getElementById('item-hora-fim').value = (item && item.hora_fim) || '';
+  itemTinhaAgenda = !!(item && (dias.length || item.hora_ini));
+}
+
 async function salvarItem() {
   const id = document.getElementById('item-id').value;
   const precoPromoVal = document.getElementById('item-preco-promo').value;
@@ -363,10 +385,23 @@ async function salvarItem() {
     etiquetas_ids: etiquetasSelecionadas,
     opcoes: gruposOpcoesValidos(),
   };
-  if (id) {
-    await db.from('itens').update(dados).eq('id', id);
-  } else {
-    await db.from('itens').insert(dados);
+  // Dias e horário do item (prato do dia). Só manda pro banco se o dono usou, ou se o item já tinha.
+  const horaIni = document.getElementById('item-hora-ini')?.value || '';
+  const horaFim = document.getElementById('item-hora-fim')?.value || '';
+  if ((horaIni && !horaFim) || (!horaIni && horaFim)) { toast('Preencha o horário inicial e o final, ou deixe os dois em branco.', 'erro'); return; }
+  const diasMarcados = Array.from(document.querySelectorAll('#item-dias-wrap input:checked')).map(cb => parseInt(cb.value, 10)).sort((a, b) => a - b);
+  const diasFinal = diasMarcados.length > 0 && diasMarcados.length < 7 ? diasMarcados : null; // 7 dias marcados = todos os dias
+  if (itemTinhaAgenda || diasFinal || horaIni) {
+    dados.dias_semana = diasFinal;
+    dados.hora_ini = horaIni || null;
+    dados.hora_fim = horaFim || null;
+  }
+  const { error: erroSalvar } = id
+    ? await db.from('itens').update(dados).eq('id', id)
+    : await db.from('itens').insert(dados);
+  if (erroSalvar) {
+    toast('Não foi possível salvar o item. ' + (erroSalvar.message || 'Tente de novo.'), 'erro');
+    return;
   }
   fecharModal('modal-item');
   toast('Item salvo!', 'ok');
@@ -467,6 +502,7 @@ function abrirNovoItem() {
   gruposOpcoesEditando = [];
   renderGruposOpcoes();
   renderEtiquetasItemForm([]);
+  preencherAgendaItem(null);
   document.getElementById('modal-item-titulo').textContent = 'Novo item';
   abrirModal('modal-item');
 }
@@ -485,6 +521,7 @@ async function editarItem(id) {
   gruposOpcoesEditando = data.opcoes ? JSON.parse(JSON.stringify(data.opcoes)) : [];
   renderGruposOpcoes();
   renderEtiquetasItemForm(data.etiquetas_ids || []);
+  preencherAgendaItem(data);
   document.getElementById('modal-item-titulo').textContent = 'Editar item';
   abrirModal('modal-item');
 }
