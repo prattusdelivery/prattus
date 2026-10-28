@@ -624,8 +624,18 @@ async function renderComandas() {
     `;
   }
 
+  // O total de cada mesa aberta vem dos pedidos DA PRÓPRIA MESA (não só dos últimos 3 dias),
+  // senão uma mesa aberta há mais tempo aparecia com R$ 0,00 e "0 pedido(s)".
+  let pedidosDasMesas = [];
+  if ((mesasAbertas||[]).length > 0) {
+    const { data: pm } = await db.from('pedidos')
+      .select('id,total,criado_em,codigo_comanda_id')
+      .eq('restaurante_id', restauranteAtual.id)
+      .in('codigo_comanda_id', mesasAbertas.map(m => m.id));
+    pedidosDasMesas = pm || [];
+  }
   const mesasComTotal = (mesasAbertas||[]).map(m => {
-    const pedidosDaMesa = lista.filter(p => p.codigo_comanda_id === m.id && dataDoBanco(p.criado_em) >= dataDoBanco(m.aberta_em));
+    const pedidosDaMesa = pedidosDasMesas.filter(p => p.codigo_comanda_id === m.id && dataDoBanco(p.criado_em) >= dataDoBanco(m.aberta_em));
     const total = pedidosDaMesa.reduce((s,p) => s + parseFloat(p.total||0), 0);
     return { ...m, total, qtdPedidos: pedidosDaMesa.length };
   });
