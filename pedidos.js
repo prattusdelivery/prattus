@@ -1573,7 +1573,7 @@ function renderPedidosNovo(lista) {
 
 
 // ===================================================================
-// DASHBOARD NOVO (mais simples: 4 números e os últimos pedidos)
+// DASHBOARD NOVO (números em cima em tabela pequena + listas de pedidos/comandas no estilo simples)
 // Por enquanto aparece só na loja demo (slug servidelivery-demo), até o dono aprovar.
 // Para ligar/desligar num aparelho: localStorage.setItem('dashboard_novo','true' ou 'false').
 // ===================================================================
@@ -1583,7 +1583,7 @@ function usarDashboardNovo() {
     if (v === 'true') return true;
     if (v === 'false') return false;
   } catch (e) {}
-  return false; // Dashboard antigo em todas as lojas (inclusive demo). Versão nova guardada, desligada.
+  return restauranteAtual?.slug === 'servidelivery-demo'; // só no demo até o dono aprovar
 }
 
 function dnInjetarCss() {
@@ -1609,6 +1609,15 @@ function dnInjetarCss() {
 .dn-etq.cobrar{background:#FFF1D6;color:#7A4300;}
 .dn-etq.pix{background:#FDE8DC;color:#8F3010;}
 .dn-etq.neutro{background:var(--creme-borda);color:#6B5B50;}
+.dn-resumo{background:var(--branco);border:1px solid var(--creme-borda);border-radius:14px;padding:12px 16px;margin-bottom:18px;}
+.dn-res-cab,.dn-res-lin{display:grid;grid-template-columns:minmax(84px,1.3fr) repeat(4,1fr);gap:8px;align-items:center;text-align:right;}
+.dn-res-cab{font-size:11px;font-weight:700;color:var(--texto-muted);padding-bottom:8px;border-bottom:1px solid var(--creme-borda);}
+.dn-res-lin{font-size:14px;font-weight:600;padding:9px 0;border-bottom:1px solid var(--creme-borda);}
+.dn-res-lin .dn-res-nome,.dn-res-cab div:first-child{text-align:left;}
+.dn-res-lin .dn-res-nome{font-size:13px;font-weight:700;}
+.dn-res-lin.total{border-bottom:none;font-weight:800;color:var(--laranja);}
+.dn-res-nota{font-size:11px;color:var(--texto-muted);padding-top:8px;}
+@media(max-width:700px){.dn-resumo{padding:10px 12px;}.dn-res-cab{font-size:10px;}.dn-res-cab,.dn-res-lin{gap:3px;grid-template-columns:76px repeat(4,minmax(0,1fr));}.dn-res-lin{font-size:11.5px;}.dn-res-nome{white-space:nowrap;}.dn-res-lin .dn-res-nome{font-size:11.5px;}.dn-lin>div:first-child{flex:1;min-width:0;}.dn-dir{max-width:52%;}}
 .dn-rodape{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:14px;color:var(--texto-muted);margin-bottom:8px;}
 `;
   document.head.appendChild(st);
@@ -1643,15 +1652,12 @@ function dnQuando(iso) {
 
 async function renderDashboardNovo(d) {
   dnInjetarCss();
-  const reais = v => 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ',');
-  let novos = 0;
-  try {
-    const r = await db.from('pedidos').select('id', { count: 'exact', head: true })
-      .eq('restaurante_id', restauranteAtual.id).eq('status', 'novo').is('codigo_comanda_id', null);
-    novos = r.count || 0;
-  } catch (e) {}
+  const reais = v => 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ',');
+  const num = v => (parseFloat(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const qtdHoje = d.qtdDeliveryHoje + d.qtdComandaHoje;
-  const ticket = qtdHoje ? d.fatTotalHoje / qtdHoje : 0;
+  const media = (fat, qtd) => qtd ? fat / qtd : 0;
+  const linhaResumo = (nome, qtd, fatHoje, fatMes, forte) => `<div class="dn-res-lin${forte ? ' total' : ''}">
+      <div class="dn-res-nome">${nome}</div><div>${qtd}</div><div>${num(fatHoje)}</div><div>${num(media(fatHoje, qtd))}</div><div>${num(fatMes)}</div></div>`;
   const nomeDe = p => (p.observacao?.split('Nome:')[1]?.split('\n')[0]?.trim()) || p.clientes?.nome || 'Cliente';
   const linhaPedido = p => {
     const ret = ehRetirada(p);
@@ -1672,15 +1678,12 @@ async function renderDashboardNovo(d) {
     </div>`;
   };
   document.getElementById('conteudo').innerHTML = `
-    ${novos > 0 ? `<div class="dn-aviso"><span>${novos === 1 ? 'Você tem 1 pedido novo esperando' : 'Você tem ' + novos + ' pedidos novos esperando'}</span><button class="dn-btn" onclick="dnIr('pedidos')">Ver pedidos</button></div>` : ''}
-    <div class="metricas">
-      <div class="metrica"><div class="metrica-label">Vendas de hoje</div><div class="metrica-val laranja">${reais(d.fatTotalHoje)}</div>
-        <div class="dn-sub">Delivery ${reais(d.fatHoje)} · Mesas ${reais(d.fatComandaHoje)}</div></div>
-      <div class="metrica"><div class="metrica-label">Pedidos de hoje</div><div class="metrica-val">${qtdHoje}</div></div>
-      <div class="metrica"><div class="metrica-label">Ticket médio de hoje</div><div class="metrica-val">${reais(ticket)}</div>
-        <div class="dn-sub">Quanto cada pedido vale, em média</div></div>
-      <div class="metrica"><div class="metrica-label">Vendas do mês</div><div class="metrica-val">${reais(d.fatTotalMes)}</div>
-        <div class="dn-sub">Delivery ${reais(d.fatMes)} · Mesas ${reais(d.fatComandaMes)}</div></div>
+    <div class="dn-resumo">
+      <div class="dn-res-cab"><div></div><div>Pedidos hoje</div><div>Vendas hoje</div><div>Ticket médio</div><div>Vendas no mês</div></div>
+      ${linhaResumo('🛵 Delivery', d.qtdDeliveryHoje, d.fatHoje, d.fatMes)}
+      ${linhaResumo('🍽️ Mesas', d.qtdComandaHoje, d.fatComandaHoje, d.fatComandaMes)}
+      ${linhaResumo('Total', qtdHoje, d.fatTotalHoje, d.fatTotalMes, true)}
+      <div class="dn-res-nota">Valores em reais (R$). Só pedidos aceitos entram na conta.</div>
     </div>
     <div class="dn-card">
       <div class="dn-card-topo"><div class="dn-tit">Últimos pedidos</div><button class="dn-link" onclick="dnIr('pedidos')">Ver todos</button></div>
