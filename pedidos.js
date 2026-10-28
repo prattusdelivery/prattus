@@ -1583,7 +1583,7 @@ function usarDashboardNovo() {
     if (v === 'true') return true;
     if (v === 'false') return false;
   } catch (e) {}
-  return restauranteAtual?.slug === 'servidelivery-demo';
+  return false; // Dashboard antigo em todas as lojas (inclusive demo). Versão nova guardada, desligada.
 }
 
 function dnInjetarCss() {
