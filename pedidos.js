@@ -1239,7 +1239,7 @@ async function abrirLeitorQr() {
 
 // ===================================================================
 // TELA DE PEDIDOS NOVA (mais simples e limpa)
-// Por enquanto aparece só na loja demo (slug servidelivery-demo), até o dono aprovar.
+// Liberada para todas as lojas.
 // Para ligar/desligar num aparelho: localStorage.setItem('tela_pedidos_nova','true' ou 'false').
 // ===================================================================
 function usarTelaPedidosNova() {
@@ -1248,7 +1248,7 @@ function usarTelaPedidosNova() {
     if (v === 'true') return true;
     if (v === 'false') return false;
   } catch (e) {}
-  return restauranteAtual?.slug === 'servidelivery-demo';
+  return true;
 }
 
 var pnFiltro = 'todos', pnBusca = '', pnTimer = null, pnTeclaEsc = false;

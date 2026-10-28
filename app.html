@@ -6051,10 +6051,9 @@ async function finalizarPedidoInterno() {
   const linkRecibo = (pedido && pagamento === 'Pix') ? `${window.location.href.split('?')[0]}?recibo=${pedido.id}` : '';
   // Se o restaurante manda a mensagem de "pedido confirmado" (ela já leva o link), o link não precisa ir
   // também na mensagem do cliente. Só vai aqui quando essa mensagem do restaurante está desligada.
-  // (por enquanto só na loja demo)
   const avisoConfirmaRaw = restPublico.avisos_whatsapp?.preparando;
   const restauranteConfirmaPorZap = typeof avisoConfirmaRaw === 'object' && avisoConfirmaRaw !== null ? avisoConfirmaRaw.ativo !== false : avisoConfirmaRaw !== false;
-  const omitirLinkNaMsg = restPublico.slug === 'servidelivery-demo' && restauranteConfirmaPorZap;
+  const omitirLinkNaMsg = restauranteConfirmaPorZap;
   const linkAcomp = (pedido && !omitirLinkNaMsg) ? `${window.location.href.split('?')[0]}?acompanhar=${pedido.id}` : '';
   const msg = (
     `*Novo pedido — ${restPublico.nome}*\n\n` +
