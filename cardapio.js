@@ -348,7 +348,7 @@ async function uploadFotoItem(inputEl) {
   }
 }
 
-// Campos "dias da semana" e "horário" do item (prato do dia). Aparecem só no demo e na Skina até o dono aprovar.
+// Campos "dias da semana" e "horário" do item (prato do dia). Liberado para todas as lojas.
 // Para ligar/desligar num aparelho: localStorage.setItem('item_por_dia','true' ou 'false')
 var itemTinhaAgenda = false;
 function usarItemPorDia() {
@@ -357,7 +357,7 @@ function usarItemPorDia() {
     if (v === 'true') return true;
     if (v === 'false') return false;
   } catch (e) {}
-  return ['servidelivery-demo', 'sorveteria-skina'].includes(restauranteAtual?.slug);
+  return true; // Liberado para todas as lojas
 }
 function preencherAgendaItem(item) {
   const bloco = document.getElementById('item-dias-bloco');
