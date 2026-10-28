@@ -416,6 +416,16 @@ async function renderDashboard() {
   const fatTotalHoje = fatHoje + fatComandaHoje;
   const fatTotalMes = fatMes + fatComandaMes;
 
+  if (usarDashboardNovo()) {
+    await renderDashboardNovo({
+      fatHoje, fatMes, fatComandaHoje, fatComandaMes, fatTotalHoje, fatTotalMes,
+      qtdDeliveryHoje: (pedHoje || []).length, qtdComandaHoje: (comandaHoje || []).length,
+      clientes: (clientes || []).length,
+      pedidosDelivery: pedidosDelivery || [], pedidosComanda: pedidosComanda || []
+    });
+    return;
+  }
+
   document.getElementById('conteudo').innerHTML = `
     <div style="font-size:13px;font-weight:700;color:var(--texto-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">🛵 Delivery</div>
     <div class="metricas">
@@ -1549,4 +1559,128 @@ function renderPedidosNovo(lista) {
   if (!pnTimer) pnTimer = setInterval(() => {
     if (paginaAtual === 'pedidos' && usarTelaPedidosNova() && !document.getElementById('pn-gaveta')) pnAtualizarColunas();
   }, 60000);
+}
+
+
+// ===================================================================
+// DASHBOARD NOVO (mais simples: 4 números e os últimos pedidos)
+// Por enquanto aparece só na loja demo (slug servidelivery-demo), até o dono aprovar.
+// Para ligar/desligar num aparelho: localStorage.setItem('dashboard_novo','true' ou 'false').
+// ===================================================================
+function usarDashboardNovo() {
+  try {
+    const v = localStorage.getItem('dashboard_novo');
+    if (v === 'true') return true;
+    if (v === 'false') return false;
+  } catch (e) {}
+  return restauranteAtual?.slug === 'servidelivery-demo';
+}
+
+function dnInjetarCss() {
+  if (document.getElementById('css-dash-novo')) return;
+  const st = document.createElement('style');
+  st.id = 'css-dash-novo';
+  st.textContent = `
+.dn-sub{font-size:12px;color:var(--texto-muted);margin-top:6px;line-height:1.4;}
+.dn-aviso{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:#FFF1D6;color:#7A4300;border-radius:12px;padding:14px 16px;margin-bottom:18px;font-size:15px;font-weight:600;}
+.dn-btn{font-family:inherit;font-size:14px;font-weight:600;color:#fff;background:var(--verde);border:none;border-radius:10px;padding:10px 18px;min-height:42px;cursor:pointer;}
+.dn-card{background:var(--branco);border:1px solid var(--creme-borda);border-radius:14px;padding:18px 20px;margin-bottom:18px;}
+.dn-card-topo{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;}
+.dn-tit{font-size:15px;font-weight:700;}
+.dn-link{font-family:inherit;font-size:13px;color:#6B5B50;background:none;border:none;cursor:pointer;text-decoration:underline;padding:6px 0;}
+.dn-lin{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid var(--creme-borda);}
+.dn-lin:first-of-type{border-top:none;}
+.dn-nome{font-size:15px;font-weight:600;word-break:break-word;}
+.dn-det{font-size:12px;color:var(--texto-muted);margin-top:2px;}
+.dn-dir{text-align:right;flex-shrink:0;}
+.dn-valor{font-size:15px;font-weight:700;white-space:nowrap;}
+.dn-etq{display:inline-block;font-size:11px;font-weight:700;border-radius:10px;padding:2px 9px;margin-top:4px;}
+.dn-etq.ok{background:#E3F4EE;color:#0B5C47;}
+.dn-etq.cobrar{background:#FFF1D6;color:#7A4300;}
+.dn-etq.pix{background:#FDE8DC;color:#8F3010;}
+.dn-etq.neutro{background:var(--creme-borda);color:#6B5B50;}
+.dn-rodape{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:14px;color:var(--texto-muted);margin-bottom:8px;}
+`;
+  document.head.appendChild(st);
+}
+
+function dnIr(pagina) {
+  const el = document.querySelector(`[onclick="irPara('${pagina}')"]`);
+  if (el) el.click(); else irPara(pagina);
+}
+
+// Etiqueta curta de pagamento para a lista
+function dnPagamento(p) {
+  const d = dadosPagamento(p);
+  if (!d) return null;
+  if (d.pago) return { cls: 'ok', txt: 'Pago no ' + (d.online === 'NO CARTÃO' ? 'cartão' : 'Pix') };
+  if (d.pixManual) return { cls: 'pix', txt: 'Conferir o Pix' };
+  return { cls: 'cobrar', txt: 'Cobrar ' + String(d.quando || 'na entrega').toLowerCase() };
+}
+
+function dnStatus(s) {
+  return ({ novo: 'Novo', preparando: 'Em preparo', entrega: 'A caminho', entregue: 'Entregue', cancelado: 'Recusado' })[s] || s;
+}
+
+function dnQuando(iso) {
+  const d = dataDoBanco(iso);
+  if (!d) return '';
+  const h = new Date();
+  const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  if (d.toDateString() === h.toDateString()) return 'hoje ' + hora;
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + hora;
+}
+
+async function renderDashboardNovo(d) {
+  dnInjetarCss();
+  const reais = v => 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ',');
+  let novos = 0;
+  try {
+    const r = await db.from('pedidos').select('id', { count: 'exact', head: true })
+      .eq('restaurante_id', restauranteAtual.id).eq('status', 'novo').is('codigo_comanda_id', null);
+    novos = r.count || 0;
+  } catch (e) {}
+  const qtdHoje = d.qtdDeliveryHoje + d.qtdComandaHoje;
+  const ticket = qtdHoje ? d.fatTotalHoje / qtdHoje : 0;
+  const nomeDe = p => (p.observacao?.split('Nome:')[1]?.split('\n')[0]?.trim()) || p.clientes?.nome || 'Cliente';
+  const linhaPedido = p => {
+    const ret = ehRetirada(p);
+    const ag = textoAgendamento(p);
+    const pag = dnPagamento(p);
+    const det = [ag ? (ret ? 'Retirada' : 'Entrega') + ' agendada para ' + ag : (ret ? 'Retirada' : 'Entrega'), (!ret && p.bairro) ? p.bairro : '', dnQuando(p.criado_em)].filter(Boolean).map(esc).join(' · ');
+    return `<div class="dn-lin">
+      <div><div class="dn-nome">${esc(nomeDe(p))}</div><div class="dn-det">${det}</div></div>
+      <div class="dn-dir"><div class="dn-valor">${reais(p.total)}</div>
+        <span class="dn-etq neutro">${dnStatus(p.status)}</span>${pag && ['novo', 'preparando', 'entrega'].includes(p.status) ? ` <span class="dn-etq ${pag.cls}">${esc(pag.txt)}</span>` : ''}</div>
+    </div>`;
+  };
+  const linhaComanda = p => {
+    const mesa = ((p.observacao || '').match(/Mesa\s+(\S+)/) || [])[1];
+    return `<div class="dn-lin">
+      <div><div class="dn-nome">${mesa ? 'Mesa ' + esc(mesa) : 'Comanda'}</div><div class="dn-det">${esc(dnQuando(p.criado_em))}</div></div>
+      <div class="dn-dir"><div class="dn-valor">${reais(p.total)}</div><span class="dn-etq neutro">${(p.status === 'entrega' || p.status === 'entregue') ? 'Finalizada' : dnStatus(p.status)}</span></div>
+    </div>`;
+  };
+  document.getElementById('conteudo').innerHTML = `
+    ${novos > 0 ? `<div class="dn-aviso"><span>${novos === 1 ? 'Você tem 1 pedido novo esperando' : 'Você tem ' + novos + ' pedidos novos esperando'}</span><button class="dn-btn" onclick="dnIr('pedidos')">Ver pedidos</button></div>` : ''}
+    <div class="metricas">
+      <div class="metrica"><div class="metrica-label">Vendas de hoje</div><div class="metrica-val laranja">${reais(d.fatTotalHoje)}</div>
+        <div class="dn-sub">Delivery ${reais(d.fatHoje)} · Mesas ${reais(d.fatComandaHoje)}</div></div>
+      <div class="metrica"><div class="metrica-label">Pedidos de hoje</div><div class="metrica-val">${qtdHoje}</div></div>
+      <div class="metrica"><div class="metrica-label">Ticket médio de hoje</div><div class="metrica-val">${reais(ticket)}</div>
+        <div class="dn-sub">Quanto cada pedido vale, em média</div></div>
+      <div class="metrica"><div class="metrica-label">Vendas do mês</div><div class="metrica-val">${reais(d.fatTotalMes)}</div>
+        <div class="dn-sub">Delivery ${reais(d.fatMes)} · Mesas ${reais(d.fatComandaMes)}</div></div>
+    </div>
+    <div class="dn-card">
+      <div class="dn-card-topo"><div class="dn-tit">Últimos pedidos</div><button class="dn-link" onclick="dnIr('pedidos')">Ver todos</button></div>
+      ${d.pedidosDelivery.length ? d.pedidosDelivery.map(linhaPedido).join('') : '<div class="empty"><div class="empty-ico">🛵</div><div class="empty-txt">Nenhum pedido ainda</div></div>'}
+    </div>
+    ${d.pedidosComanda.length ? `<div class="dn-card">
+      <div class="dn-card-topo"><div class="dn-tit">Últimas comandas (mesas)</div><button class="dn-link" onclick="dnIr('comandas')">Ver comandas</button></div>
+      ${d.pedidosComanda.slice(0, 3).map(linhaComanda).join('')}
+    </div>` : ''}
+    <div class="dn-rodape"><span>${d.clientes} cliente${d.clientes === 1 ? '' : 's'} cadastrado${d.clientes === 1 ? '' : 's'}</span>
+      <button class="dn-link" onclick="resetarFormCliente();abrirModal('modal-cadastro-cliente')">+ Cadastrar cliente</button></div>
+  `;
 }
