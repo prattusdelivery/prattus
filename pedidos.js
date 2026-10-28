@@ -1609,15 +1609,14 @@ function dnInjetarCss() {
 .dn-etq.cobrar{background:#FFF1D6;color:#7A4300;}
 .dn-etq.pix{background:#FDE8DC;color:#8F3010;}
 .dn-etq.neutro{background:var(--creme-borda);color:#6B5B50;}
-.dn-resumo{background:var(--branco);border:1px solid var(--creme-borda);border-radius:14px;padding:12px 16px;margin-bottom:18px;}
-.dn-res-cab,.dn-res-lin{display:grid;grid-template-columns:minmax(84px,1.3fr) repeat(4,1fr);gap:8px;align-items:center;text-align:right;}
-.dn-res-cab{font-size:11px;font-weight:700;color:var(--texto-muted);padding-bottom:8px;border-bottom:1px solid var(--creme-borda);}
-.dn-res-lin{font-size:14px;font-weight:600;padding:9px 0;border-bottom:1px solid var(--creme-borda);}
-.dn-res-lin .dn-res-nome,.dn-res-cab div:first-child{text-align:left;}
-.dn-res-lin .dn-res-nome{font-size:13px;font-weight:700;}
-.dn-res-lin.total{border-bottom:none;font-weight:800;color:var(--laranja);}
-.dn-res-nota{font-size:11px;color:var(--texto-muted);padding-top:8px;}
-@media(max-width:700px){.dn-resumo{padding:10px 12px;}.dn-res-cab{font-size:10px;}.dn-res-cab,.dn-res-lin{gap:3px;grid-template-columns:76px repeat(4,minmax(0,1fr));}.dn-res-lin{font-size:11.5px;}.dn-res-nome{white-space:nowrap;}.dn-res-lin .dn-res-nome{font-size:11.5px;}.dn-lin>div:first-child{flex:1;min-width:0;}.dn-dir{max-width:52%;}}
+.dn-grupo{font-size:12px;font-weight:700;color:var(--texto-muted);text-transform:uppercase;letter-spacing:0.5px;margin:0 0 6px;}
+.dn-minis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px;}
+.dn-minis-2{grid-template-columns:repeat(2,minmax(0,1fr));}
+.dn-mini{background:var(--branco);border:1px solid var(--creme-borda);border-radius:12px;padding:10px 12px;}
+.dn-mini-r{font-size:12px;font-weight:600;color:var(--texto-muted);margin-bottom:2px;}
+.dn-mini-v{font-size:19px;font-weight:800;letter-spacing:-0.02em;color:var(--texto);}
+.dn-mini-v.laranja{color:var(--laranja);}
+@media(max-width:700px){.dn-minis{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}.dn-mini{padding:8px 10px;}.dn-mini-v{font-size:17px;}.dn-lin>div:first-child{flex:1;min-width:0;}.dn-dir{max-width:52%;}}
 .dn-rodape{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:14px;color:var(--texto-muted);margin-bottom:8px;}
 `;
   document.head.appendChild(st);
@@ -1653,11 +1652,9 @@ function dnQuando(iso) {
 async function renderDashboardNovo(d) {
   dnInjetarCss();
   const reais = v => 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ',');
-  const num = v => (parseFloat(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const qtdHoje = d.qtdDeliveryHoje + d.qtdComandaHoje;
   const media = (fat, qtd) => qtd ? fat / qtd : 0;
-  const linhaResumo = (nome, qtd, fatHoje, fatMes, forte) => `<div class="dn-res-lin${forte ? ' total' : ''}">
-      <div class="dn-res-nome">${nome}</div><div>${qtd}</div><div>${num(fatHoje)}</div><div>${num(media(fatHoje, qtd))}</div><div>${num(fatMes)}</div></div>`;
+  const mini = (rotulo, valor, laranja) => `<div class="dn-mini"><div class="dn-mini-r">${rotulo}</div><div class="dn-mini-v${laranja ? ' laranja' : ''}">${valor}</div></div>`;
   const nomeDe = p => (p.observacao?.split('Nome:')[1]?.split('\n')[0]?.trim()) || p.clientes?.nome || 'Cliente';
   const linhaPedido = p => {
     const ret = ehRetirada(p);
@@ -1678,12 +1675,17 @@ async function renderDashboardNovo(d) {
     </div>`;
   };
   document.getElementById('conteudo').innerHTML = `
-    <div class="dn-resumo">
-      <div class="dn-res-cab"><div></div><div>Pedidos hoje</div><div>Vendas hoje</div><div>Ticket médio</div><div>Vendas no mês</div></div>
-      ${linhaResumo('🛵 Delivery', d.qtdDeliveryHoje, d.fatHoje, d.fatMes)}
-      ${linhaResumo('🍽️ Mesas', d.qtdComandaHoje, d.fatComandaHoje, d.fatComandaMes)}
-      ${linhaResumo('Total', qtdHoje, d.fatTotalHoje, d.fatTotalMes, true)}
-      <div class="dn-res-nota">Valores em reais (R$). Só pedidos aceitos entram na conta.</div>
+    <div class="dn-grupo">🛵 Delivery</div>
+    <div class="dn-minis">
+      ${mini('Pedidos hoje', d.qtdDeliveryHoje)}${mini('Vendas hoje', reais(d.fatHoje), true)}${mini('Ticket médio', reais(media(d.fatHoje, d.qtdDeliveryHoje)))}${mini('Vendas no mês', reais(d.fatMes))}
+    </div>
+    <div class="dn-grupo">🍽️ Comandas (mesas)</div>
+    <div class="dn-minis">
+      ${mini('Comandas hoje', d.qtdComandaHoje)}${mini('Vendas hoje', reais(d.fatComandaHoje), true)}${mini('Ticket médio', reais(media(d.fatComandaHoje, d.qtdComandaHoje)))}${mini('Vendas no mês', reais(d.fatComandaMes))}
+    </div>
+    <div class="dn-grupo">💰 Total (delivery + comandas)</div>
+    <div class="dn-minis dn-minis-2">
+      ${mini('Vendas totais hoje', reais(d.fatTotalHoje), true)}${mini('Vendas totais no mês', reais(d.fatTotalMes), true)}
     </div>
     <div class="dn-card">
       <div class="dn-card-topo"><div class="dn-tit">Últimos pedidos</div><button class="dn-link" onclick="dnIr('pedidos')">Ver todos</button></div>
