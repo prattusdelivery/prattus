@@ -1574,7 +1574,7 @@ function renderPedidosNovo(lista) {
 
 // ===================================================================
 // DASHBOARD NOVO (números em cima em tabela pequena + listas de pedidos/comandas no estilo simples)
-// Por enquanto aparece só na loja demo (slug servidelivery-demo), até o dono aprovar.
+// Liberado para todas as lojas.
 // Para ligar/desligar num aparelho: localStorage.setItem('dashboard_novo','true' ou 'false').
 // ===================================================================
 function usarDashboardNovo() {
@@ -1583,7 +1583,7 @@ function usarDashboardNovo() {
     if (v === 'true') return true;
     if (v === 'false') return false;
   } catch (e) {}
-  return restauranteAtual?.slug === 'servidelivery-demo'; // só no demo até o dono aprovar
+  return true; // Liberado para todas as lojas
 }
 
 function dnInjetarCss() {
