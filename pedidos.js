@@ -963,8 +963,8 @@ function imprimirComanda(p) {
   const totalPedido = parseFloat(p.total) || 0;
   const desconto = Math.round((subtotal + frete - totalPedido) * 100) / 100;
   const itensHtml = itens.map(i => `
-    <div class="cp-par cp-item"><span>${parseInt(i.quantidade) || 1}x ${esc(i.nome)}</span><span>${reais((parseFloat(i.preco) || 0) * (parseInt(i.quantidade) || 1))}</span></div>
-    ${i.observacao ? `<div class="cp-info">&nbsp;&nbsp;Obs: ${esc(i.observacao)}</div>` : ''}
+    <div class="cp-par cp-item cp-prod"><span>${parseInt(i.quantidade) || 1}x ${esc(i.nome)}</span><span>${reais((parseFloat(i.preco) || 0) * (parseInt(i.quantidade) || 1))}</span></div>
+    ${i.observacao ? `<div class="cp-info cp-prod">&nbsp;&nbsp;Obs: ${esc(i.observacao)}</div>` : ''}
   `).join('');
 
   const tipoPedido = ehCom ? 'COMANDA' : (ret ? 'RETIRADA' : 'ENTREGA');
