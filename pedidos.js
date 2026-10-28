@@ -505,11 +505,56 @@ async function buscarComandaPorCodigo() {
     .eq('restaurante_id', restauranteAtual.id).eq('codigo_curto', codigo).maybeSingle();
 
   if (error || !data) {
+    // Cartão que o restaurante já tinha impresso (ex.: 000191): acha pelo número ou cadastra
+    const idCartao = await achaOuCadastraCartao(codigo);
+    if (idCartao) { window.location.href = `?comanda=${idCartao}`; return; }
     toast('Nenhuma comanda encontrada com esse código.', 'erro');
     campo.value = '';
     return;
   }
   window.location.href = `?comanda=${data.id}`;
+}
+
+// ===== CARTÕES DE COMANDA QUE O RESTAURANTE JÁ TINHA IMPRESSOS =====
+// O QR Code / código de barras desses cartões traz só o número (ex.: 191 ou 000191).
+// Na primeira leitura o sistema pergunta se pode cadastrar; depois vira uma comanda normal.
+// Liberado só na loja Demo por enquanto (localStorage 'cartao_existente' = 'true'/'false' força).
+function usarCartaoExistente() {
+  try {
+    const v = localStorage.getItem('cartao_existente');
+    if (v === 'true') return true;
+    if (v === 'false') return false;
+  } catch (e) {}
+  return restauranteAtual && restauranteAtual.slug === 'servidelivery-demo';
+}
+
+var cartoesRecusados = {};
+
+function numeroDoCartao(texto) {
+  const t = String(texto || '').trim();
+  if (!/^\d{1,9}$/.test(t)) return null;
+  return t.replace(/^0+/, '') || null;   // 000191 e 191 são o mesmo cartão
+}
+
+async function achaOuCadastraCartao(texto) {
+  if (!usarCartaoExistente()) return null;
+  const numero = numeroDoCartao(texto);
+  if (!numero) return null;
+  const t = String(texto).trim();
+  const { data: achou } = await db.from('codigos_comanda').select('id')
+    .eq('restaurante_id', restauranteAtual.id).in('codigo_curto', [numero, t]).limit(1);
+  if (achou && achou.length) return achou[0].id;
+  if (cartoesRecusados[numero]) return null;   // já disse "não" nesta leitura — não pergunta de novo a cada foto da câmera
+  if (!confirm('O cartão número ' + numero + ' ainda não está cadastrado.\n\nQuer cadastrar e abrir essa comanda agora?')) {
+    cartoesRecusados[numero] = true;
+    setTimeout(() => { delete cartoesRecusados[numero]; }, 15000);
+    return null;
+  }
+  const { data: novo, error } = await db.from('codigos_comanda')
+    .insert({ restaurante_id: restauranteAtual.id, status: 'livre', codigo_curto: numero })
+    .select('id').single();
+  if (error || !novo) { toast('Não consegui cadastrar o cartão. Tente de novo.', 'erro'); return null; }
+  return novo.id;
 }
 
 async function renderPedidos() {
@@ -648,7 +693,7 @@ async function renderComandas() {
     ${meuPapel === 'garcom' ? '' : `<div class="card" style="margin-bottom:20px;">
       <div class="card-titulo">🔍 Fechar conta pelo código de barras</div>
       <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Passe o leitor no código de barras da comanda (ou digite o número e aperte Enter).</div>
-      <input type="text" id="busca-codigo-barras" name="leitor_comanda_numero" inputmode="numeric" placeholder="Escaneie ou digite os 6 números" style="font-size:16px;letter-spacing:2px;" onkeypress="if(event.key==='Enter')buscarComandaPorCodigo()" autocomplete="off" autocorrect="off" spellcheck="false">
+      <input type="text" id="busca-codigo-barras" name="leitor_comanda_numero" inputmode="numeric" placeholder="Escaneie ou digite o número da comanda" style="font-size:16px;letter-spacing:2px;" onkeypress="if(event.key==='Enter')buscarComandaPorCodigo()" autocomplete="off" autocorrect="off" spellcheck="false">
     </div>`}
     ${mesasComTotal.length > 0 ? `
     <div class="card" style="margin-bottom:20px;background:var(--laranja-light);border:1.5px dashed var(--laranja);">
@@ -1164,9 +1209,9 @@ async function comandaIdDoTexto(texto) {
   if (/^\d{6}$/.test(t)) {
     const { data } = await db.from('codigos_comanda').select('id')
       .eq('restaurante_id', restauranteAtual.id).eq('codigo_curto', t).maybeSingle();
-    return data?.id || null;
+    if (data?.id) return data.id;
   }
-  return null;
+  return await achaOuCadastraCartao(t);
 }
 
 async function abrirLeitorQr() {
