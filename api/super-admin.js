@@ -94,6 +94,18 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
+    if (acao === 'impressao_separada') {
+      // Liga ou desliga o serviço de impressão separada (cozinha/bebida) numa loja
+      const ligado = req.body.ligado === true;
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${encodeURIComponent(restauranteId)}`, {
+        method: 'PATCH',
+        headers: { ...svcHeaders, 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ impressao_separada: ligado })
+      });
+      if (!r.ok) return res.status(500).json({ error: 'Não consegui salvar.' });
+      return res.status(200).json({ ok: true, ligado });
+    }
+
     if (acao === 'estender_teste') {
       const diasNum = Number.isFinite(parseInt(dias)) ? parseInt(dias) : 7;
       const buscaResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}&select=trial_extra_dias`, { headers: svcHeaders });
