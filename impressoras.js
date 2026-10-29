@@ -1,8 +1,8 @@
 // ===== IMPRESSÃO SEPARADA: COZINHA (comida) e CAIXA (bebida) =====
 // Usa o QZ Tray (programa gratuito instalado no computador) pra mandar cada papel pra uma
 // impressora diferente, sem janelinha. A tela de Configurações oferece um botão que baixa o
-// instalador (instalar-impressao.bat) e se liga sozinha quando o QZ Tray ficar pronto. Só vale para comandas (mesas), só neste aparelho.
-// Liberado só na loja Demo por enquanto (localStorage 'impressao_separada' = 'true'/'false' força).
+// link do site oficial do QZ Tray e se liga sozinha quando o QZ Tray ficar pronto. Só vale para comandas (mesas), só neste aparelho.
+// Liberado só na loja Demo e no Quiosque da Praça por enquanto (localStorage 'impressao_separada' = 'true'/'false' força).
 // Se qualquer coisa falhar, o painel imprime do jeito de sempre (nada se perde).
 
 var QZ_SCRIPT_URL = 'https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.js';
@@ -13,7 +13,7 @@ function usarImpressaoSeparada() {
     if (v === 'true') return true;
     if (v === 'false') return false;
   } catch (e) {}
-  return !!(restauranteAtual && restauranteAtual.slug === 'servidelivery-demo');
+  return !!(restauranteAtual && (restauranteAtual.slug === 'servidelivery-demo' || restauranteAtual.slug === 'quiosquedapraca'));
 }
 
 function impLer(chave, padrao) {
@@ -149,14 +149,14 @@ function impBlocoConfig() {
     <div id="imp-status" style="font-size:13px;font-weight:600;margin-bottom:10px;">Verificando este computador...</div>
 
     <div id="imp-instalar" style="display:none;">
-      <a class="btn-sm" href="/instalar-impressao.bat" download="instalar-impressao.bat" style="display:inline-block;text-decoration:none;font-size:15px;font-weight:700;padding:12px 18px;background:var(--laranja);color:#fff;border-radius:10px;">⬇️ Baixar o instalador</a>
+      <a class="btn-sm" href="https://qz.io/download/" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none;font-size:15px;font-weight:700;padding:12px 18px;background:var(--laranja);color:#fff;border-radius:10px;">⬇️ Baixar o QZ Tray (programa de impressão)</a>
       <ol style="font-size:13px;line-height:1.7;margin:12px 0 0;padding-left:20px;">
-        <li>Clique no botão acima. Se o navegador perguntar, escolha <b>Manter</b>.</li>
-        <li>Abra o arquivo baixado (dois cliques).</li>
-        <li>Quando pedir permissão, clique em <b>Sim</b> e espere terminar.</li>
-        <li>Pronto! Esta tela se liga sozinha, não precisa fazer mais nada.</li>
+        <li>Clique no botão acima. Abre o site oficial do programa.</li>
+        <li>Baixe a versão do <b>Windows</b> (arquivo terminado em <b>.exe</b>) e abra o arquivo baixado.</li>
+        <li>Clique em <b>Next</b> (Próximo) até terminar a instalação. O QZ Tray abre sozinho e fica um ícone perto do relógio.</li>
+        <li>Volte para esta tela. Ela se liga sozinha, não precisa fazer mais nada.</li>
       </ol>
-      <div style="font-size:12px;color:var(--texto-muted);margin-top:8px;">Se o Windows avisar que protegeu o computador, clique em <b>Mais informações</b> e depois em <b>Executar assim mesmo</b>. Se aparecer uma janelinha do QZ Tray pedindo permissão, marque <b>Lembrar</b> e clique em <b>Permitir</b>.</div>
+      <div style="font-size:12px;color:var(--texto-muted);margin-top:8px;">Na primeira vez, o QZ Tray mostra uma janelinha pedindo permissão para o ServiDelivery. Marque <b>Lembrar</b> (Remember) e clique em <b>Permitir</b> (Allow).</div>
     </div>
 
     <div id="imp-impressoras" style="display:none;">
