@@ -3952,13 +3952,16 @@ async function renderConfig() {
       <div class="form-group"><label>Preço do prato "Livre" (R$)</label><input type="number" id="cfg-comanda-livre" value="${r.comanda_livre_preco||''}" placeholder="Ex: 20.00" step="0.01" min="0" style="max-width:200px;"><div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Se o seu restaurante tem rodízio/"come à vontade", coloque o valor aqui. Ele aparece como botão "♾️ Livre" na comanda do garçom. Deixe vazio se não usa.</div></div>
 
       <div class="config-titulo" style="margin-top:4px;">Horário de funcionamento</div>
-      <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Configure um horário diferente pra cada dia, ou deixe desmarcado nos dias que ficar fechado.</div>
+      <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Configure um horário diferente pra cada dia, ou deixe desmarcado nos dias que ficar fechado.${usarSegundoHorario() ? ' Abre no almoço e de novo à noite? Use o botão "+ 2º horário".' : ''}</div>
       <div id="horarios-semana-wrap">
         ${['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'].map((d,i) => {
           const hs = (r.horarios_semana && r.horarios_semana[i]) || {};
           const ativo = hs.ativo !== undefined ? hs.ativo : (r.dias_funcionamento||[]).includes(i);
           const abre = hs.abre || r.horario_abre || '';
           const fecha = hs.fecha || r.horario_fecha || '';
+          const tem2 = !!(hs.abre2 && hs.fecha2);
+          const permite2 = usarSegundoHorario() || tem2;
+          const estiloHora = 'width:110px;padding:6px 8px;border:1px solid var(--creme-borda);border-radius:6px;font-size:13px;';
           return `
           <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--creme-borda);flex-wrap:wrap;">
             <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;width:100px;cursor:pointer;flex-shrink:0;">
@@ -3967,6 +3970,14 @@ async function renderConfig() {
             <input type="time" class="hs-abre" data-dia="${i}" value="${abre}" style="width:110px;padding:6px 8px;border:1px solid var(--creme-borda);border-radius:6px;font-size:13px;" ${ativo?'':'disabled'}>
             <span style="font-size:12px;color:var(--texto-muted);">às</span>
             <input type="time" class="hs-fecha" data-dia="${i}" value="${fecha}" style="width:110px;padding:6px 8px;border:1px solid var(--creme-borda);border-radius:6px;font-size:13px;" ${ativo?'':'disabled'}>
+            ${permite2 ? `
+            <span class="hs2-wrap" data-dia="${i}" style="display:${tem2?'inline-flex':'none'};align-items:center;gap:10px;">
+              <span style="font-size:12px;color:var(--texto-muted);">e</span>
+              <input type="time" class="hs-abre2" data-dia="${i}" value="${hs.abre2||''}" style="${estiloHora}" ${ativo?'':'disabled'}>
+              <span style="font-size:12px;color:var(--texto-muted);">às</span>
+              <input type="time" class="hs-fecha2" data-dia="${i}" value="${hs.fecha2||''}" style="${estiloHora}" ${ativo?'':'disabled'}>
+            </span>
+            <button type="button" class="hs2-btn" data-dia="${i}" onclick="alternarSegundoHorario(${i})" style="font-size:11px;padding:5px 10px;border-radius:6px;border:1px solid var(--creme-borda);background:none;color:var(--texto-muted);cursor:pointer;">${tem2?'− tirar 2º horário':'+ 2º horário'}</button>` : ''}
             ${i===0 ? `<button type="button" onclick="copiarHorarioPraTodos()" style="margin-left:auto;font-size:11px;padding:5px 10px;border-radius:6px;border:1px solid var(--creme-borda);background:none;color:var(--texto-muted);cursor:pointer;">Copiar pra todos os dias</button>` : ''}
           </div>
         `}).join('')}
@@ -4219,6 +4230,34 @@ function alternarDiaHorario(dia) {
   const ativo = document.querySelector(`.hs-ativo[data-dia="${dia}"]`).checked;
   document.querySelector(`.hs-abre[data-dia="${dia}"]`).disabled = !ativo;
   document.querySelector(`.hs-fecha[data-dia="${dia}"]`).disabled = !ativo;
+  const a2 = document.querySelector(`.hs-abre2[data-dia="${dia}"]`), f2 = document.querySelector(`.hs-fecha2[data-dia="${dia}"]`);
+  if (a2) a2.disabled = !ativo;
+  if (f2) f2.disabled = !ativo;
+}
+
+// Liga/desliga o 2º horário de um dia (ex.: almoço e noite)
+function alternarSegundoHorario(dia) {
+  const wrap = document.querySelector(`.hs2-wrap[data-dia="${dia}"]`);
+  const btn = document.querySelector(`.hs2-btn[data-dia="${dia}"]`);
+  if (!wrap || !btn) return;
+  const ligar = wrap.style.display === 'none';
+  wrap.style.display = ligar ? 'inline-flex' : 'none';
+  btn.textContent = ligar ? '− tirar 2º horário' : '+ 2º horário';
+  if (!ligar) {
+    wrap.querySelector('.hs-abre2').value = '';
+    wrap.querySelector('.hs-fecha2').value = '';
+  }
+}
+// O botão de 2º horário só aparece na loja Demo por enquanto.
+// Quem já tem 2º horário salvo continua vendo o botão. Liga/desliga neste aparelho: localStorage 'segundo_horario' = 'true' / 'false'.
+function usarSegundoHorario() {
+  try {
+    const v = localStorage.getItem('segundo_horario');
+    if (v === 'true') return true;
+    if (v === 'false') return false;
+  } catch (e) {}
+  const slug = restauranteAtual && restauranteAtual.slug;
+  return slug === 'servidelivery-demo';
 }
 
 function copiarHorarioPraTodos() {
@@ -4232,6 +4271,18 @@ function copiarHorarioPraTodos() {
     document.querySelector(`.hs-abre[data-dia="${i}"]`).disabled = !ativo;
     document.querySelector(`.hs-fecha[data-dia="${i}"]`).value = fecha;
     document.querySelector(`.hs-fecha[data-dia="${i}"]`).disabled = !ativo;
+    const o0a = document.querySelector('.hs-abre2[data-dia="0"]');
+    const dest = document.querySelector(`.hs-abre2[data-dia="${i}"]`);
+    if (o0a && dest) {
+      const f0 = document.querySelector('.hs-fecha2[data-dia="0"]').value;
+      const wrap = document.querySelector(`.hs2-wrap[data-dia="${i}"]`), btn = document.querySelector(`.hs2-btn[data-dia="${i}"]`);
+      const tem = !!(o0a.value && f0);
+      dest.value = o0a.value;
+      document.querySelector(`.hs-fecha2[data-dia="${i}"]`).value = f0;
+      dest.disabled = !ativo; document.querySelector(`.hs-fecha2[data-dia="${i}"]`).disabled = !ativo;
+      if (wrap) wrap.style.display = tem ? 'inline-flex' : 'none';
+      if (btn) btn.textContent = tem ? '− tirar 2º horário' : '+ 2º horário';
+    }
   }
   toast('Horário copiado pra todos os dias!', 'ok');
 }
@@ -4283,6 +4334,8 @@ async function salvarConfig() {
     const abre = document.querySelector(`.hs-abre[data-dia="${i}"]`).value;
     const fecha = document.querySelector(`.hs-fecha[data-dia="${i}"]`).value;
     horariosSemana[i] = { ativo, abre: abre || null, fecha: fecha || null };
+    const e2a = document.querySelector(`.hs-abre2[data-dia="${i}"]`), e2f = document.querySelector(`.hs-fecha2[data-dia="${i}"]`);
+    if (e2a && e2f && e2a.value && e2f.value) { horariosSemana[i].abre2 = e2a.value; horariosSemana[i].fecha2 = e2f.value; }
     if (ativo) diasMarcados.push(i);
   }
 
@@ -4518,15 +4571,15 @@ async function carregarPublico(restId) {
       const [fechaH, fechaM] = diaConfig.fecha.split(':').map(Number);
       const abre = abreH * 60 + abreM;
       const fecha = fechaH * 60 + fechaM;
-      const aberto = diaConfig.ativo && dentroDoHorario(horaAtual, abre, fecha);
+      const aberto = diaConfig.ativo && dentroDeAlgumTurno(horaAtual, diaConfig);
       elFechado.style.display = 'block';
       if (aberto) {
         elFechado.style.background = 'rgba(46,160,67,0.55)';
-        elFechado.textContent = `🟢 Aberto agora · Funciona ${diaConfig.abre} às ${diaConfig.fecha}`;
+        elFechado.textContent = `🟢 Aberto agora · Funciona ${textoTurnos(diaConfig)}`;
       } else {
         elFechado.style.background = 'rgba(0,0,0,0.5)';
         elFechado.textContent = diaConfig.ativo
-          ? `🔴 Fechado · Funciona ${diaConfig.abre} às ${diaConfig.fecha}`
+          ? `🔴 Fechado · Funciona ${textoTurnos(diaConfig)}`
           : `🔴 Fechado hoje`;
         if (rest.avisos_whatsapp?.fechado_so_agendar !== false && !!rest.pix_online_ativo) {
           elFechado.innerHTML = esc(elFechado.textContent) + '<br><span style="font-size:12px;font-weight:400;">Você pode agendar seu pedido 📅</span>';
@@ -6028,6 +6081,22 @@ function dentroDoHorario(min, abreMin, fechaMin) {
   if (fechaMin >= abreMin) return min >= abreMin && min <= fechaMin;
   return min >= abreMin || min <= fechaMin;
 }
+// Dia com 1 ou 2 horários (ex.: almoço 11:15 às 13:45 e noite 18:30 às 23:00). Dia sem abre2/fecha2 funciona igual a antes.
+function turnosDoDia(cfg) {
+  const t = [];
+  if (cfg && cfg.abre && cfg.fecha) t.push([cfg.abre, cfg.fecha]);
+  if (cfg && cfg.abre2 && cfg.fecha2) t.push([cfg.abre2, cfg.fecha2]);
+  return t;
+}
+function dentroDeAlgumTurno(min, cfg) {
+  return turnosDoDia(cfg).some(([a, f]) => {
+    const [ah, am] = a.split(':').map(Number), [fh, fm] = f.split(':').map(Number);
+    return dentroDoHorario(min, ah * 60 + am, fh * 60 + fm);
+  });
+}
+function textoTurnos(cfg) {
+  return turnosDoDia(cfg).map(([a, f]) => `${a} às ${f}`).join(' e ');
+}
 // Item com dias e/ou horário próprios (ex.: prato do dia, Alaminuta só à noite): está disponível nesse momento?
 // Sem dias e sem horário cadastrados = disponível sempre.
 function itemNoDiaHora(item, quando) {
@@ -6075,9 +6144,7 @@ function lojaFechadaPorHorario() {
   if (!cfg) return false;
   if (!cfg.ativo) return true;
   if (!cfg.abre || !cfg.fecha) return false;
-  const [ah, am] = cfg.abre.split(':').map(Number);
-  const [fh, fm] = cfg.fecha.split(':').map(Number);
-  return !dentroDoHorario(min, ah * 60 + am, fh * 60 + fm);
+  return !dentroDeAlgumTurno(min, cfg);
 }
 // Fechado e o dono escolheu "só agendamento" (padrão)?
 // "Só agendamento" só vale quando o restaurante recebe Pix/cartão online (Mercado Pago conectado); senão funciona como "sempre aberto"
@@ -6117,15 +6184,13 @@ function validarAgendamentoRetirada(data, hora, modo) {
     const nomeDia = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'][dia];
     if (!cfg.ativo) return `O restaurante não abre nesse dia (${nomeDia}). Escolha outro dia.`;
     if (cfg.abre && cfg.fecha) {
-      const [ah, am] = cfg.abre.split(':').map(Number);
-      const [fh, fm] = cfg.fecha.split(':').map(Number);
       const min = hh * 60 + mm;
       if (modo === 'retirada') {
         const limite = rest.retirada_ate || '21:30';
         const [rh, rm] = limite.split(':').map(Number);
         if (!isNaN(rh) && min > rh * 60 + rm) return `A retirada no local vai até as ${limite}. Escolha um horário até lá.`;
       }
-      if (!dentroDoHorario(min, ah * 60 + am, fh * 60 + fm)) return `Nesse dia o restaurante funciona das ${cfg.abre} às ${cfg.fecha}. Escolha um horário dentro desse período.`;
+      if (!dentroDeAlgumTurno(min, cfg)) return `Nesse dia o restaurante funciona das ${turnosDoDia(cfg).map(([x, y]) => x + ' às ' + y).join(' e das ')}. Escolha um horário dentro ${turnosDoDia(cfg).length > 1 ? 'desses períodos' : 'desse período'}.`;
     }
   }
   return '';
