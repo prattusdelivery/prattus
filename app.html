@@ -1805,6 +1805,7 @@ async function toggleDetalhesSA(restauranteId) {
         <button onclick="gerenciarLojaSA('${restauranteId}','desativar')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:#c0392b;color:#fff;border:none;cursor:pointer;">Desativar assinatura</button>
         <button onclick="estenderTesteSA('${restauranteId}')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:var(--laranja);color:#fff;border:none;cursor:pointer;">📅 Ajustar dias de teste</button>
         <button onclick="redefinirSenhaDonoSA('${restauranteId}')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:#3b4a63;color:#fff;border:none;cursor:pointer;">🔑 Redefinir senha do dono</button>
+        <button onclick="impressaoSeparadaSA('${restauranteId}', ${r?.impressao_separada ? 'false' : 'true'})" style="font-size:11px;padding:5px 10px;border-radius:6px;background:${r?.impressao_separada ? '#2ea043' : '#3b4a63'};color:#fff;border:none;cursor:pointer;">🖨️ Impressão separada: ${r?.impressao_separada ? 'LIGADA (clique para desligar)' : 'desligada (clique para ligar)'}</button>
       </div>
       <div id="sa-senha-${restauranteId}" style="margin-top:10px;"></div>
     `;
@@ -1849,6 +1850,27 @@ async function redefinirSenhaDonoSA(restauranteId) {
       </div>`;
   } catch (e) {
     if (caixa) caixa.innerHTML = '<span style="color:#e57373;">Erro de conexão.</span>';
+  }
+}
+
+async function impressaoSeparadaSA(restauranteId, ligar) {
+  const r = restaurantesSA.find(x => x.id === restauranteId);
+  if (!confirm(`${ligar ? 'Ligar' : 'Desligar'} a impressão separada (cozinha e bebida) na loja "${r?.nome || 'essa loja'}"?`)) return;
+
+  const { data: sessao } = await db.auth.getSession();
+  const tokenAdmin = sessao?.session?.access_token;
+
+  const resp = await fetch('/api/super-admin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ restauranteId, tokenAdmin, acao: 'impressao_separada', ligado: ligar })
+  });
+  const data = await resp.json();
+  if (resp.ok) {
+    toast(ligar ? 'Ligada! A caixa aparece em Configurações da loja.' : 'Desligada.', 'ok');
+    carregarSuperAdmin();
+  } else {
+    toast(data.error || 'Erro ao atualizar.', 'erro');
   }
 }
 
@@ -6838,7 +6860,7 @@ async function garantirUserIdRestaurante() {
 </script>
 <script src="cardapio.js"></script>
 <script src="pedidos.js?v=20261028a"></script>
-<script src="impressoras.js?v=20261029b"></script>
+<script src="impressoras.js?v=20261029c"></script>
 <script src="relatorios.js"></script>
 <script src="clientes.js"></script>
 </body>

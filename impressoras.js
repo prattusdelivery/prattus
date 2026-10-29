@@ -2,7 +2,7 @@
 // Usa o QZ Tray (programa gratuito instalado no computador) pra mandar cada papel pra uma
 // impressora diferente, sem janelinha. A tela de Configurações oferece um botão que baixa o
 // link do site oficial do QZ Tray e se liga sozinha quando o QZ Tray ficar pronto. Só vale para comandas (mesas), só neste aparelho.
-// Liberado só na loja Demo e no Quiosque da Praça por enquanto (localStorage 'impressao_separada' = 'true'/'false' força).
+// Serviço sob pedido: o Super Admin liga loja por loja (localStorage 'impressao_separada' = 'true'/'false' força neste aparelho).
 // Se qualquer coisa falhar, o painel imprime do jeito de sempre (nada se perde).
 
 var QZ_SCRIPT_URL = 'https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.js';
@@ -13,7 +13,8 @@ function usarImpressaoSeparada() {
     if (v === 'true') return true;
     if (v === 'false') return false;
   } catch (e) {}
-  return !!(restauranteAtual && (restauranteAtual.slug === 'servidelivery-demo' || restauranteAtual.slug === 'quiosquedapraca'));
+  // Quem liga é o Super Admin (botão "Impressão separada" em cada loja); fica guardado em restaurantes.impressao_separada
+  return !!(restauranteAtual && restauranteAtual.impressao_separada === true);
 }
 
 function impLer(chave, padrao) {
