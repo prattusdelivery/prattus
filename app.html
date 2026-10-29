@@ -4248,16 +4248,15 @@ function alternarSegundoHorario(dia) {
     wrap.querySelector('.hs-fecha2').value = '';
   }
 }
-// O botão de 2º horário só aparece na loja Demo por enquanto.
-// Quem já tem 2º horário salvo continua vendo o botão. Liga/desliga neste aparelho: localStorage 'segundo_horario' = 'true' / 'false'.
+// O botão de 2º horário vale para todas as lojas.
+// Liga/desliga neste aparelho: localStorage 'segundo_horario' = 'true' / 'false'.
 function usarSegundoHorario() {
   try {
     const v = localStorage.getItem('segundo_horario');
     if (v === 'true') return true;
     if (v === 'false') return false;
   } catch (e) {}
-  const slug = restauranteAtual && restauranteAtual.slug;
-  return slug === 'servidelivery-demo';
+  return true;
 }
 
 function copiarHorarioPraTodos() {
