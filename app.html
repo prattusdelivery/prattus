@@ -4061,8 +4061,53 @@ async function renderConfig() {
       <div style="font-size:13px;font-weight:700;margin-top:8px;">Cardápio pra consulta</div>
       <a href="${qrConsultaUrl}" download="cardapio-consulta.png" style="font-size:11px;color:var(--laranja);">Baixar</a>
     </div>
+    ${usarQrMesaImpressao() ? `
+    <div style="margin-top:14px;display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;">
+      <div class="form-group" style="margin:0;">
+        <label style="font-size:12px;">Quantas cópias imprimir?</label>
+        <input type="number" id="qtd-qr-consulta" value="12" min="1" max="60" style="width:120px;">
+      </div>
+      <button class="btn-sm" onclick="imprimirQrConsulta()">🖨️ Imprimir QR das mesas</button>
+    </div>
+    <div style="font-size:12px;color:var(--texto-muted);margin-top:6px;">Sai no mesmo tamanho dos códigos de comanda, vários por folha, prontos para recortar e colar no canto da mesa.</div>` : ''}
   `;
   if (usarConfigEmAbas()) cfgOrganizarEmAbas();
+}
+
+// Imprimir várias cópias do QR do cardápio de consulta (o mesmo tamanho dos QR das comandas: 180x180)
+// Só na loja Demo por enquanto. Liga/desliga neste aparelho: localStorage 'qr_mesa_imprimir' = 'true' / 'false'.
+function usarQrMesaImpressao() {
+  try {
+    const v = localStorage.getItem('qr_mesa_imprimir');
+    if (v === 'true') return true;
+    if (v === 'false') return false;
+  } catch (e) {}
+  const slug = restauranteAtual && restauranteAtual.slug;
+  return slug === 'servidelivery-demo';
+}
+
+async function imprimirQrConsulta() {
+  const qtd = parseInt(document.getElementById('qtd-qr-consulta')?.value);
+  if (!qtd || qtd < 1) { toast('Digite quantas cópias quer imprimir.', 'erro'); return; }
+  if (qtd > 60) { toast('Máximo de 60 por vez.', 'erro'); return; }
+  const urlConsulta = `https://servidelivery.com.br/${restauranteAtual.slug}?consulta=1`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(urlConsulta)}`;
+  const um = `
+    <div style="display:inline-block;text-align:center;border:1px dashed #999;border-radius:8px;padding:14px;margin:8px;width:220px;page-break-inside:avoid;">
+      <img class="qr-mesa-img" src="${qrUrl}" width="180" height="180">
+      <div style="margin-top:10px;font-size:13px;font-weight:700;font-family:Arial,sans-serif;color:#000;">Escaneie e veja o cardápio</div>
+    </div>`;
+  const alvo = document.getElementById('print-cardapio');
+  alvo.innerHTML = `<div style="text-align:center;">${um.repeat(qtd)}</div>`;
+  const comandaPrint = document.getElementById('comanda-print');
+  if (comandaPrint) comandaPrint.innerHTML = '';
+  // espera a imagem do QR carregar antes de abrir a impressão (senão sai em branco)
+  const imgs = [...alvo.querySelectorAll('img')];
+  await Promise.race([
+    Promise.all(imgs.map(i => i.complete ? null : new Promise(r => { i.onload = r; i.onerror = r; }))),
+    new Promise(r => setTimeout(r, 6000))
+  ]);
+  window.print();
 }
 
 // ===== CONFIGURAÇÕES EM ABAS (tela mais simples para quem está começando) =====
