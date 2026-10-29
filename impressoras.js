@@ -66,10 +66,10 @@ async function conectarQz() {
         const { data } = await db.auth.getSession();
         const token = data && data.session && data.session.access_token;
         if (!token) throw new Error('sem-login');
-        const r = await fetch('/api/qz-assinar', {
+        const r = await fetch('/api/verificar-duplicado', {
           method: 'POST', cache: 'no-store',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-          body: JSON.stringify({ request: toSign })
+          body: JSON.stringify({ qz_request: toSign })
         });
         if (!r.ok) throw new Error('assinar-' + r.status);
         return r.text();
