@@ -967,6 +967,61 @@ function faixaAgendado(p) {
   return `<div style="background:#FFD60A;color:#C00000;font-size:14px;font-weight:900;padding:8px 10px;border-radius:8px;margin-bottom:8px;text-align:center;border:2px solid #C00000;letter-spacing:.3px;">⏰ ${tipoAgendamento(p)} AGENDADA PARA ${esc(t)}</div>`;
 }
 
+// ===== PAPEL AJUSTADO (bobina térmica): imprime UMA folha só, do tamanho exato da comanda =====
+// Vale para todas as lojas. Para desligar num aparelho específico: localStorage 'papel_ajustado' = 'false'.
+function usarPapelAjustado() {
+  try {
+    const v = localStorage.getItem('papel_ajustado');
+    if (v === 'true') return true;
+    if (v === 'false') return false;
+  } catch (e) {}
+  return true;
+}
+
+function imprimirPapelAjustado() {
+  const antigo = document.getElementById('sd-papel-ajustado');
+  if (antigo) antigo.remove();
+  const el = document.getElementById('comanda-print');
+  if (!usarPapelAjustado() || !el) { window.print(); return; }
+  let st = null;
+  try {
+    const LARG = 72, PAGINA = 76; // mm: escrita de 72 mm dentro do papel de 76 mm
+    // 1) copia as regras de estilo da comanda que existem só para impressão, para poder medir na tela
+    let regras = '';
+    for (const folha of document.styleSheets) {
+      let lista; try { lista = folha.cssRules; } catch (e) { continue; }
+      for (const r of lista) {
+        if (r.type === 4 && /print/.test(r.media.mediaText)) {
+          for (const rr of r.cssRules) {
+            if (rr.selectorText && rr.selectorText.indexOf('comanda-print') >= 0 && rr.selectorText.indexOf('body') < 0) regras += rr.cssText + '\n';
+          }
+        }
+      }
+    }
+    const medir = document.createElement('style');
+    medir.id = 'sd-papel-medir';
+    medir.textContent = regras + `#comanda-print{display:block !important;position:absolute !important;left:-9999px !important;top:0 !important;visibility:hidden !important;width:${LARG}mm !important;margin:0 !important;}`;
+    document.head.appendChild(medir);
+    const alturaPx = el.getBoundingClientRect().height;
+    medir.remove();
+    // 2) altura em milímetros + uma folguinha embaixo (para o corte da guilhotina não pegar a escrita)
+    const alturaMm = Math.ceil(alturaPx * 25.4 / 96) + 8;
+    st = document.createElement('style');
+    st.id = 'sd-papel-ajustado';
+    st.textContent = `@page{size:${PAGINA}mm ${alturaMm}mm;margin:0;}
+    @media print{
+      html,body{height:auto !important;min-height:0 !important;margin:0 !important;padding:0 !important;overflow:visible !important;background:#fff !important;}
+      #comanda-print{width:${LARG}mm !important;margin:0 ${(PAGINA - LARG) / 2}mm !important;padding:0 !important;page-break-after:avoid !important;page-break-inside:auto !important;}
+    }`;
+    document.head.appendChild(st);
+  } catch (e) {
+    console.error('Papel ajustado falhou, imprimindo do jeito normal:', e);
+    if (st) st.remove();
+  }
+  window.print();
+  setTimeout(() => { const s = document.getElementById('sd-papel-ajustado'); if (s) s.remove(); }, 1500);
+}
+
 function imprimirComanda(p, forcarNormal) {
   // Comanda com comida e bebida em impressoras diferentes (só quem ligou isso neste aparelho).
   // Se der qualquer problema, imprime do jeito normal logo em seguida.
@@ -1027,7 +1082,7 @@ function imprimirComanda(p, forcarNormal) {
       ${linhaFrete}
       <div class="cp-total">TOTAL: R$ ${parseFloat(p.total).toFixed(2).replace('.',',')}</div>
     `;
-    window.print();
+    imprimirPapelAjustado();
     return;
   }
 
@@ -1090,7 +1145,7 @@ function imprimirComanda(p, forcarNormal) {
     ${desconto > 0.009 ? `<div class="cp-par cp-info"><span>Desconto</span><span>- ${reais(desconto)}</span></div>` : ''}
     <div class="cp-par cp-total"><span>TOTAL</span><span>${reais(totalPedido)}</span></div>
   `;
-  window.print();
+  imprimirPapelAjustado();
 }
 
 function tempoDecorridoTexto(dataIso) {
