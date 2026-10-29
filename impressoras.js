@@ -180,9 +180,9 @@ async function impIniciarTela() {
       impGravar('imp_cats_bebida', JSON.stringify([...marcadas]));
     }
     box.innerHTML = (cats || []).length ? (cats || []).map(c => `
-      <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;">
-        <input type="checkbox" ${marcadas.has(c.id) ? 'checked' : ''} onchange="impMarcarCategoria('${c.id}', this.checked)">
-        <span>${String(c.nome || '').replace(/</g, '&lt;')}</span>
+      <label style="display:flex;align-items:center;gap:10px;margin:0;padding:9px 0;font-size:14px;font-weight:500;color:var(--texto);cursor:pointer;border-top:1px solid var(--creme-borda);">
+        <input type="checkbox" style="width:20px;height:20px;min-width:20px;padding:0;margin:0;flex:none;accent-color:var(--laranja);" ${marcadas.has(c.id) ? 'checked' : ''} onchange="impMarcarCategoria('${c.id}', this.checked)">
+        <span style="flex:1;">${String(c.nome || '').replace(/</g, '&lt;')}</span>
       </label>`).join('') : 'Nenhuma categoria ainda.';
   } catch (e) { box.textContent = 'Não consegui carregar as categorias.'; }
 }
