@@ -967,7 +967,17 @@ function faixaAgendado(p) {
   return `<div style="background:#FFD60A;color:#C00000;font-size:14px;font-weight:900;padding:8px 10px;border-radius:8px;margin-bottom:8px;text-align:center;border:2px solid #C00000;letter-spacing:.3px;">⏰ ${tipoAgendamento(p)} AGENDADA PARA ${esc(t)}</div>`;
 }
 
-function imprimirComanda(p) {
+function imprimirComanda(p, forcarNormal) {
+  // Comanda com comida e bebida em impressoras diferentes (só quem ligou isso neste aparelho).
+  // Se der qualquer problema, imprime do jeito normal logo em seguida.
+  if (!forcarNormal && ehComandaPedido(p) && typeof impressaoSeparadaAtiva === 'function' && impressaoSeparadaAtiva()) {
+    imprimirSeparado(p).catch(e => {
+      console.error('Impressão separada falhou, imprimindo normal:', e);
+      toast('Não consegui usar as duas impressoras. Imprimindo do jeito normal.', 'erro');
+      imprimirComanda(p, true);
+    });
+    return;
+  }
   const printCardapio = document.getElementById('print-cardapio');
   if (printCardapio) printCardapio.innerHTML = '';
 

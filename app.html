@@ -3870,6 +3870,8 @@ async function renderConfig() {
         </select>
       </div>
 
+      ${typeof impBlocoConfig === 'function' ? impBlocoConfig() : ''}
+
       <div class="form-group" style="margin-top:24px;">
         <label style="font-size:14px;font-weight:700;">Comandas</label>
         <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Todo pedido de mesa passa por "Aguardando Confirmação" antes do preparo — garante que alguém sempre veja e avise a cozinha. Se preferir, ligue "Enviar para a cozinha sozinho" ali em cima (só no aparelho da cozinha/impressora).</div>
@@ -6813,7 +6815,8 @@ async function garantirUserIdRestaurante() {
 }
 </script>
 <script src="cardapio.js"></script>
-<script src="pedidos.js?v=20261019g"></script>
+<script src="pedidos.js?v=20261028a"></script>
+<script src="impressoras.js?v=20261028a"></script>
 <script src="relatorios.js"></script>
 <script src="clientes.js"></script>
 </body>
