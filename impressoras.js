@@ -1,6 +1,7 @@
 // ===== IMPRESSÃO SEPARADA: COZINHA (comida) e CAIXA (bebida) =====
 // Usa o QZ Tray (programa gratuito instalado no computador) pra mandar cada papel pra uma
-// impressora diferente, sem janelinha. Só vale para comandas (mesas), só neste aparelho.
+// impressora diferente, sem janelinha. A tela de Configurações oferece um botão que baixa o
+// instalador (instalar-impressao.bat) e se liga sozinha quando o QZ Tray ficar pronto. Só vale para comandas (mesas), só neste aparelho.
 // Liberado só na loja Demo por enquanto (localStorage 'impressao_separada' = 'true'/'false' força).
 // Se qualquer coisa falhar, o painel imprime do jeito de sempre (nada se perde).
 
@@ -144,10 +145,22 @@ function impBlocoConfig() {
   return `
   <div class="form-group" style="background:var(--creme);border-radius:10px;padding:14px;margin-top:10px;">
     <label style="font-weight:700;">🍽️🍹 Imprimir comida na cozinha e bebida no caixa</label>
-    <div style="font-size:12px;color:var(--texto-muted);margin:2px 0 10px;line-height:1.5;">Para comandas (mesas). O garçom faz um pedido só e cada impressora imprime a sua parte. Precisa do programa gratuito <b>QZ Tray</b> neste computador. Vale só neste aparelho.</div>
-    <div id="imp-status" style="font-size:13px;font-weight:600;margin-bottom:10px;">Ainda não verifiquei se o QZ Tray está funcionando.</div>
-    <button class="btn-sm" onclick="impProcurar()">🔎 Procurar impressoras</button>
-    <div style="margin-top:12px;">
+    <div style="font-size:12px;color:var(--texto-muted);margin:2px 0 10px;line-height:1.5;">Para comandas (mesas). O garçom faz um pedido só e cada impressora imprime a sua parte. Vale só neste computador.</div>
+    <div id="imp-status" style="font-size:13px;font-weight:600;margin-bottom:10px;">Verificando este computador...</div>
+
+    <div id="imp-instalar" style="display:none;">
+      <a class="btn-sm" href="/instalar-impressao.bat" download="instalar-impressao.bat" style="display:inline-block;text-decoration:none;font-size:15px;font-weight:700;padding:12px 18px;background:var(--laranja);color:#fff;border-radius:10px;">⬇️ Baixar o instalador</a>
+      <ol style="font-size:13px;line-height:1.7;margin:12px 0 0;padding-left:20px;">
+        <li>Clique no botão acima. Se o navegador perguntar, escolha <b>Manter</b>.</li>
+        <li>Abra o arquivo baixado (dois cliques).</li>
+        <li>Quando pedir permissão, clique em <b>Sim</b> e espere terminar.</li>
+        <li>Pronto! Esta tela se liga sozinha, não precisa fazer mais nada.</li>
+      </ol>
+      <div style="font-size:12px;color:var(--texto-muted);margin-top:8px;">Se o Windows avisar que protegeu o computador, clique em <b>Mais informações</b> e depois em <b>Executar assim mesmo</b>. Se aparecer uma janelinha do QZ Tray pedindo permissão, marque <b>Lembrar</b> e clique em <b>Permitir</b>.</div>
+    </div>
+
+    <div id="imp-impressoras" style="display:none;">
+    <div style="margin-top:4px;">
       <div style="font-weight:600;font-size:13px;">🍽️ Impressora da cozinha (comida)</div>
       <div style="display:flex;gap:8px;margin-top:4px;"><select id="imp-sel-cozinha" style="flex:1;" onchange="impGravar('imp_cozinha', this.value); toast('Impressora da cozinha salva.', 'ok');">${opc(cozinha)}</select><button class="btn-sm" onclick="impTeste('cozinha')">Testar</button></div>
     </div>
@@ -167,10 +180,12 @@ function impBlocoConfig() {
         <span class="toggle-slider"></span>
       </label>
     </div>
+    </div>
   </div>`;
 }
 
 async function impIniciarTela() {
+  impVerificar();
   const box = document.getElementById('imp-cats');
   if (!box) return;
   try {
@@ -195,13 +210,35 @@ function impMarcarCategoria(id, marcado) {
   impGravar('imp_cats_bebida', JSON.stringify(lista));
 }
 
-async function impProcurar() {
+var impVerificando = false, impTimer = null;
+
+// Vê se o QZ Tray está funcionando neste computador. Se não estiver, mostra o botão de instalar
+// e fica conferindo sozinho a cada 5 segundos até aparecer.
+async function impVerificar() {
   const st = document.getElementById('imp-status');
-  if (st) st.textContent = 'Procurando...';
+  if (!st || impVerificando) return;
+  impVerificando = true;
   try {
+    // 1) a chave de segurança do site precisa estar configurada (feito uma vez só pelo dono do sistema)
+    const { data } = await db.auth.getSession();
+    const token = data && data.session && data.session.access_token;
+    if (token) {
+      const r = await fetch('/api/verificar-duplicado', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ qz_request: 'teste' }) });
+      if (r.status === 500) {
+        st.innerHTML = '⚠️ Falta uma configuração do sistema (chave de impressão). Avise o suporte do ServiDelivery.';
+        document.getElementById('imp-instalar').style.display = 'none';
+        document.getElementById('imp-impressoras').style.display = 'none';
+        impVerificando = false;
+        return;
+      }
+    }
+    // 2) o QZ Tray precisa estar aberto neste computador
     await conectarQz();
     const lista = await qz.printers.find();
-    if (st) st.innerHTML = '✅ QZ Tray funcionando. ' + lista.length + ' impressora(s) encontrada(s).';
+    clearInterval(impTimer); impTimer = null;
+    st.innerHTML = '✅ Tudo certo neste computador. ' + lista.length + ' impressora(s) encontrada(s).';
+    document.getElementById('imp-instalar').style.display = 'none';
+    document.getElementById('imp-impressoras').style.display = 'block';
     ['cozinha', 'bebida'].forEach(qual => {
       const sel = document.getElementById('imp-sel-' + qual);
       if (!sel) return;
@@ -210,8 +247,13 @@ async function impProcurar() {
     });
   } catch (e) {
     console.error('QZ', e);
-    if (st) st.innerHTML = '⚠️ Não achei o QZ Tray neste computador. Ele precisa estar instalado e aberto (ícone perto do relógio do Windows).';
+    st.innerHTML = '🔎 Este computador ainda não está pronto para imprimir separado. Instale em 1 minuto:';
+    const inst = document.getElementById('imp-instalar'), imps = document.getElementById('imp-impressoras');
+    if (inst) inst.style.display = 'block';
+    if (imps) imps.style.display = 'none';
+    if (!impTimer) impTimer = setInterval(() => { if (!document.getElementById('imp-status')) { clearInterval(impTimer); impTimer = null; return; } impVerificar(); }, 5000);
   }
+  impVerificando = false;
 }
 
 async function impTeste(qual) {
