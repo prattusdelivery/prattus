@@ -4075,15 +4075,14 @@ async function renderConfig() {
 }
 
 // Imprimir várias cópias do QR do cardápio de consulta (o mesmo tamanho dos QR das comandas: 180x180)
-// Só na loja Demo por enquanto. Liga/desliga neste aparelho: localStorage 'qr_mesa_imprimir' = 'true' / 'false'.
+// Vale para todas as lojas. Para desligar num aparelho específico: localStorage 'qr_mesa_imprimir' = 'false'.
 function usarQrMesaImpressao() {
   try {
     const v = localStorage.getItem('qr_mesa_imprimir');
     if (v === 'true') return true;
     if (v === 'false') return false;
   } catch (e) {}
-  const slug = restauranteAtual && restauranteAtual.slug;
-  return slug === 'servidelivery-demo';
+  return true;
 }
 
 async function imprimirQrConsulta() {
