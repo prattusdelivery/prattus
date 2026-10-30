@@ -518,14 +518,14 @@ async function buscarComandaPorCodigo() {
 // ===== CARTÕES DE COMANDA QUE O RESTAURANTE JÁ TINHA IMPRESSOS =====
 // O QR Code / código de barras desses cartões traz só o número (ex.: 191 ou 000191).
 // Na primeira leitura o sistema pergunta se pode cadastrar; depois vira uma comanda normal.
-// Liberado só na loja Demo por enquanto (localStorage 'cartao_existente' = 'true'/'false' força).
+// Liberado na loja Demo e no Frigideiras (localStorage 'cartao_existente' = 'true'/'false' força).
 function usarCartaoExistente() {
   try {
     const v = localStorage.getItem('cartao_existente');
     if (v === 'true') return true;
     if (v === 'false') return false;
   } catch (e) {}
-  return restauranteAtual && restauranteAtual.slug === 'servidelivery-demo';
+  return !!restauranteAtual && ['servidelivery-demo', 'frigideiras-bar'].includes(restauranteAtual.slug);
 }
 
 var cartoesRecusados = {};
