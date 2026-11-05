@@ -94,6 +94,19 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
+    if (acao === 'plano_painel') {
+      // Escolhe o painel da loja: 'completo' (todas as funções) ou 'simples' (Modo Fácil travado, plano Básico)
+      const plano = req.body.plano;
+      if (plano !== 'completo' && plano !== 'simples') return res.status(400).json({ error: 'Plano inválido.' });
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${encodeURIComponent(restauranteId)}`, {
+        method: 'PATCH',
+        headers: { ...svcHeaders, 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ plano_painel: plano })
+      });
+      if (!r.ok) return res.status(500).json({ error: 'Não consegui salvar. Rodou o comando no Supabase?' });
+      return res.status(200).json({ ok: true, plano });
+    }
+
     if (acao === 'impressao_separada') {
       // Liga ou desliga o serviço de impressão separada (cozinha/bebida) numa loja
       const ligado = req.body.ligado === true;
