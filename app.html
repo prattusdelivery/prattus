@@ -1805,6 +1805,7 @@ async function toggleDetalhesSA(restauranteId) {
         <button onclick="gerenciarLojaSA('${restauranteId}','desativar')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:#c0392b;color:#fff;border:none;cursor:pointer;">Desativar assinatura</button>
         <button onclick="estenderTesteSA('${restauranteId}')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:var(--laranja);color:#fff;border:none;cursor:pointer;">📅 Ajustar dias de teste</button>
         <button onclick="redefinirSenhaDonoSA('${restauranteId}')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:#3b4a63;color:#fff;border:none;cursor:pointer;">🔑 Redefinir senha do dono</button>
+        <button onclick="planoPainelSA('${restauranteId}', '${r?.plano_painel === 'simples' ? 'completo' : 'simples'}')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:${r?.plano_painel === 'simples' ? '#E8643A' : '#3b4a63'};color:#fff;border:none;cursor:pointer;">📱 Painel: ${r?.plano_painel === 'simples' ? 'SIMPLES (clique para Completo)' : 'COMPLETO (clique para Simples)'}</button>
         <button onclick="impressaoSeparadaSA('${restauranteId}', ${r?.impressao_separada ? 'false' : 'true'})" style="font-size:11px;padding:5px 10px;border-radius:6px;background:${r?.impressao_separada ? '#2ea043' : '#3b4a63'};color:#fff;border:none;cursor:pointer;">🖨️ Impressão separada: ${r?.impressao_separada ? 'LIGADA (clique para desligar)' : 'desligada (clique para ligar)'}</button>
       </div>
       <div id="sa-senha-${restauranteId}" style="margin-top:10px;"></div>
@@ -1850,6 +1851,25 @@ async function redefinirSenhaDonoSA(restauranteId) {
       </div>`;
   } catch (e) {
     if (caixa) caixa.innerHTML = '<span style="color:#e57373;">Erro de conexão.</span>';
+  }
+}
+
+async function planoPainelSA(restauranteId, plano) {
+  const r = restaurantesSA.find(x => x.id === restauranteId);
+  if (!confirm(`Colocar a loja "${r?.nome || 'essa loja'}" no painel ${plano === 'simples' ? 'SIMPLES (só pedidos, mesas e cardápio — plano Básico)' : 'COMPLETO (todas as funções)'}?`)) return;
+  const { data: sessao } = await db.auth.getSession();
+  const tokenAdmin = sessao?.session?.access_token;
+  const resp = await fetch('/api/super-admin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ restauranteId, tokenAdmin, acao: 'plano_painel', plano })
+  });
+  const data = await resp.json();
+  if (resp.ok) {
+    toast(plano === 'simples' ? 'Painel SIMPLES ligado. Vale na próxima vez que o dono abrir o painel.' : 'Painel COMPLETO ligado.', 'ok');
+    carregarSuperAdmin();
+  } else {
+    toast(data.error || 'Erro ao atualizar.', 'erro');
   }
 }
 
@@ -2934,6 +2954,11 @@ function irPara(pagina) {
   const paginasSomenteDono = ['dashboard', 'relatorios', 'equipe', 'avaliacoes'];
   if (paginasSomenteDono.includes(pagina) && meuPapel !== 'dono') {
     toast('Só o dono do restaurante tem acesso a essa área.', 'erro');
+    return;
+  }
+  // Plano Simples: só as áreas do Modo Fácil (o resto é do plano Completo)
+  if (restauranteAtual && restauranteAtual.plano_painel === 'simples' && !['pedidos','comandas','cardapio','fretes','equipe','config','mensalidade'].includes(pagina)) {
+    toast('Essa área é do plano Completo.', 'erro');
     return;
   }
   paginaAtual = pagina;
@@ -7105,6 +7130,6 @@ async function garantirUserIdRestaurante() {
 <script src="impressoras.js?v=20261029c"></script>
 <script src="relatorios.js"></script>
 <script src="clientes.js"></script>
-<script src="modo-facil.js?v=20261105d"></script>
+<script src="modo-facil.js?v=20261105e"></script>
 </body>
 </html>

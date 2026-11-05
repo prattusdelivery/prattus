@@ -6,7 +6,13 @@
 // Quem está no Modo Fácil volta ao Modo Completo pelo link "Modo Completo"
 // (e do Completo para o Fácil pelo botão laranja no menu de baixo).
 // ===================================================================
+// Plano "Simples" (escolhido pelo Super Admin em restaurantes.plano_painel): a loja fica SEMPRE no Modo Fácil, sem volta ao Completo
+function modoFacilPlanoSimples() {
+  return !!restauranteAtual && restauranteAtual.plano_painel === 'simples' && meuPapel !== 'garcom';
+}
+
 function modoFacilDisponivel() {
+  if (modoFacilPlanoSimples()) return true;
   try {
     const v = localStorage.getItem('modo_facil_disponivel');
     if (v === 'true') return true;
@@ -17,6 +23,7 @@ function modoFacilDisponivel() {
 
 function modoFacilAtivo() {
   if (!modoFacilDisponivel()) return false;
+  if (modoFacilPlanoSimples()) return true;
   try { if (localStorage.getItem('modo_painel_' + restauranteAtual.id) === 'completo') return false; } catch (e) {}
   return true;
 }
@@ -112,7 +119,9 @@ function modoFacilNav() {
     <div class="fn-links">
       <button class="fn-link" onclick="irPara('mensalidade')">Mensalidade</button>
       <button class="fn-link" onclick="irPara('config')">Configurações</button>
-      <button class="fn-link" onclick="modoFacilTrocar(false)">Modo Completo</button>
+      <button class="fn-link" onclick="irPara('fretes')">Fretes</button>
+      <button class="fn-link" onclick="irPara('equipe')">Equipe</button>
+      ${modoFacilPlanoSimples() ? '' : '<button class="fn-link" onclick="modoFacilTrocar(false)">Modo Completo</button>'}
     </div>`;
   const topo = document.querySelector('.main .topbar');
   const banner = document.getElementById('trial-banner');
