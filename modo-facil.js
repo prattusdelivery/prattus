@@ -62,7 +62,7 @@ body.modo-facil #btn-pausar-loja{font-size:15px !important;padding:12px 20px !im
 .ff-pag.ok{background:#E3F4EE;color:#0B5C47;}
 .ff-pag.cobrar{background:#FFF1D6;color:#7A4300;}
 .ff-pag.pix{background:#FDE8DC;color:#8F3010;}
-.ff-btn{display:block;width:100%;font-family:inherit;font-size:24px;font-weight:800;color:#fff;border:none;border-radius:14px;padding:18px;cursor:pointer;}
+.ff-btn{display:block;width:100%;font-family:inherit;font-size:16px;font-weight:800;color:#fff;border:none;border-radius:10px;padding:12px 14px;cursor:pointer;}
 .ff-btn.vermelho{background:#D9302C;}
 .ff-btn.verde{background:#1F9D55;}
 .ff-btn[disabled]{opacity:.6;cursor:wait;}
