@@ -92,12 +92,16 @@ export default async function handler(req, res) {
     if (acao === 'acompanhar_pedido') {
       if (!pedidoId) return res.status(400).json({ error: 'pedidoId é obrigatório' });
       const resp = await fetch(
-        `${SUPABASE_URL}/rest/v1/pedidos?id=eq.${pedidoId}&select=id,status,saiu_entrega_em,criado_em,total,frete,subtotal,avaliacao,pedido_itens(nome,quantidade,preco,observacao)`,
+        `${SUPABASE_URL}/rest/v1/pedidos?id=eq.${pedidoId}&select=id,status,saiu_entrega_em,criado_em,total,frete,subtotal,avaliacao,observacao,pedido_itens(nome,quantidade,preco,observacao)`,
         { headers }
       );
       const data = await resp.json();
       const pedido = Array.isArray(data) && data[0] ? data[0] : null;
       if (!pedido) return res.status(404).json({ error: 'Pedido não encontrado' });
+      // Só diz se é retirada — o texto da observação (endereço, telefone) não sai daqui
+      const retirada = /Modo:\s*Retirar/i.test(pedido.observacao || '');
+      delete pedido.observacao;
+      pedido.retirada = retirada;
       return res.status(200).json({ pedido });
     }
 
