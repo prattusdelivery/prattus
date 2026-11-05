@@ -4651,6 +4651,7 @@ async function carregarPublico(restId) {
 
   mostrarBotaoPedirNovo();
   verificarAvaliacaoPendente();
+  verificarPedidoEmAndamento();
   mostrarTela('cliente');
   iniciarProtecaoVoltar();
 
@@ -5457,6 +5458,104 @@ function buscarItens(termo) {
   renderItensPublico(filtrados, true);
 }
 
+// ===== ACOMPANHAMENTO SIMPLES (teste na loja Demo) =====
+function acompSimplesAtivo() {
+  try { return window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase() === 'servidelivery-demo'; } catch (e) { return false; }
+}
+
+async function renderAcompSimples(pedidoId, pedido, statusExibicao) {
+  const slug = window.location.pathname.replace(/^\/+|\/+$/g, '');
+  if (!window.__acompRest) {
+    try {
+      const { data } = await db.from('restaurantes').select('nome,logo_url,whatsapp').eq('slug', slug).maybeSingle();
+      window.__acompRest = data || {};
+    } catch (e) { window.__acompRest = {}; }
+  }
+  const r = window.__acompRest;
+  const ret = pedido.retirada === true;
+  const passos = [
+    { k: 'novo', txt: 'Pedido recebido' },
+    { k: 'preparando', txt: 'Em preparo' },
+    { k: 'entrega', txt: ret ? 'Pronto para retirar' : 'Saiu para entrega' },
+    { k: 'entregue', txt: ret ? 'Retirado' : 'Entregue' }
+  ];
+  const msgs = {
+    novo: ['📥', 'Pedido enviado!', 'Estamos esperando o restaurante confirmar. É rapidinho.'],
+    preparando: ['👨‍🍳', 'Estão preparando seu pedido', 'Assim que ficar pronto, esta tela avisa.'],
+    entrega: ret ? ['🏃', 'Seu pedido está pronto!', 'Pode vir buscar.'] : ['🛵', 'Seu pedido saiu para entrega!', 'Já está a caminho.'],
+    entregue: ['✅', ret ? 'Pedido retirado' : 'Pedido entregue', 'Bom apetite!'],
+    cancelado: ['❌', 'O restaurante não conseguiu aceitar este pedido', 'Fale com o restaurante para combinar.']
+  };
+  const m = msgs[statusExibicao] || msgs.novo;
+  const idx = passos.findIndex(p => p.k === statusExibicao);
+  const fone = String(r.whatsapp || '').replace(/\D/g, '');
+  const din = v => 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ',');
+  const cancelado = statusExibicao === 'cancelado';
+  const lista = cancelado ? '' : `<div style="text-align:left;margin:22px 4px 6px;">${passos.map((p, i) => {
+    const feito = i < idx, atual = i === idx;
+    const cor = feito ? '#1F9D55' : (atual ? 'var(--laranja)' : '#eadfd2');
+    const marca = feito ? '✔' : (atual ? '●' : '');
+    return `<div style="display:flex;align-items:center;gap:12px;padding:9px 0;font-size:${atual ? 18 : 16}px;font-weight:${atual ? 800 : 500};color:${i > idx ? '#a99a8b' : 'var(--texto)'};">
+      <div style="width:28px;height:28px;border-radius:50%;background:${cor};color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">${marca}</div>${p.txt}</div>`;
+  }).join('')}</div>`;
+  const avalia = (Date.now() - dataDoBanco(pedido.criado_em).getTime() > TEMPO_MINIMO_AVALIACAO_MS) ? (
+    pedido.avaliacao ? `<div style="margin-top:18px;font-size:26px;letter-spacing:4px;">${'⭐'.repeat(pedido.avaliacao)}${'☆'.repeat(5 - pedido.avaliacao)}<div style="font-size:12px;color:var(--texto-muted);letter-spacing:0;margin-top:4px;">Obrigado pela avaliação! 🙏</div></div>` :
+    `<div style="margin-top:20px;border-top:1px solid var(--creme-borda);padding-top:16px;"><div style="font-size:15px;font-weight:700;margin-bottom:8px;">Como foi seu pedido?</div><div id="estrelas-widget" style="font-size:34px;letter-spacing:8px;user-select:none;">${[1,2,3,4,5].map(n => `<span class="estrela" data-n="${n}" onclick="avaliarPedido('${pedido.id}',${n})" style="cursor:pointer;">☆</span>`).join('')}</div></div>`) : '';
+
+  document.body.innerHTML = `
+    <div style="max-width:440px;margin:0 auto;padding:22px 16px 40px;font-family:var(--font-body);color:var(--texto);">
+      <div style="text-align:center;margin-bottom:16px;">
+        ${r.logo_url ? `<img src="${esc(r.logo_url)}" alt="" style="width:64px;height:64px;border-radius:50%;object-fit:cover;margin-bottom:6px;">` : ''}
+        <div style="font-family:var(--font-display);font-size:20px;font-weight:700;">${esc(r.nome || 'Seu pedido')}</div>
+        <div style="font-size:13px;color:var(--texto-muted);">Pedido #${esc(pedido.id.slice(-6).toUpperCase())}</div>
+      </div>
+      <div style="background:var(--branco);border-radius:20px;padding:26px 20px;border:1px solid var(--creme-borda);text-align:center;">
+        <div style="font-size:64px;line-height:1;">${m[0]}</div>
+        <div style="font-family:var(--font-display);font-size:23px;font-weight:700;margin:12px 0 4px;">${m[1]}</div>
+        <div style="font-size:15px;color:var(--texto-muted);">${m[2]}</div>
+        ${lista}
+        ${avalia}
+      </div>
+      <div style="text-align:center;font-size:13px;color:var(--texto-muted);margin:14px 6px;">Esta tela se atualiza sozinha. Você pode fechar e voltar neste mesmo link quando quiser.</div>
+      <details style="background:var(--branco);border:1px solid var(--creme-borda);border-radius:14px;padding:12px 16px;margin-bottom:12px;">
+        <summary style="font-size:15px;font-weight:700;cursor:pointer;">Ver meu pedido · ${din(pedido.total)}</summary>
+        <div style="margin-top:8px;">${(pedido.pedido_itens || []).map(i => `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--creme-borda);font-size:14px;"><span>${i.quantidade}x ${esc(i.nome)}${i.observacao ? ' (' + esc(i.observacao) + ')' : ''}</span><span>${din(parseFloat(i.preco) * i.quantidade)}</span></div>`).join('')}</div>
+      </details>
+      ${fone ? `<a href="https://wa.me/${fone}" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;background:#25D366;color:#fff;font-weight:700;font-size:15px;border-radius:12px;padding:14px;margin-bottom:10px;">💬 Falar com o restaurante</a>` : ''}
+      <a href="/${esc(window.location.pathname.replace(/^\/+|\/+$/g, ''))}" style="display:block;text-align:center;text-decoration:none;background:var(--creme);border:1px solid var(--creme-borda);color:var(--texto-muted);font-size:14px;border-radius:12px;padding:13px;">Voltar ao cardápio</a>
+    </div>`;
+
+  if (acompanhamentoInterval) clearInterval(acompanhamentoInterval);
+  if (statusExibicao !== 'entregue' && statusExibicao !== 'cancelado') {
+    acompanhamentoInterval = setInterval(() => mostrarAcompanhamento(pedidoId), 15000);
+  }
+}
+
+// Faixa no topo do cardápio: "Seu pedido está em preparo — VER" (só aparece se tem pedido em andamento neste aparelho)
+async function verificarPedidoEmAndamento() {
+  if (!acompSimplesAtivo() || !restPublico) return;
+  try {
+    const raw = localStorage.getItem('servidelivery_ultimopedido_meta_' + restPublico.id);
+    if (!raw) return;
+    const meta = JSON.parse(raw);
+    if (!meta.pedidoId || !meta.criado_em) return;
+    if (Date.now() - dataDoBanco(meta.criado_em).getTime() > 5 * 60 * 60 * 1000) return;
+    const resp = await fetch('/api/consultar-pontos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'acompanhar_pedido', pedidoId: meta.pedidoId }) });
+    const { pedido } = await resp.json();
+    if (!pedido) return;
+    let st = pedido.status;
+    if (st === 'entrega' && pedido.saiu_entrega_em && Date.now() - dataDoBanco(pedido.saiu_entrega_em).getTime() > 30 * 60 * 1000) st = 'entregue';
+    if (st === 'entregue' || st === 'cancelado') { document.getElementById('barra-acomp')?.remove(); return; }
+    const ret = pedido.retirada === true;
+    const txt = { novo: '📥 Pedido enviado — aguardando o restaurante', preparando: '👨‍🍳 Seu pedido está em preparo', entrega: ret ? '🏃 Seu pedido está pronto para retirar' : '🛵 Seu pedido saiu para entrega' }[st] || '📥 Seu pedido';
+    let b = document.getElementById('barra-acomp');
+    if (!b) { b = document.createElement('a'); b.id = 'barra-acomp'; document.body.prepend(b); }
+    b.href = `${window.location.pathname.replace(/\/+$/, '')}?acompanhar=${pedido.id}`;
+    b.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:10px;background:#1F9D55;color:#fff;text-decoration:none;padding:12px 16px;font-size:15px;font-weight:700;';
+    b.innerHTML = `<span>${txt}</span><span style="background:#fff;color:#1F9D55;border-radius:8px;padding:6px 12px;font-size:13px;white-space:nowrap;">VER</span>`;
+  } catch (e) {}
+}
+
 // ===== ACOMPANHAMENTO DO PEDIDO =====
 let acompanhamentoInterval = null;
 async function mostrarAcompanhamento(pedidoId) {
@@ -5476,6 +5575,8 @@ async function mostrarAcompanhamento(pedidoId) {
     const decorridoMs = Date.now() - dataDoBanco(pedido.saiu_entrega_em).getTime();
     if (decorridoMs > 30*60*1000) statusExibicao = 'entregue';
   }
+
+  if (pedido && acompSimplesAtivo()) { await renderAcompSimples(pedidoId, pedido, statusExibicao); return; }
 
   const statusMap = {
     novo: { label: 'Pedido recebido', icon: '📥', pct: 25 },
@@ -6471,6 +6572,7 @@ async function finalizarPedidoInterno() {
   document.getElementById('ped-pagamento').value = '';
   toast('Pedido enviado!', 'ok');
   if (!abrirWhats) mostrarPedidoEnviado(pedido.id, linkAcomp);
+  else setTimeout(verificarPedidoEmAndamento, 800);
 }
 
 // Tela simples de confirmação (usada quando o restaurante desligou a abertura do WhatsApp)
@@ -7003,6 +7105,6 @@ async function garantirUserIdRestaurante() {
 <script src="impressoras.js?v=20261029c"></script>
 <script src="relatorios.js"></script>
 <script src="clientes.js"></script>
-<script src="modo-facil.js?v=20261105b"></script>
+<script src="modo-facil.js?v=20261105c"></script>
 </body>
 </html>

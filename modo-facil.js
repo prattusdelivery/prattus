@@ -38,6 +38,17 @@ body.modo-facil #btn-pausar-loja{font-size:15px !important;padding:12px 20px !im
 #facil-nav{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 28px;background:#fff;border-bottom:1px solid var(--cinza-borda);}
 .fn-btn{font-family:inherit;font-size:18px;font-weight:800;letter-spacing:.3px;padding:14px 26px;border-radius:14px;border:2px solid #E6D9CB;background:#fff;color:var(--texto);cursor:pointer;}
 .fn-btn.on{background:var(--texto);color:#fff;border-color:var(--texto);}
+.fn-hoje{background:#E3F4EE;border-color:#BFE3D3;color:#0B5C47;}
+.fh-fundo{position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:18px;}
+.fh-caixa{background:#fff;border-radius:20px;max-width:420px;width:100%;max-height:92vh;overflow:auto;padding:24px 22px;text-align:center;}
+.fh-tit{font-size:15px;font-weight:800;color:#8a7868;letter-spacing:.5px;}
+.fh-total{font-size:42px;font-weight:800;color:#0B5C47;margin:4px 0 2px;}
+.fh-sub{font-size:16px;color:#4a3b31;margin-bottom:16px;}
+.fh-lista{text-align:left;border-top:1px solid #eee;padding-top:10px;margin-top:6px;}
+.fh-lin{display:flex;justify-content:space-between;gap:10px;font-size:16px;padding:6px 0;}
+.fh-lin b{white-space:nowrap;}
+.fh-sec{font-size:13px;font-weight:800;color:#8a7868;letter-spacing:.5px;margin:12px 0 2px;}
+.fh-ok{display:block;width:100%;margin-top:18px;font-family:inherit;font-size:17px;font-weight:800;color:#fff;background:#4a3b31;border:none;border-radius:12px;padding:14px;cursor:pointer;}
 .fn-badge{background:#D9302C;color:#fff;font-size:14px;border-radius:12px;padding:2px 9px;margin-left:8px;}
 .fn-links{margin-left:auto;display:flex;gap:18px;flex-wrap:wrap;align-items:center;}
 .fn-link{font-family:inherit;font-size:13px;color:#6B5B50;background:none;border:none;text-decoration:underline;cursor:pointer;padding:6px 0;}
@@ -97,6 +108,7 @@ function modoFacilNav() {
     <button class="fn-btn" data-p="pedidos" onclick="irPara('pedidos')">PEDIDOS <span class="fn-badge" id="fn-b-pedidos" style="display:none;"></span></button>
     <button class="fn-btn" data-p="comandas" onclick="irPara('comandas')">MESAS <span class="fn-badge" id="fn-b-comandas" style="display:none;"></span></button>
     <button class="fn-btn" data-p="cardapio" onclick="irPara('cardapio')">CARDÁPIO</button>
+    <button class="fn-btn fn-hoje" onclick="facilAbrirHoje()">💰 VENDAS <span id="fn-hoje"></span></button>
     <div class="fn-links">
       <button class="fn-link" onclick="irPara('mensalidade')">Mensalidade</button>
       <button class="fn-link" onclick="irPara('config')">Configurações</button>
@@ -130,7 +142,7 @@ function modoFacilBotaoNoMenu() {
 }
 
 // ----- Liga/desliga o modo -----
-var facilTimerBadges = null, facilWake = null;
+var facilTimerBadges = null, facilWake = null, facilTimerHoje = null;
 
 function modoFacilAplicar() {
   const ligado = modoFacilAtivo();
@@ -143,9 +155,12 @@ function modoFacilAplicar() {
     modoFacilMarcarNav();
     if (!facilTimerBadges) facilTimerBadges = setInterval(modoFacilBadges, 3000);
     modoFacilBadges();
+    facilAtualizarHoje();
+    if (!facilTimerHoje) facilTimerHoje = setInterval(facilAtualizarHoje, 60000);
     modoFacilWakeLock();
   } else {
     if (facilTimerBadges) { clearInterval(facilTimerBadges); facilTimerBadges = null; }
+    if (facilTimerHoje) { clearInterval(facilTimerHoje); facilTimerHoje = null; }
     if (facilWake) { try { facilWake.release(); } catch (e) {} facilWake = null; }
   }
 }
@@ -272,6 +287,7 @@ async function facilAceitar(id, btn) {
   if (p && imprimirAutoPara(false)) imprimirComanda(p);
   toast('✅ Pedido aceito!', 'ok');
   facilRedesenhar();
+  facilAtualizarHoje();
 }
 
 async function facilSaiu(id, btn) {
@@ -291,4 +307,81 @@ async function facilEntregue(id, btn) {
   const p = (pedidosCache || []).find(x => x.id === id);
   if (p) p.status = 'entregue';
   facilRedesenhar();
+}
+
+
+// ----- Atalho "HOJE": quanto vendeu no dia (mesma regra do Dashboard: pedidos aceitos em diante) -----
+async function facilBuscarDia(inicioIso, fimIso) {
+  if (!restauranteAtual) return [];
+  let q = db.from('pedidos').select('total,observacao,codigo_comanda_id')
+    .eq('restaurante_id', restauranteAtual.id).in('status', ['preparando', 'entrega', 'entregue']).gte('criado_em', inicioIso);
+  if (fimIso) q = q.lt('criado_em', fimIso);
+  const { data } = await q;
+  return data || [];
+}
+
+function facilReais(v) { return 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ','); }
+
+async function facilAtualizarHoje() {
+  if (!modoFacilAtivo()) return;
+  try {
+    const lista = await facilBuscarDia(inicioDoDiaLocal());
+    const total = lista.reduce((s, p) => s + (parseFloat(p.total) || 0), 0);
+    const el = document.getElementById('fn-hoje');
+    if (el) el.textContent = facilReais(total);
+  } catch (e) {}
+}
+
+async function facilAbrirHoje() {
+  document.getElementById('fh-fundo')?.remove();
+  const fundo = document.createElement('div');
+  fundo.id = 'fh-fundo';
+  fundo.className = 'fh-fundo';
+  fundo.onclick = ev => { if (ev.target === fundo) fundo.remove(); };
+  fundo.innerHTML = '<div class="fh-caixa"><div class="fh-tit">💰 VENDIDO HOJE</div><div class="fh-sub">Carregando...</div></div>';
+  document.body.appendChild(fundo);
+  try {
+    const inicio = inicioDoDiaLocal();
+    const d = new Date(inicio);
+    const ontemIni = new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1).toISOString();
+    const [hoje, ontem] = await Promise.all([facilBuscarDia(inicio), facilBuscarDia(ontemIni, inicio)]);
+    const soma = l => l.reduce((s, p) => s + (parseFloat(p.total) || 0), 0);
+    const total = soma(hoje), tot0 = soma(ontem);
+    const qtd = hoje.length;
+    const grupos = {}; // entrega / retirada / mesas
+    const pagtos = {};
+    hoje.forEach(p => {
+      const obs = p.observacao || '';
+      const v = parseFloat(p.total) || 0;
+      const tipo = p.codigo_comanda_id ? 'Mesas' : (/Modo:\s*Retirar/i.test(obs) ? 'Retirada' : 'Entrega');
+      (grupos[tipo] = grupos[tipo] || { n: 0, v: 0 }); grupos[tipo].n++; grupos[tipo].v += v;
+      if (!p.codigo_comanda_id) {
+        let forma = obs.includes('JÁ PAGO') ? (obs.includes('Cartão online') ? 'Cartão online' : 'Pix online') : ((obs.match(/Pagamento:\s*([^\n(]+)/) || [])[1] || '').trim();
+        forma = forma || 'Não informado';
+        (pagtos[forma] = pagtos[forma] || { n: 0, v: 0 }); pagtos[forma].n++; pagtos[forma].v += v;
+      }
+    });
+    const lin = (nome, o) => `<div class="fh-lin"><span>${esc(nome)} <small style="color:#8a7868;">(${o.n})</small></span><b>${facilReais(o.v)}</b></div>`;
+    const ticket = qtd ? total / qtd : 0;
+    let cmp = '';
+    if (ontem.length) {
+      const dif = total - tot0;
+      cmp = `<div class="fh-lin"><span>Ontem (dia todo)</span><b>${facilReais(tot0)}</b></div>`;
+    }
+    fundo.querySelector('.fh-caixa').innerHTML = `
+      <div class="fh-tit">💰 VENDIDO HOJE</div>
+      <div class="fh-total">${facilReais(total)}</div>
+      <div class="fh-sub">${qtd} ${qtd === 1 ? 'pedido' : 'pedidos'}${qtd ? ' · média de ' + facilReais(ticket) + ' por pedido' : ''}</div>
+      ${qtd ? `<div class="fh-lista">
+        <div class="fh-sec">COMO FOI</div>
+        ${Object.keys(grupos).map(k => lin(k, grupos[k])).join('')}
+        <div class="fh-sec">COMO PAGARAM</div>
+        ${Object.keys(pagtos).sort((a, b) => pagtos[b].v - pagtos[a].v).map(k => lin(k, pagtos[k])).join('')}
+        ${cmp ? '<div class="fh-sec">PARA COMPARAR</div>' + cmp : ''}
+      </div>` : '<div class="fh-sub" style="margin-top:10px;">Ainda não teve venda hoje.</div>'}
+      <div class="fh-sub" style="font-size:12px;color:#8a7868;margin:12px 0 0;">Conta os pedidos já aceitos. Pedidos recusados não entram.</div>
+      <button class="fh-ok" onclick="document.getElementById('fh-fundo').remove()">FECHAR</button>`;
+  } catch (e) {
+    fundo.querySelector('.fh-caixa').innerHTML = '<div class="fh-sub">Não consegui carregar. Tente de novo.</div><button class="fh-ok" onclick="document.getElementById(\'fh-fundo\').remove()">FECHAR</button>';
+  }
 }
