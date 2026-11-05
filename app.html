@@ -2391,7 +2391,7 @@ function renderGruposSA(filtro) {
 let meuPapel = 'dono';
 
 function paginaInicialDoPapel() {
-  if (meuPapel === 'dono') return 'dashboard';
+  if (meuPapel === 'dono') return (typeof modoFacilAtivo === 'function' && modoFacilAtivo()) ? 'pedidos' : 'dashboard';
   if (meuPapel === 'garcom') return 'comandas';
   return 'pedidos';
 }
@@ -2448,6 +2448,7 @@ async function carregarRestaurante() {
     }
 
     mostrarTela('painel');
+    if (typeof modoFacilIniciar === 'function') modoFacilIniciar();
     irPara(paginaInicialDoPapel());
     iniciarAutoRefresh();
     atualizarBotaoPausa();
@@ -6998,9 +6999,10 @@ async function garantirUserIdRestaurante() {
 }
 </script>
 <script src="cardapio.js"></script>
-<script src="pedidos.js?v=20261029a"></script>
+<script src="pedidos.js?v=20261105a"></script>
 <script src="impressoras.js?v=20261029c"></script>
 <script src="relatorios.js"></script>
 <script src="clientes.js"></script>
+<script src="modo-facil.js?v=20261105a"></script>
 </body>
 </html>

@@ -568,6 +568,7 @@ async function renderPedidos() {
   const ehComanda = p => !!p.codigo_comanda_id || (p.observacao||'').includes('Modo: Consumir no local');
   const lista = (pedidos || []).filter(p => !ehComanda(p));
   pedidosCache = lista;
+  if (typeof modoFacilAtivo === 'function' && modoFacilAtivo()) { renderPedidosFacil(lista); return; }
   if (usarTelaPedidosNova()) { renderPedidosNovo(lista); return; }
   const novos = lista.filter(p => p.status === 'novo');
   const preparando = lista.filter(p => p.status === 'preparando');
