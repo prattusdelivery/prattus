@@ -270,7 +270,7 @@ function renderPedidosFacil(lista) {
 }
 
 function facilRedesenhar() {
-  if (paginaAtual === 'pedidos' && modoFacilAtivo()) renderPedidosFacil(pedidosCache || []);
+  if (paginaAtual === 'pedidos' && modoFacilDisponivel()) renderPedidosFacil(pedidosCache || []);
 }
 
 async function facilAceitar(id, btn) {
