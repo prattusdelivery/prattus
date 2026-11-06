@@ -3489,10 +3489,10 @@ async function trocarPlano(plano, btnEl) {
   try {
     const { data: sessao } = await db.auth.getSession();
     const tokenDono = sessao?.session?.access_token;
-    const resp = await fetch('/api/trocar-plano', {
+    const resp = await fetch('/api/criar-cobranca', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ restauranteId: r.id, plano, tokenDono })
+      body: JSON.stringify({ acao: 'trocar_plano', restauranteId: r.id, plano, tokenDono })
     });
     const data = await resp.json();
     if (!resp.ok) {
