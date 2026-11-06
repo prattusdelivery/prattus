@@ -185,7 +185,12 @@ h2{font-family:var(--font-display);font-size:clamp(28px,4vw,40px);font-weight:60
 .trocar-card p{color:rgba(255,255,255,0.6);font-size:14px;line-height:1.65;}
 .trocar-icon{width:36px;height:36px;border-radius:8px;background:rgba(232,99,57,0.18);color:var(--laranja);display:flex;align-items:center;justify-content:center;margin-bottom:18px;}
 
-.preco-wrap{display:flex;justify-content:center;}
+.preco-wrap{display:flex;justify-content:center;align-items:stretch;gap:36px;flex-wrap:wrap;}
+.preco-wrap .recibo{max-width:380px;flex:1 1 320px;display:flex;flex-direction:column;}
+.preco-wrap .recibo .recibo-cta{margin-top:auto;}
+.preco-wrap .recibo .recibo-plans{margin-bottom:12px;}
+.recibo-sub{font-size:12px;color:var(--texto-muted);text-align:center;margin:2px 0 0;line-height:1.4;}
+.recibo-mais{font-size:11px;font-weight:700;color:var(--laranja-dark);padding:6px 0 2px;}
 .recibo{width:100%;max-width:400px;background:var(--branco);border-radius:2px;box-shadow:0 30px 70px -30px rgba(35,25,20,0.35);font-family:var(--font-mono);position:relative;padding:36px 32px 32px;}
 .recibo::before,.recibo::after{content:'';position:absolute;left:0;right:0;height:12px;background:radial-gradient(circle at 10px 6px, var(--creme) 6px, transparent 6.5px) repeat-x;background-size:20px 12px;}
 .recibo::before{top:-1px;}
@@ -577,23 +582,23 @@ src="https://www.facebook.com/tr?id=1675050637615207&ev=PageView&noscript=1"
   <section id="precos">
     <div class="section-head reveal" style="margin-left:auto;margin-right:auto;text-align:center;">
       <div class="section-eyebrow">Preços</div>
-      <h2>Um preço só. Tudo incluso.</h2>
-      <p class="section-sub" style="margin-left:auto;margin-right:auto;">Sem plano reduzido, sem letra miúda. Escolha só como prefere pagar.</p>
+      <h2>Dois planos. Você escolhe o seu.</h2>
+      <p class="section-sub" style="margin-left:auto;margin-right:auto;">Comece pelo Simples e suba para o Completo quando precisar. Sem comissão sobre pedidos, sem letra miúda.</p>
     </div>
     <div class="preco-wrap reveal">
       <div class="recibo">
         <div class="recibo-h">
           <div class="rlogo">Servi<span style="color:var(--laranja);">Delivery</span></div>
-          <div class="rsub">plano único</div>
+          <div class="rsub">plano simples</div>
+          <p class="recibo-sub">Para quem quer vender sem complicação</p>
         </div>
         <div class="recibo-div"></div>
         <div class="recibo-item"><span><span class="ok">✓</span>Cardápio público próprio</span></div>
-        <div class="recibo-item"><span><span class="ok">✓</span>Painel de pedidos em tempo real</span></div>
+        <div class="recibo-item"><span><span class="ok">✓</span>Painel de pedidos fácil, em tempo real</span></div>
         <div class="recibo-item"><span><span class="ok">✓</span>Pedidos ilimitados</span></div>
-        <div class="recibo-item"><span><span class="ok">✓</span>WhatsApp automático por etapa</span></div>
-        <div class="recibo-item"><span><span class="ok">✓</span>Pix no checkout</span></div>
-        <div class="recibo-item"><span><span class="ok">✓</span>Fidelidade, cupons e fretes por bairro</span></div>
-        <div class="recibo-item"><span><span class="ok">✓</span>Relatórios com gráficos</span></div>
+        <div class="recibo-item"><span><span class="ok">✓</span>Cliente acompanha o pedido pelo celular</span></div>
+        <div class="recibo-item"><span><span class="ok">✓</span>Frete por bairro</span></div>
+        <div class="recibo-item"><span><span class="ok">✓</span>Equipe e comandas das mesas</span></div>
         <div class="recibo-plans">
           <div class="recibo-plan">
             <div class="label">Mensal</div>
@@ -611,6 +616,39 @@ src="https://www.facebook.com/tr?id=1675050637615207&ev=PageView&noscript=1"
         <a class="recibo-cta" href="https://servidelivery.com.br/painel?cadastro=true">COMEÇAR TESTE GRÁTIS →</a>
         <div class="recibo-foot">14 dias grátis · cancele quando quiser</div>
       </div>
+
+      <div class="recibo">
+        <div class="recibo-h">
+          <div class="rlogo">Servi<span style="color:var(--laranja);">Delivery</span></div>
+          <div class="rsub">plano completo</div>
+          <p class="recibo-sub">Para quem quer vender mais e automatizar</p>
+        </div>
+        <div class="recibo-div"></div>
+        <div class="recibo-item"><span class="recibo-mais">Tudo do plano Simples, e mais:</span></div>
+        <div class="recibo-item"><span><span class="ok">✓</span>Pix automático e cartão online</span></div>
+        <div class="recibo-item"><span><span class="ok">✓</span>Impressão em duas impressoras (cozinha e bebidas)</span></div>
+        <div class="recibo-item"><span><span class="ok">✓</span>WhatsApp automático por etapa</span></div>
+        <div class="recibo-item"><span><span class="ok">✓</span>Clientes, fidelidade e cashback</span></div>
+        <div class="recibo-item"><span><span class="ok">✓</span>Cupons de desconto</span></div>
+        <div class="recibo-item"><span><span class="ok">✓</span>Relatórios com gráficos e avaliações</span></div>
+        <div class="recibo-item"><span><span class="ok">✓</span>Pedidos agendados</span></div>
+        <div class="recibo-plans">
+          <div class="recibo-plan">
+            <div class="label">Mensal</div>
+            <div class="price">R$49,90</div>
+            <div class="per">/mês</div>
+          </div>
+          <div class="recibo-plan destaque">
+            <span class="tag">ECONOMIZE R$98,90</span>
+            <div class="label">Anual</div>
+            <div class="price">R$499,90</div>
+            <div class="per">R$41,66/mês</div>
+            <div style="margin-top:8px;font-size:11.5px;color:var(--laranja-dark);font-weight:600;line-height:1.4;">🎁 Cardápio montado de graça (até 40 itens)</div>
+          </div>
+        </div>
+        <a class="recibo-cta" href="https://servidelivery.com.br/painel?cadastro=true">COMEÇAR TESTE GRÁTIS →</a>
+        <div class="recibo-foot">14 dias grátis · troque de plano quando quiser</div>
+      </div>
     </div>
     <div style="text-align:center;margin-top:16px;font-size:13px;color:var(--texto-muted);">
       💬 Suporte todos os dias, inclusive feriados e fins de semana.
@@ -621,7 +659,7 @@ src="https://www.facebook.com/tr?id=1675050637615207&ev=PageView&noscript=1"
     <div class="comp reveal">
       <div class="comp-bars">
         <div class="comp-row">
-          <div class="comp-row-label"><span>ServiDelivery</span><b>R$ 39,90/mês</b></div>
+          <div class="comp-row-label"><span>ServiDelivery</span><b>a partir de R$ 39,90/mês</b></div>
           <div class="comp-bar-bg"><div class="comp-bar" style="width:13%;background:var(--laranja);"></div></div>
         </div>
         <div class="comp-row">
@@ -630,7 +668,7 @@ src="https://www.facebook.com/tr?id=1675050637615207&ev=PageView&noscript=1"
         </div>
       </div>
       <div class="comp-text">
-        <p>87% mais barato que o principal concorrente do mercado — com o essencial pra seu delivery rodar bem: cardápio, painel de pedidos, WhatsApp automático, fidelidade e relatórios.</p>
+        <p>Até 87% mais barato que o principal concorrente do mercado — com o essencial pra seu delivery rodar bem: cardápio, painel de pedidos, WhatsApp automático, fidelidade e relatórios.</p>
         <div class="note">* com base em preços públicos divulgados por plataformas do setor</div>
       </div>
     </div>
