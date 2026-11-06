@@ -1,4 +1,5 @@
 import { reportarErro } from './_sentry.js';
+import { calcularPreco } from './_precos.js';
 // Cria (ou reaproveita) um cliente na Asaas e gera uma assinatura recorrente,
 // devolvendo o link de pagamento (checkoutUrl) pro restaurante pagar.
 export default async function handler(req, res) {
@@ -24,7 +25,25 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Página desatualizada. Aperte Ctrl + F5 e tente de novo.', metodoRecebido: metodo || null });
     }
 
-    const valor = plano === 'anual' ? 399.90 : 39.90;
+    // O valor vem do servidor (plano do painel da loja + preço travado das lojas antigas), nunca do navegador
+    const SUPABASE_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
+    if (!process.env.SUPABASE_SERVICE_KEY) {
+      return res.status(500).json({ error: 'Chave de serviço não configurada no servidor' });
+    }
+    const restResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${encodeURIComponent(restauranteId)}&select=plano_painel,preco_mensal_travado`, {
+      headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` }
+    });
+    const restData = await restResp.json();
+    if (!restResp.ok || !Array.isArray(restData) || !restData[0]) {
+      return res.status(404).json({ error: 'Restaurante não encontrado' });
+    }
+    const preco = calcularPreco(restData[0], plano);
+    const valor = preco.valor;
+
+    // Teste sem efeito: mostra o valor que seria cobrado (não cria nada na Asaas)
+    if (req.body && req.body.teste === 'preco') {
+      return res.status(200).json({ teste: true, painel: preco.painel, travado: preco.travado, mensal: preco.mensal, anual: preco.anual, valor });
+    }
     const ciclo = plano === 'anual' ? 'YEARLY' : 'MONTHLY';
 
     const ASAAS_KEY = process.env.ASAAS_API_KEY;
@@ -94,7 +113,6 @@ export default async function handler(req, res) {
     }
 
     // 4. Guarda no restaurante qual plano ele escolheu (mensal/anual), pra calcular o MRR certinho depois
-    const SUPABASE_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
     if (process.env.SUPABASE_SERVICE_KEY) {
       await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}`, {
         method: 'PATCH',
