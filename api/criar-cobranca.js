@@ -1,10 +1,16 @@
 import { reportarErro } from './_sentry.js';
 import { calcularPreco } from './_precos.js';
+import { trocarPlano } from './_trocar-plano.js';
 // Cria (ou reaproveita) um cliente na Asaas e gera uma assinatura recorrente,
 // devolvendo o link de pagamento (checkoutUrl) pro restaurante pagar.
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método não permitido', versao: 'cartao-v2' });
+  }
+
+  // Troca de plano (Simples/Completo) usa esta mesma função para não passar do limite de funções da Vercel
+  if (req.body && req.body.acao === 'trocar_plano') {
+    return trocarPlano(req, res);
   }
 
   try {

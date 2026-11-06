@@ -1,5 +1,6 @@
 import { reportarErro } from './_sentry.js';
 import { TABELA_PRECOS } from './_precos.js';
+// (Fica como arquivo com _ para não contar como função extra na Vercel: o limite do plano é 12.)
 // O dono troca o plano da própria loja: Simples <-> Completo.
 // - Teste grátis / sem assinatura: troca na hora, sem custo.
 // - Assinante: SOBE para o Completo na hora (o valor novo vale a partir da próxima cobrança;
@@ -8,7 +9,7 @@ import { TABELA_PRECOS } from './_precos.js';
 const SUPABASE_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
 const ASAAS_BASE = 'https://api.asaas.com/v3';
 
-export default async function handler(req, res) {
+export async function trocarPlano(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido' });
   if (!process.env.SUPABASE_SERVICE_KEY) return res.status(500).json({ error: 'Chave de serviço não configurada' });
 
