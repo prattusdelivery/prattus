@@ -3455,7 +3455,7 @@ function escolhaPlanoHtml(r) {
     corpo = cartaoAtual('Simples', vS, itensS) + `
       <div style="border:2px solid var(--laranja);background:#FFF7F1;border-radius:12px;padding:14px;">
         <div style="font-size:15px;font-weight:700;">Quer mais recursos?</div>
-        <div style="font-size:13px;margin:2px 0 6px;">Plano <b>Completo</b> — só <b>+ ${f(dif)}${anual ? ' (uma vez)' : '/mês'}</b></div>
+        <div style="font-size:13px;margin:2px 0 6px;">Plano <b>Completo</b> — só <b>+ ${f(dif)}${anual ? '/ano' : '/mês'}</b>${r.plano_ativo ? '<br><span style="color:var(--texto-muted);">Você paga agora só os dias que faltam até sua próxima cobrança.</span>' : ''}</div>
         <ul style="margin:0 0 10px 18px;padding:0;font-size:13px;">${li('Pix automático e cartão online')}${li('Duas impressoras')}${li('Clientes, cashback e cupons')}${li('Relatórios e avaliações')}</ul>
         <button class="btn btn-laranja" onclick="trocarPlano('completo', this)">Quero o Completo</button>
       </div>`;
@@ -3475,7 +3475,7 @@ function escolhaPlanoHtml(r) {
         <button class="btn btn-outline" onclick="trocarPlano('simples', this)">Mudar para o Simples</button>
       </div>`;
   }
-  const rodape = atual === 'completo' && r.plano_ativo && !volta ? '<div style="font-size:12px;color:var(--texto-muted);margin-top:10px;">Voltar para o Simples vale a partir da próxima cobrança.</div>'
+  const rodape = atual === 'completo' && r.plano_ativo && !volta ? '<div style="font-size:12px;color:var(--texto-muted);margin-top:10px;">Voltar para o Simples vale a partir da próxima cobrança (sem reembolso do que já foi pago).</div>'
     : (r.plano_ativo ? '' : '<div style="font-size:12px;color:var(--texto-muted);margin-top:10px;">No teste grátis você pode trocar de plano à vontade.</div>');
   return `
     <div class="card" style="max-width:520px;margin-top:16px;">
@@ -3489,36 +3489,49 @@ async function trocarPlano(plano, btnEl) {
   if (!restauranteAtual) return;
   const r = restauranteAtual;
   const anual = r.plano_ativo && r.plano_tipo === 'anual';
-  const f = v => 'R$ ' + v.toFixed(2).replace('.', ',');
-  let msg;
-  if (!r.plano_ativo) {
-    msg = plano === 'simples' ? 'Trocar para o plano Simples? Você perde as funções do Completo. No teste grátis pode voltar quando quiser.' : 'Trocar para o plano Completo? No teste grátis é de graça.';
-  } else if (plano === 'completo') {
-    msg = anual
-      ? `Ligar o Completo agora? Será gerada uma cobrança só da diferença (${f(TABELA_PRECOS.completo.anual - TABELA_PRECOS.simples.anual)}). Nos próximos anos o valor será ${f(TABELA_PRECOS.completo.anual)}.`
-      : `Ligar o Completo agora? Ele liga na hora. O valor novo (${f(TABELA_PRECOS.completo.mensal)}) vale a partir da próxima cobrança.`;
-  } else {
-    msg = `Voltar para o Simples? Você continua com o Completo até a próxima cobrança. Depois passa a ${f(TABELA_PRECOS.simples[anual ? 'anual' : 'mensal'])} e perde as funções do Completo.`;
-  }
-  if (!confirm(msg)) return;
+  const f = v => 'R$ ' + Number(v).toFixed(2).replace('.', ',');
   const textoOriginal = btnEl ? btnEl.textContent : '';
-  if (btnEl) { btnEl.textContent = 'Aguarde...'; btnEl.disabled = true; }
-  try {
+  const travar = (t) => { if (btnEl) { btnEl.textContent = t; btnEl.disabled = true; } };
+  const soltar = () => { if (btnEl) { btnEl.textContent = textoOriginal; btnEl.disabled = false; } };
+  const chamar = async (extra) => {
     const { data: sessao } = await db.auth.getSession();
     const tokenDono = sessao?.session?.access_token;
     const resp = await fetch('/api/criar-cobranca', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'trocar_plano', restauranteId: r.id, plano, tokenDono })
+      body: JSON.stringify(Object.assign({ acao: 'trocar_plano', restauranteId: r.id, plano, tokenDono }, extra || {}))
     });
-    const data = await resp.json();
-    if (!resp.ok) {
+    const data = await resp.json().catch(() => ({}));
+    return { ok: resp.ok, data };
+  };
+  try {
+    travar('Aguarde...');
+    // Pergunta ao servidor o que vai acontecer (valor exato) antes de pedir a confirmação
+    let msg;
+    if (!r.plano_ativo) {
+      msg = plano === 'simples' ? 'Trocar para o plano Simples? Você perde as funções do Completo. No teste grátis pode voltar quando quiser.' : 'Trocar para o plano Completo? No teste grátis é de graça.';
+    } else {
+      const sim = await chamar({ simular: true });
+      if (!sim.ok) { toast(sim.data.error || 'Não consegui trocar o plano.', 'erro'); soltar(); return; }
+      const d = sim.data;
+      if (plano === 'completo') {
+        if (d.desfezVolta) msg = 'Manter o Completo? Você continua como está e não paga nada a mais agora.';
+        else if (d.cobrarAgora > 0) msg = `Ligar o Completo? Você paga agora só ${f(d.cobrarAgora)} (os ${d.dias} dias que faltam até sua próxima cobrança). O Completo liga assim que o pagamento for confirmado. Depois, a cobrança passa a ser ${f(d.valorNovo)}${anual ? '/ano' : '/mês'}.`;
+        else msg = `Ligar o Completo agora? Faltam poucos dias para sua próxima cobrança, então não cobramos nada agora. A cobrança passa a ser ${f(d.valorNovo)}${anual ? '/ano' : '/mês'}.`;
+      } else {
+        msg = `Voltar para o Simples? Você continua com o Completo até a próxima cobrança. Depois passa a ${f(d.valorNovo)}${anual ? '/ano' : '/mês'} e perde as funções do Completo. Não há reembolso do que já pagou.`;
+      }
+    }
+    if (!confirm(msg)) { soltar(); return; }
+    travar('Aguarde...');
+    const { ok, data } = await chamar();
+    if (!ok) {
       toast(data.error || 'Não consegui trocar o plano.', 'erro');
-      if (btnEl) { btnEl.textContent = textoOriginal; btnEl.disabled = false; }
+      soltar();
       return;
     }
     if (data.checkoutUrl) {
-      toast('Plano Completo ligado! Agora pague a diferença.', 'ok');
+      toast('Agora é só pagar. O Completo liga sozinho quando o pagamento for confirmado.', 'ok');
       window.location.href = data.checkoutUrl;
       return;
     }
@@ -3526,7 +3539,7 @@ async function trocarPlano(plano, btnEl) {
     setTimeout(() => location.reload(), 900);
   } catch (e) {
     toast('Erro de conexão. Tente de novo.', 'erro');
-    if (btnEl) { btnEl.textContent = textoOriginal; btnEl.disabled = false; }
+    soltar();
   }
 }
 
