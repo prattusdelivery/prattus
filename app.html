@@ -1978,7 +1978,6 @@ async function exportarAssinantesCSV() {
     if (resp.ok) dadosProtegidos = data.dados || {};
   } catch (e) {}
 
-  const valorPlano = { mensal: 39.90, anual: 399.90 };
 
   const linhas = [['Nome','E-mail','CPF/CNPJ','WhatsApp','Status','Plano','Valor assinatura','Cadastrado em','Faturamento gerado','Pedidos']];
   restaurantesSA.forEach(r => {
@@ -1987,7 +1986,7 @@ async function exportarAssinantesCSV() {
     const protegido = dadosProtegidos[r.id] || {};
     linhas.push([
       r.nome, protegido.email || '', protegido.cpfCnpj || '', r.whatsapp||'', statusDeSA(r), r.plano_tipo||'',
-      r.plano_tipo ? 'R$ '+valorPlano[r.plano_tipo]?.toFixed(2).replace('.',',') : '',
+      r.plano_tipo ? 'R$ '+(precosLoja(r)[r.plano_tipo] || 0).toFixed(2).replace('.',',') : '',
       dataDoBanco(r.criado_em).toLocaleDateString('pt-BR'),
       fatRest.toFixed(2).replace('.',','), pedRest.length
     ]);
@@ -2067,7 +2066,7 @@ async function carregarSuperAdmin() {
 
   // MRR: soma o valor mensal-equivalente de cada assinante ativo (anual vira /12)
   const ativos = (restaurantes||[]).filter(r => r.plano_ativo);
-  const mrr = ativos.reduce((s,r) => s + (r.plano_tipo === 'anual' ? 399.90/12 : 39.90), 0);
+  const mrr = ativos.reduce((s,r) => { const pr = precosLoja(r); return s + (r.plano_tipo === 'anual' ? pr.anual/12 : pr.mensal); }, 0);
   const arr = mrr * 12;
 
   // Taxa de conversão: de quem já passou pelo menos uma vez pelo teste, quantos ativaram
@@ -3362,13 +3361,26 @@ async function carregarHistoricoPeriodo() {
   `;
 }
 
+// Preços mostrados na tela (espelham api/_precos.js; quem decide o valor cobrado é o servidor)
+const TABELA_PRECOS = { simples: { mensal: 39.90, anual: 399.90 }, completo: { mensal: 49.90, anual: 499.90 } };
+function precosLoja(r) {
+  const t = TABELA_PRECOS[r && r.plano_painel === 'simples' ? 'simples' : 'completo'];
+  let mensal = t.mensal, anual = t.anual;
+  const travado = parseFloat(r && r.preco_mensal_travado);
+  if (travado > 0) { mensal = Math.round(travado * 100) / 100; anual = Math.floor(travado * 10 + 1e-6) + 0.90; }
+  const f = v => 'R$' + v.toFixed(2).replace('.', ',');
+  return { mensal, anual, mensalTxt: f(mensal), anualTxt: f(anual) };
+}
+
 async function renderMensalidade() {
   if (!restauranteAtual) return;
   const { data: r } = await db.from('restaurantes').select('*').eq('id', restauranteAtual.id).single();
   restauranteAtual = r || restauranteAtual;
 
   const st = statusTrial(r);
-  const nomesPlano = { mensal: 'Mensal — R$39,90/mês', anual: 'Anual — R$399,90/ano' };
+  const pr = precosLoja(r);
+  const PR = pr;
+  const nomesPlano = { mensal: `Mensal — ${pr.mensalTxt}/mês`, anual: `Anual — ${pr.anualTxt}/ano` };
 
   let statusHtml = '';
   if (r.plano_ativo) {
@@ -3384,21 +3396,21 @@ async function renderMensalidade() {
       <div style="display:inline-block;background:var(--laranja-light);color:var(--laranja-dark);padding:5px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:16px;">🎁 Teste grátis</div>
       <div class="form-group"><label>Dias restantes de teste</label><div style="font-size:15px;font-weight:600;">${st.diasRestantes} dia${st.diasRestantes===1?'':'s'}</div></div>
       <div style="font-size:12px;color:var(--texto-muted);margin:8px 0 2px;">💳 <b>Cartão automático</b>: você digita o cartão uma vez e a cobrança é feita sozinha, sem esquecer de pagar.</div>
-      <button class="btn btn-laranja" style="margin-top:6px;" onclick="iniciarAssinatura('mensal', this, 'cartao')">💳 Mensal no cartão — R$39,90/mês</button>
-      <button class="btn btn-outline" style="margin-top:8px;" onclick="iniciarAssinatura('anual', this, 'cartao')">💳 Anual no cartão — R$399,90/ano</button>
+      <button class="btn btn-laranja" style="margin-top:6px;" onclick="iniciarAssinatura('mensal', this, 'cartao')">💳 Mensal no cartão — ${PR.mensalTxt}/mês</button>
+      <button class="btn btn-outline" style="margin-top:8px;" onclick="iniciarAssinatura('anual', this, 'cartao')">💳 Anual no cartão — ${PR.anualTxt}/ano</button>
       <div style="font-size:12px;color:var(--texto-muted);margin:14px 0 2px;">Ou pague por Pix ou boleto (você paga todo mês):</div>
-      <button class="btn btn-outline" style="margin-top:6px;" onclick="iniciarAssinatura('mensal', this, 'pix')">Pix/boleto — mensal R$39,90</button>
-      <button class="btn btn-outline" style="margin-top:8px;" onclick="iniciarAssinatura('anual', this, 'pix')">Pix/boleto — anual R$399,90</button>
+      <button class="btn btn-outline" style="margin-top:6px;" onclick="iniciarAssinatura('mensal', this, 'pix')">Pix/boleto — mensal ${PR.mensalTxt}</button>
+      <button class="btn btn-outline" style="margin-top:8px;" onclick="iniciarAssinatura('anual', this, 'pix')">Pix/boleto — anual ${PR.anualTxt}</button>
     `;
   } else {
     statusHtml = `
       <div style="display:inline-block;background:#FBEAE7;color:#C0392B;padding:5px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:16px;">⏳ Sem assinatura ativa</div>
       <div style="font-size:12px;color:var(--texto-muted);margin:8px 0 2px;">💳 <b>Cartão automático</b>: você digita o cartão uma vez e a cobrança é feita sozinha, sem esquecer de pagar.</div>
-      <button class="btn btn-laranja" style="margin-top:6px;" onclick="iniciarAssinatura('mensal', this, 'cartao')">💳 Mensal no cartão — R$39,90/mês</button>
-      <button class="btn btn-outline" style="margin-top:8px;" onclick="iniciarAssinatura('anual', this, 'cartao')">💳 Anual no cartão — R$399,90/ano</button>
+      <button class="btn btn-laranja" style="margin-top:6px;" onclick="iniciarAssinatura('mensal', this, 'cartao')">💳 Mensal no cartão — ${PR.mensalTxt}/mês</button>
+      <button class="btn btn-outline" style="margin-top:8px;" onclick="iniciarAssinatura('anual', this, 'cartao')">💳 Anual no cartão — ${PR.anualTxt}/ano</button>
       <div style="font-size:12px;color:var(--texto-muted);margin:14px 0 2px;">Ou pague por Pix ou boleto (você paga todo mês):</div>
-      <button class="btn btn-outline" style="margin-top:6px;" onclick="iniciarAssinatura('mensal', this, 'pix')">Pix/boleto — mensal R$39,90</button>
-      <button class="btn btn-outline" style="margin-top:8px;" onclick="iniciarAssinatura('anual', this, 'pix')">Pix/boleto — anual R$399,90</button>
+      <button class="btn btn-outline" style="margin-top:6px;" onclick="iniciarAssinatura('mensal', this, 'pix')">Pix/boleto — mensal ${PR.mensalTxt}</button>
+      <button class="btn btn-outline" style="margin-top:8px;" onclick="iniciarAssinatura('anual', this, 'pix')">Pix/boleto — anual ${PR.anualTxt}</button>
     `;
   }
 
@@ -5055,6 +5067,7 @@ function mostrarBannerTrial(dias) {
 
 function mostrarBloqueioTrial() {
   const r = restauranteAtual || {};
+  const PR = precosLoja(r);
   const jaFoiAssinante = !!r.plano_tipo;
   const diasDesdeUltimaGraca = r.graca_usada_em ? Math.floor((Date.now() - new Date(r.graca_usada_em)) / 86400000) : 999;
   const podeUsarGraca = jaFoiAssinante && diasDesdeUltimaGraca >= 30;
@@ -5067,11 +5080,11 @@ function mostrarBloqueioTrial() {
         Assine agora pra voltar a acessar o painel e seu cardápio voltar a receber pedidos.
       </div>
       <div style="font-size:12px;color:var(--texto-muted);margin-bottom:8px;max-width:340px;">💳 <b>Cartão automático</b>: digite o cartão uma vez e a cobrança é feita sozinha.</div>
-      <button onclick="iniciarAssinatura('mensal', this, 'cartao')" style="background:var(--laranja);color:#fff;border:none;text-decoration:none;padding:13px 28px;border-radius:10px;font-size:14px;font-weight:600;margin-bottom:10px;cursor:pointer;">💳 Mensal no cartão — R$39,90/mês</button>
-      <button onclick="iniciarAssinatura('anual', this, 'cartao')" style="background:none;border:1px solid var(--laranja);color:var(--laranja);padding:11px 24px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:14px;cursor:pointer;">💳 Anual no cartão — R$399,90/ano</button>
+      <button onclick="iniciarAssinatura('mensal', this, 'cartao')" style="background:var(--laranja);color:#fff;border:none;text-decoration:none;padding:13px 28px;border-radius:10px;font-size:14px;font-weight:600;margin-bottom:10px;cursor:pointer;">💳 Mensal no cartão — ${PR.mensalTxt}/mês</button>
+      <button onclick="iniciarAssinatura('anual', this, 'cartao')" style="background:none;border:1px solid var(--laranja);color:var(--laranja);padding:11px 24px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:14px;cursor:pointer;">💳 Anual no cartão — ${PR.anualTxt}/ano</button>
       <div style="font-size:12px;color:var(--texto-muted);margin-bottom:8px;">Ou pague por Pix/boleto (todo mês):</div>
-      <button onclick="iniciarAssinatura('mensal', this, 'pix')" style="background:none;border:1px solid var(--creme-borda);color:var(--texto-muted);padding:9px 20px;border-radius:10px;font-size:12px;font-weight:600;margin-bottom:8px;cursor:pointer;">Pix/boleto — mensal R$39,90</button>
-      <button onclick="iniciarAssinatura('anual', this, 'pix')" style="background:none;border:1px solid var(--creme-borda);color:var(--texto-muted);padding:9px 20px;border-radius:10px;font-size:12px;font-weight:600;margin-bottom:14px;cursor:pointer;">Pix/boleto — anual R$399,90</button>
+      <button onclick="iniciarAssinatura('mensal', this, 'pix')" style="background:none;border:1px solid var(--creme-borda);color:var(--texto-muted);padding:9px 20px;border-radius:10px;font-size:12px;font-weight:600;margin-bottom:8px;cursor:pointer;">Pix/boleto — mensal ${PR.mensalTxt}</button>
+      <button onclick="iniciarAssinatura('anual', this, 'pix')" style="background:none;border:1px solid var(--creme-borda);color:var(--texto-muted);padding:9px 20px;border-radius:10px;font-size:12px;font-weight:600;margin-bottom:14px;cursor:pointer;">Pix/boleto — anual ${PR.anualTxt}</button>
       ${podeUsarGraca ? `
         <button onclick="ativarGracaProvisoria()" style="background:none;border:none;color:var(--texto-muted);font-size:12px;text-decoration:underline;margin-bottom:14px;cursor:pointer;">
           🕐 Já sou assinante — liberar acesso por 24h pra resolver o pagamento
