@@ -101,7 +101,7 @@ export default async function handler(req, res) {
       const r = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${encodeURIComponent(restauranteId)}`, {
         method: 'PATCH',
         headers: { ...svcHeaders, 'Prefer': 'return=minimal' },
-        body: JSON.stringify({ plano_painel: plano })
+        body: JSON.stringify({ plano_painel: plano, plano_painel_proximo: null })
       });
       if (!r.ok) return res.status(500).json({ error: 'Não consegui salvar. Rodou o comando no Supabase?' });
       return res.status(200).json({ ok: true, plano });

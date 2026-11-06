@@ -42,6 +42,11 @@ export default async function handler(req, res) {
     const tipo = evento.event;
     const pagamento = evento.payment;
 
+    // Cobrança avulsa da "diferença do plano Completo (anual)": não é a assinatura, então não mexe no plano/ativo
+    if (pagamento && !pagamento.subscription && /Diferen[cç]a/i.test(pagamento.description || '')) {
+      return res.status(200).json({ received: true, ignorado: 'diferenca-de-plano' });
+    }
+
     const eventosQueLiberam = ['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED'];
     const eventosQueCancelam = ['PAYMENT_OVERDUE', 'PAYMENT_DELETED', 'PAYMENT_REFUNDED'];
 
@@ -55,9 +60,10 @@ export default async function handler(req, res) {
         'apikey': process.env.SUPABASE_SERVICE_KEY,
         'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
       };
-      const buscaResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}&select=plano_tipo`, { headers: svcHeadersLeitura });
+      const buscaResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}&select=plano_tipo,plano_painel_proximo`, { headers: svcHeadersLeitura });
       const buscaData = await buscaResp.json();
       const planoTipo = Array.isArray(buscaData) && buscaData[0] ? buscaData[0].plano_tipo : null;
+      const painelProximo = Array.isArray(buscaData) && buscaData[0] ? buscaData[0].plano_painel_proximo : null;
       const diasCiclo = planoTipo === 'anual' ? 365 : 30;
       const proximaCobranca = new Date(Date.now() + diasCiclo * 24 * 60 * 60 * 1000).toISOString();
 
@@ -69,7 +75,9 @@ export default async function handler(req, res) {
           'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
           'Prefer': 'return=minimal'
         },
-        body: JSON.stringify({ plano_ativo: true, proxima_cobranca: proximaCobranca })
+        body: JSON.stringify(Object.assign({ plano_ativo: true, proxima_cobranca: proximaCobranca },
+          // Mudança de plano combinada (ex.: voltar ao Simples) passa a valer a partir deste pagamento
+          (painelProximo === 'simples' || painelProximo === 'completo') ? { plano_painel: painelProximo, plano_painel_proximo: null } : {}))
       });
 
       if (!resp.ok) {
