@@ -3363,6 +3363,8 @@ async function carregarHistoricoPeriodo() {
 
 // Preços mostrados na tela (espelham api/_precos.js; quem decide o valor cobrado é o servidor)
 const TABELA_PRECOS = { simples: { mensal: 39.90, anual: 399.90 }, completo: { mensal: 49.90, anual: 499.90 } };
+// Loja no plano Simples? (esconde/desliga o que é só do Completo: pagamento online, cashback, agendamento)
+function planoSimplesLoja(r) { return !!r && r.plano_painel === 'simples'; }
 function precosLoja(r) {
   const t = TABELA_PRECOS[r && r.plano_painel === 'simples' ? 'simples' : 'completo'];
   let mensal = t.mensal, anual = t.anual;
@@ -3840,6 +3842,8 @@ async function renderConfig() {
     if (fresco) restauranteAtual = { ...restauranteAtual, ...fresco };
   } catch (e) {}
   const r = restauranteAtual;
+  const simplesCfg = planoSimplesLoja(r); // no Simples, o que é do Completo fica escondido
+  const escCfg = simplesCfg ? 'display:none;' : '';
 
   const { data: privadoCfg } = await db.from('restaurante_privado').select('chave_pix').eq('restaurante_id', r.id).maybeSingle();
   const chavePixAtual = privadoCfg?.chave_pix || '';
@@ -3872,7 +3876,7 @@ async function renderConfig() {
       </div>
       ${meuPapel==='dono' ? '' : `<input type="hidden" id="cfg-pix" value="${esc(chavePixAtual)}">`}
       ${meuPapel==='dono' ? `
-      <div class="form-group" style="background:var(--creme);border-radius:10px;padding:14px;">
+      <div class="form-group" style="background:var(--creme);border-radius:10px;padding:14px;${escCfg}">
         <label style="font-size:14px;font-weight:700;">⚡ Receber Pix e cartão online (Mercado Pago)</label>
         <div style="font-size:12px;color:var(--texto-muted);margin:4px 0 10px;">O cliente paga o Pix ou o cartão na hora de pedir e o pedido entra aqui no painel já como <b>pago</b>, sem precisar conferir comprovante. O dinheiro cai direto na sua conta do Mercado Pago.</div>
         <div style="font-size:12px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin:0 0 10px;line-height:1.6;">
@@ -3904,8 +3908,9 @@ async function renderConfig() {
       <div class="form-group" style="background:var(--creme);border-radius:10px;padding:14px;">
         <label style="font-size:14px;font-weight:700;">💰 Formas de pagamento do seu cardápio</label>
         <div style="font-size:12px;color:var(--texto-muted);margin:4px 0 12px;">Escolha o que o cliente vê na hora de pagar. <b>Dinheiro fica sempre liberado.</b></div>
+        ${simplesCfg ? '<div style="font-size:12px;background:#FFF7F1;border:1px solid var(--laranja);color:var(--laranja-dark);border-radius:8px;padding:8px 10px;margin-bottom:10px;">⚡ Pix automático e cartão online fazem parte do plano <b>Completo</b>. Veja em <b>Mensalidade</b>.</div>' : ''}
         <div style="font-size:13px;font-weight:700;margin-bottom:6px;">Pix (escolha só um)</div>
-        <label style="display:flex;align-items:flex-start;gap:10px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;font-size:13px;">
+        <label style="display:${simplesCfg ? 'none' : 'flex'};align-items:flex-start;gap:10px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;font-size:13px;">
           <input type="checkbox" id="pg-pix-auto" ${(r.pgto_pix || 'auto') === 'auto' ? 'checked' : ''} onchange="pgMarcarPix('auto', this.checked)" style="width:18px;height:18px;margin-top:2px;">
           <span><b>⚡ Pix automático</b><br><span style="font-size:11px;color:var(--texto-muted);">O pedido chega já pago, sem conferir comprovante (pelo Mercado Pago).${r.pix_online_ativo ? '' : ' <b style="color:#B26A00;">Precisa conectar o Mercado Pago acima.</b>'}</span></span>
         </label>
@@ -3917,8 +3922,8 @@ async function renderConfig() {
           <input type="text" id="cfg-pix" value="${esc(chavePixAtual)}" placeholder="Coloque sua chave Pix aqui" autocomplete="off" style="width:100%;">
           <div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Pode ser CPF, CNPJ, telefone, e-mail ou chave aleatória.</div>
         </div>
-        <div style="font-size:13px;font-weight:700;margin:10px 0 6px;">Cartão (pode marcar os dois)</div>
-        <label style="display:flex;align-items:flex-start;gap:10px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;font-size:13px;">
+        <div style="font-size:13px;font-weight:700;margin:10px 0 6px;">${simplesCfg ? 'Cartão' : 'Cartão (pode marcar os dois)'}</div>
+        <label style="display:${simplesCfg ? 'none' : 'flex'};align-items:flex-start;gap:10px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;font-size:13px;">
           <input type="checkbox" id="pg-cartao-auto" ${r.pgto_cartao_online !== false ? 'checked' : ''} style="width:18px;height:18px;margin-top:2px;">
           <span><b>⚡ Cartão automático (online)</b><br><span style="font-size:11px;color:var(--texto-muted);">O cliente paga no cartão na hora de pedir (pelo Mercado Pago).${r.pix_online_ativo ? '' : ' <b style="color:#B26A00;">Precisa conectar o Mercado Pago acima.</b>'}</span></span>
         </label>
@@ -3929,7 +3934,7 @@ async function renderConfig() {
         <div style="font-size:13px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin-bottom:12px;">💵 <b>Dinheiro</b> — sempre liberado</div>
         <button type="button" class="btn-sm" style="width:100%;padding:11px;" onclick="salvarFormasPagamento()">Salvar formas de pagamento</button>
       </div>` : ''}
-      <div class="form-group">
+      <div class="form-group" style="${escCfg}">
         <label>Cashback pro cliente (%)</label>
         <input type="number" id="cfg-cashback" value="${r.cashback_percentual || ''}" placeholder="Ex: 5" min="0" max="100" step="0.1">
         <div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">A cada pedido, o cliente ganha esse % de volta em cashback, creditado no dia seguinte. Ele pode usar como desconto no próximo pedido. Deixe vazio ou 0 pra desativar.</div>
@@ -4173,7 +4178,7 @@ async function renderConfig() {
         `}).join('')}
       </div>
 
-      <div class="form-group" style="background:var(--creme);border-radius:10px;padding:14px;margin-top:14px;">
+      <div class="form-group" style="background:var(--creme);border-radius:10px;padding:14px;margin-top:14px;${escCfg}">
         <label style="font-weight:700;">Quando a loja estiver fechada (fora do horário)</label>
         <div style="font-size:12px;color:var(--texto-muted);margin:4px 0 10px;">O cliente sempre consegue abrir o cardápio. Escolha o que ele pode fazer:</div>
         ${r.pix_online_ativo ? '' : '<div style="font-size:12px;background:#FFF3E0;color:#B26A00;border-radius:8px;padding:8px 10px;margin-bottom:10px;">⚠️ O Mercado Pago ainda não está conectado. A opção "Só agendamento" só passa a valer depois que você conectar (quadro "Receber Pix e cartão online", mais acima). Enquanto isso, o cardápio funciona como "Sempre aberto".</div>'}
@@ -4770,7 +4775,7 @@ async function carregarPublico(restId) {
         elFechado.textContent = diaConfig.ativo
           ? `🔴 Fechado · Funciona ${textoTurnos(diaConfig)}`
           : `🔴 Fechado hoje`;
-        if (rest.avisos_whatsapp?.fechado_so_agendar !== false && !!rest.pix_online_ativo) {
+        if (rest.avisos_whatsapp?.fechado_so_agendar !== false && !!rest.pix_online_ativo && !planoSimplesLoja(rest)) {
           elFechado.innerHTML = esc(elFechado.textContent) + '<br><span style="font-size:12px;font-weight:400;">Você pode agendar seu pedido 📅</span>';
         }
       }
@@ -4805,7 +4810,7 @@ async function carregarPublico(restId) {
   atualizarCarrinho();
 
   const blocoFid = document.getElementById('bloco-fidelidade');
-  if (blocoFid) blocoFid.style.display = parseFloat(rest.cashback_percentual || 0) > 0 ? 'block' : 'none';
+  if (blocoFid) blocoFid.style.display = (!planoSimplesLoja(rest) && parseFloat(rest.cashback_percentual || 0) > 0) ? 'block' : 'none';
 
   mostrarBotaoPedirNovo();
   verificarAvaliacaoPendente();
@@ -5872,7 +5877,7 @@ function selecionarModo(modo) {
   const blocoAgendamento = document.getElementById('bloco-agendamento');
   const campoMesa = document.getElementById('campo-mesa');
   if (blocoEndereco) blocoEndereco.style.display = modo === 'delivery' ? 'block' : 'none';
-  if (blocoAgendamento) blocoAgendamento.style.display = (modo === 'retirada' || modo === 'delivery') ? 'block' : 'none';
+  if (blocoAgendamento) blocoAgendamento.style.display = ((modo === 'retirada' || modo === 'delivery') && !planoSimplesLoja(restPublico)) ? 'block' : 'none';
   const lblAg = document.getElementById('lbl-data-agend');
   if (lblAg) lblAg.textContent = modo === 'delivery' ? 'Data da entrega' : 'Data para retirada';
   if (modo === 'retirada' || modo === 'delivery') {
@@ -6107,8 +6112,10 @@ var pagEntregaAberto = null;
 
 // Quais formas de pagamento o restaurante deixou ligadas (valores vazios = comportamento antigo)
 function opcoesPagamento(r) {
-  const online = !!r.pix_online_ativo;
-  const pix = r.pgto_pix || 'auto';
+  const simples = planoSimplesLoja(r); // plano Simples não tem Pix/cartão online (Mercado Pago)
+  const online = !!r.pix_online_ativo && !simples;
+  let pix = r.pgto_pix || 'auto';
+  if (simples && pix === 'auto') pix = 'nenhum';
   return {
     pixAuto: online && pix === 'auto',
     pixManual: pix === 'manual',
@@ -6601,7 +6608,7 @@ async function finalizarPedidoInterno() {
     toast('O troco precisa ser maior que o valor do pedido (R$ ' + total.toFixed(2).replace('.',',') + '). Corrija o valor ou deixe em branco.', 'erro');
     return;
   }
-  const pctCashback = parseFloat(restPublico.cashback_percentual || 0);
+  const pctCashback = planoSimplesLoja(restPublico) ? 0 : parseFloat(restPublico.cashback_percentual || 0);
   const cashbackACreditar = pctCashback > 0 ? total * (pctCashback / 100) : 0;
 
   // PIX ONLINE: o pedido só vai pro painel depois que o Pix for pago (servidor confere com o Mercado Pago)
