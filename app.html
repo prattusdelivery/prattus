@@ -3423,10 +3423,10 @@ async function renderMensalidade() {
   `;
 }
 
-// ===== ESCOLHA DO PLANO (Simples / Completo) — por enquanto só na loja Demo =====
+// ===== ESCOLHA DO PLANO (Simples / Completo) — lojas novas e a Demo =====
 function escolhaPlanoDisponivel(r) {
-  if (!r || parseFloat(r.preco_mensal_travado) > 0) return false; // lojas com preço combinado não trocam por aqui
-  return r.slug === 'servidelivery-demo';
+  // Lojas antigas têm preço combinado (R$ 39,90 travado) e não trocam por aqui
+  return !!r && !(parseFloat(r.preco_mensal_travado) > 0);
 }
 
 function escolhaPlanoHtml(r) {
