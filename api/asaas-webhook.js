@@ -2,6 +2,7 @@
 // e libera o restaurante correspondente no Supabase (plano_ativo = true).
 import webpush from 'web-push';
 import { reportarErro } from './_sentry.js';
+import { ativarCompletoPago } from './_trocar-plano.js';
 
 const SUPABASE_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
 
@@ -42,8 +43,12 @@ export default async function handler(req, res) {
     const tipo = evento.event;
     const pagamento = evento.payment;
 
-    // Cobrança avulsa da "diferença do plano Completo (anual)": não é a assinatura, então não mexe no plano/ativo
+    // Cobrança avulsa da "diferença do plano Completo": não é a assinatura, então não mexe em plano_ativo.
+    // Quando é paga, liga o Completo e acerta o valor da assinatura.
     if (pagamento && !pagamento.subscription && /Diferen[cç]a/i.test(pagamento.description || '')) {
+      if ((tipo === 'PAYMENT_CONFIRMED' || tipo === 'PAYMENT_RECEIVED') && /^upgrade:/.test(pagamento.externalReference || '')) {
+        await ativarCompletoPago(pagamento.externalReference.slice(8));
+      }
       return res.status(200).json({ received: true, ignorado: 'diferenca-de-plano' });
     }
 
