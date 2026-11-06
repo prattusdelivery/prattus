@@ -3439,32 +3439,49 @@ function escolhaPlanoHtml(r) {
   const un = anual ? '/ano' : '/mês';
   const atual = r.plano_painel === 'simples' ? 'simples' : 'completo';
   const volta = r.plano_painel_proximo === 'simples';
-  const marca = '<div style="display:inline-block;background:#E1F5EE;color:#0F6E56;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;margin-bottom:6px;">✔ Seu plano</div>';
   const li = t => `<li style="margin:3px 0;">${t}</li>`;
-  const cartao = (nome, valor, ehAtual, itens, botao) => `
-    <div style="border:2px solid ${ehAtual ? '#1D9E75' : 'var(--creme-borda)'};border-radius:12px;padding:14px;margin-bottom:12px;background:#fff;">
-      ${ehAtual ? marca : ''}
-      <div style="font-size:16px;font-weight:700;">${nome}</div>
+  const marca = '<div style="display:inline-block;background:#E1F5EE;color:#0F6E56;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;margin-bottom:6px;">✔ Seu plano</div>';
+  const cartaoAtual = (nome, valor, itens) => `
+    <div style="border:2px solid #1D9E75;border-radius:12px;padding:14px;margin-bottom:12px;background:#fff;">
+      ${marca}
+      <div style="font-size:17px;font-weight:700;">${nome}</div>
       <div style="font-size:22px;font-weight:800;color:var(--laranja-dark);margin:2px 0 8px;">${f(valor)}<span style="font-size:12px;font-weight:500;color:var(--texto-muted);">${un}</span></div>
-      <ul style="margin:0 0 10px 18px;padding:0;font-size:13px;">${itens}</ul>
-      ${botao}
+      <ul style="margin:0 0 0 18px;padding:0;font-size:13px;">${itens}</ul>
     </div>`;
-  const itensS = li('Cardápio e pedidos no painel fácil (Modo Fácil)') + li('Frete por bairro') + li('Equipe e comandas') + li('Pix manual e dinheiro/cartão na entrega');
-  const itensC = li('<b>Tudo do Simples</b>') + li('Pix automático e cartão online') + li('Impressão em duas impressoras') + li('Clientes e cashback') + li('Cupons, relatórios e avaliações') + li('Pedidos agendados');
-  const btnS = atual === 'completo'
-    ? (volta ? '' : `<button class="btn btn-outline" onclick="trocarPlano('simples', this)">Voltar para o Simples</button>`)
-    : '';
-  const btnC = atual === 'simples'
-    ? `<button class="btn btn-laranja" onclick="trocarPlano('completo', this)">Quero o Completo (+ ${f(dif)}${anual ? ' uma vez' : '/mês'})</button>`
-    : (volta ? `<button class="btn btn-laranja" onclick="trocarPlano('completo', this)">Manter o Completo</button>` : '');
-  const aviso = volta ? `<div style="background:#FFF1E6;color:#C4522E;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:12px;">Você volta para o <b>Simples</b> na próxima cobrança${r.proxima_cobranca ? ' (' + new Date(r.proxima_cobranca).toLocaleDateString('pt-BR') + ')' : ''}. Até lá continua com tudo do Completo.</div>` : '';
+  const itensS = li('Cardápio e pedidos no painel fácil') + li('Frete por bairro') + li('Equipe e comandas');
+  const itensC = li('Pix automático e cartão online') + li('Impressão em duas impressoras') + li('Clientes e cashback') + li('Cupons, relatórios e avaliações') + li('Pedidos agendados') + li('Cardápio, pedidos, frete e equipe');
+  let corpo = '';
+  if (atual === 'simples') {
+    corpo = cartaoAtual('Simples', vS, itensS) + `
+      <div style="border:2px solid var(--laranja);background:#FFF7F1;border-radius:12px;padding:14px;">
+        <div style="font-size:15px;font-weight:700;">Quer mais recursos?</div>
+        <div style="font-size:13px;margin:2px 0 6px;">Plano <b>Completo</b> — só <b>+ ${f(dif)}${anual ? ' (uma vez)' : '/mês'}</b></div>
+        <ul style="margin:0 0 10px 18px;padding:0;font-size:13px;">${li('Pix automático e cartão online')}${li('Duas impressoras')}${li('Clientes, cashback e cupons')}${li('Relatórios e avaliações')}</ul>
+        <button class="btn btn-laranja" onclick="trocarPlano('completo', this)">Quero o Completo</button>
+      </div>`;
+  } else if (volta) {
+    corpo = cartaoAtual('Completo', vC, itensC) + `
+      <div style="background:#FFF1E6;color:#C4522E;border-radius:10px;padding:12px;font-size:13px;">
+        Você volta para o <b>Simples</b> na próxima cobrança${r.proxima_cobranca ? ' (' + new Date(r.proxima_cobranca).toLocaleDateString('pt-BR') + ')' : ''}. Até lá continua com tudo do Completo.
+        <button class="btn btn-laranja" style="margin-top:10px;" onclick="trocarPlano('completo', this)">Manter o Completo</button>
+      </div>`;
+  } else {
+    corpo = cartaoAtual('Completo', vC, itensC) + `
+      <div style="text-align:center;"><a href="#" style="font-size:13px;color:var(--texto-muted);text-decoration:underline;" onclick="document.getElementById('plano-ver-simples').style.display='block';this.style.display='none';return false;">Quer pagar menos? Ver o plano Simples (${f(vS)})</a></div>
+      <div id="plano-ver-simples" style="display:none;border:1px solid var(--creme-borda);border-radius:12px;padding:14px;background:#fff;">
+        <div style="font-size:15px;font-weight:700;">Plano Simples — ${f(vS)}${un}</div>
+        <ul style="margin:6px 0 8px 18px;padding:0;font-size:13px;">${itensS}</ul>
+        <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Você <b>perde</b>: Pix automático e cartão online, duas impressoras, clientes e cashback, cupons, relatórios, avaliações e pedidos agendados.</div>
+        <button class="btn btn-outline" onclick="trocarPlano('simples', this)">Mudar para o Simples</button>
+      </div>`;
+  }
+  const rodape = atual === 'completo' && r.plano_ativo && !volta ? '<div style="font-size:12px;color:var(--texto-muted);margin-top:10px;">Voltar para o Simples vale a partir da próxima cobrança.</div>'
+    : (r.plano_ativo ? '' : '<div style="font-size:12px;color:var(--texto-muted);margin-top:10px;">No teste grátis você pode trocar de plano à vontade.</div>');
   return `
     <div class="card" style="max-width:520px;margin-top:16px;">
       <div class="card-titulo">📦 Seu plano</div>
-      ${aviso}
-      ${cartao('Simples', vS, atual === 'simples', itensS, btnS)}
-      ${cartao('Completo', vC, atual === 'completo', itensC, btnC)}
-      <div style="font-size:12px;color:var(--texto-muted);">${r.plano_ativo ? 'Subir para o Completo liga na hora. Voltar para o Simples vale a partir da próxima cobrança.' : 'No teste grátis você pode trocar de plano à vontade.'}</div>
+      ${corpo}
+      ${rodape}
     </div>`;
 }
 
