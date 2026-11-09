@@ -42,7 +42,8 @@ function mapaMesasInserir(mesas) {
   let tiles = '';
   for (let n = 1; n <= qtd; n++) {
     const m = porMesa[String(n)];
-    const ocupada = !!m;
+    // Só fica "com pedido" depois que algum pedido foi enviado. Mesa aberta sem pedido continua "livre".
+    const ocupada = !!m && (m.qtdPedidos || 0) > 0;
     const total = ocupada ? 'R$ ' + (m.total || 0).toFixed(2).replace('.', ',') : 'livre';
     tiles += `<button type="button" onclick="mapaMesaTocar(${n})" style="
         display:flex;flex-direction:column;align-items:center;justify-content:center;height:78px;border-radius:14px;cursor:pointer;font-family:inherit;
@@ -107,6 +108,24 @@ async function mapaMesaTocar(n) {
   } finally {
     mapaTocando = false;
   }
+}
+
+// Garçom tocou numa mesa, não lançou nada e saiu ("← Voltar pro painel"): solta a mesa de volta (fica livre,
+// sem deixar comanda aberta à toa). Só mexe em comanda criada pelo mapa ("M<n>") e que não tem nenhum pedido.
+async function mapaMesaSoltarSeVazia(com) {
+  try {
+    if (!com || !com.id || !mapaMesasAtivo()) return;
+    const { data: cod } = await db.from('codigos_comanda').select('id,codigo_curto,status').eq('id', com.id).maybeSingle();
+    if (!cod || cod.status !== 'em_uso' || !/^M\d{1,2}$/.test(cod.codigo_curto || '')) return;
+    const { count } = await db.from('pedidos').select('id', { count: 'exact', head: true })
+      .eq('codigo_comanda_id', com.id).gte('criado_em', com.abertaEm || '1970-01-01');
+    if ((count || 0) > 0) return;
+    const { error } = await db.from('codigos_comanda').update({ status: 'livre', mesa: null, aberta_em: null }).eq('id', com.id);
+    if (error) return;
+    // Apaga o registro de "comanda aberta" que não chegou a ter pedido (senão contaria como comanda usada)
+    const { error: e2 } = await db.from('comandas_historico').delete().eq('codigo_comanda_id', com.id).is('fechada_em', null);
+    if (e2) await db.from('comandas_historico').update({ fechada_em: new Date().toISOString() }).eq('codigo_comanda_id', com.id).is('fechada_em', null);
+  } catch (e) {}
 }
 
 // Usado por carregarModoComanda: se a comanda foi aberta pelo mapa, devolve o número da mesa (e apaga o recado)

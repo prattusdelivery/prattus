@@ -265,7 +265,9 @@ async function finalizarComandaInterno(jaConfirmado) {
   toast(soEspeciais ? `Prato lançado na comanda — ${textoMesa(comandaAtual.mesa)}! ✅` : `Pedido enviado pra cozinha — ${textoMesa(comandaAtual.mesa)}! 🍽️`, 'ok');
 }
 
-function sairModoComanda() {
+async function sairModoComanda() {
+  // Mapa de mesas: se a mesa foi aberta mas não teve nenhum pedido, ela volta a ficar livre
+  if (typeof mapaMesaSoltarSeVazia === 'function') await mapaMesaSoltarSeVazia(comandaAtual);
   modoComandaAtivo = false;
   comandaAtual = null;
   carrinho = [];
