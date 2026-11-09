@@ -113,10 +113,20 @@ async function mapaMesaTocar(n) {
 function mapaMesaPreDefinida(codigo) {
   try {
     const raw = sessionStorage.getItem('mapa_mesa_pre');
-    if (!raw) return null;
-    sessionStorage.removeItem('mapa_mesa_pre');
-    const o = JSON.parse(raw);
-    if (o && codigo && o.id === codigo.id && Date.now() - o.t < 120000) return String(o.mesa);
+    if (raw) {
+      sessionStorage.removeItem('mapa_mesa_pre');
+      const o = JSON.parse(raw);
+      if (o && codigo && o.id === codigo.id && Date.now() - o.t < 120000) return String(o.mesa);
+    }
+  } catch (e) {}
+  // Garantia extra (não depende do recado do navegador): comanda criada pelo mapa tem código "M<n>".
+  // Só vale se o mapa está ligado nesta loja e o número está dentro da quantidade de mesas.
+  try {
+    const mm = codigo && /^M(\d{1,2})$/.exec(codigo.codigo_curto || '');
+    if (mm && mapaMesasAtivo()) {
+      const n = parseInt(mm[1]);
+      if (n >= 1 && n <= (parseInt(restauranteAtual.qtd_mesas) || 0)) return String(n);
+    }
   } catch (e) {}
   return null;
 }
