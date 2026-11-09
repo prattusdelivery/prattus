@@ -20,7 +20,9 @@ async function carregarModoComanda(comandaId) {
   if (codigo.status !== 'em_uso') {
     // Comanda nova. Aqui (e só aqui) dá pra "Pular" o número da mesa — serve pro restaurante
     // por peso: a atendente da balança lança o prato e o garçom informa a mesa depois.
-    const resp = await perguntarMesaComanda({ titulo: 'Código livre! Qual o número da mesa?', podePular: true });
+    // Aberta pelo mapa de mesas: a mesa já foi escolhida, não pergunta de novo
+    const mesaDoMapa = (typeof mapaMesaPreDefinida === 'function') ? mapaMesaPreDefinida(codigo) : null;
+    const resp = mesaDoMapa ? { mesa: mesaDoMapa } : await perguntarMesaComanda({ titulo: 'Código livre! Qual o número da mesa?', podePular: true });
     if (!resp) return;
     const mesaNova = resp.pular ? null : resp.mesa;
     const abertaEm = new Date().toISOString();
@@ -697,7 +699,7 @@ async function renderComandas() {
       <input type="text" id="busca-codigo-barras" name="leitor_comanda_numero" inputmode="numeric" placeholder="Escaneie ou digite o número da comanda" style="font-size:16px;letter-spacing:2px;" onkeypress="if(event.key==='Enter')buscarComandaPorCodigo()" autocomplete="off" autocorrect="off" spellcheck="false">
     </div>`}
     ${mesasComTotal.length > 0 ? `
-    <div class="card" style="margin-bottom:20px;background:var(--laranja-light);border:1.5px dashed var(--laranja);">
+    <div class="card" id="mesas-abertas-lista" style="margin-bottom:20px;background:var(--laranja-light);border:1.5px dashed var(--laranja);">
       <div class="card-titulo">🍽️ Mesas abertas agora</div>
       ${mesasComTotal.map(m => `
         <div class="frete-row">
@@ -730,6 +732,7 @@ async function renderComandas() {
     </div>
     `}
   `;
+  if (typeof mapaMesasInserir === 'function') mapaMesasInserir(mesasComTotal);   // mapa de mesas (só lojas com o recurso ligado)
   document.getElementById('busca-codigo-barras')?.focus();
 }
 

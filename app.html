@@ -4215,6 +4215,8 @@ async function renderConfig() {
         <div style="font-size:11px;color:var(--texto-muted);margin-top:6px;">Escolha um modelo ou escreva do seu jeito. Depois clique em "Salvar mensagem", copie e cole como resposta automática no WhatsApp Business. Se você trocar o nome ou o link da loja, o texto salvo acompanha sozinho.</div>
       </div>
 
+      ${typeof mapaMesasConfigHtml === 'function' ? mapaMesasConfigHtml(r) : ''}
+
       <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--creme-borda);">
         <div style="font-size:15px;font-weight:600;margin-bottom:6px;">📋 QR Codes de comanda (uso do garçom)</div>
         <div style="font-size:13px;color:var(--texto-muted);margin-bottom:14px;">Gere códigos reutilizáveis pra plastificar e levar no bolso. O garçom escaneia um código livre, informa a mesa, e monta o pedido — logado no painel dele. O mesmo código serve pra adicionar mais itens depois, e pra fechar a conta no caixa.</div>
@@ -7267,10 +7269,11 @@ async function garantirUserIdRestaurante() {
 }
 </script>
 <script src="cardapio.js"></script>
-<script src="pedidos.js?v=20261105b"></script>
+<script src="pedidos.js?v=20261109a"></script>
 <script src="impressoras.js?v=20261029c"></script>
 <script src="relatorios.js"></script>
 <script src="clientes.js"></script>
 <script src="modo-facil.js?v=20261105e"></script>
+<script src="mapa-mesas.js?v=20261109a"></script>
 </body>
 </html>
