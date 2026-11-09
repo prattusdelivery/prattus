@@ -92,6 +92,7 @@ async function carregarModoComanda(comandaId) {
   const infoBar = document.getElementById('pub-info-bar');
   if (infoBar) infoBar.innerHTML = `
     <button onclick="sairModoComanda()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;padding:5px 12px;border-radius:20px;font-size:12px;cursor:pointer;">← Voltar pro painel</button>
+    ${typeof mapaTrocaBotaoHtml === 'function' ? mapaTrocaBotaoHtml() : ''}
   `;
   const fechado = document.getElementById('pub-fechado');
   if (fechado) fechado.style.display = 'none';
