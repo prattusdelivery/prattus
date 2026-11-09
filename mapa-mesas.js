@@ -3,18 +3,14 @@
 // (mesma tela de comanda de sempre) e pode voltar na mesma mesa pra adicionar itens.
 // Por baixo cada mesa é uma comanda comum (tabela codigos_comanda) com código curto "M1", "M2"... —
 // ou seja, pedido, impressão, fechamento de conta e histórico continuam EXATAMENTE como já eram.
-// Liberado só na loja Demo por enquanto (localStorage 'mapa_mesas' = 'true'/'false' força).
+// Liberado em todas as lojas (só aparece se o dono digitar a quantidade de mesas em Configurações).
 // Colunas novas em restaurantes: qtd_mesas (quantas mesas) e comanda_modo ('qr' | 'mapa' | 'ambos').
 
 var mapaTocando = false;
 
+// Liberado para todas as lojas. Quem não digitar a quantidade de mesas em Configurações continua só com QR Code.
 function mapaMesasDisponivel() {
-  try {
-    const v = localStorage.getItem('mapa_mesas');
-    if (v === 'true') return true;
-    if (v === 'false') return false;
-  } catch (e) {}
-  return !!restauranteAtual && ['servidelivery-demo'].includes(restauranteAtual.slug);
+  return !!restauranteAtual;
 }
 
 // Como o garçom abre a mesa nesta loja: 'qr' (só QR, como sempre), 'mapa' ou 'ambos'
