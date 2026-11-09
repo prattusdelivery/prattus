@@ -225,7 +225,7 @@ async function mapaMesasSalvar() {
 //  • Trocar = passar a conta pra outra mesa livre (a mesa antiga fica livre).
 //  • Juntar = as mesas continuam TODAS ocupadas (quadradinho mostra "2/3"), mas a conta vira uma só.
 //    A comanda guarda "2/3" no campo mesa. Fechar a conta libera todas as mesas do grupo de uma vez.
-// Liberado só na loja Demo por enquanto (localStorage 'troca_mesa' = 'true'/'false' força).
+// Liberado em todas as lojas (localStorage 'troca_mesa' = 'false' desliga num aparelho).
 var mapaTrocaDados = null;
 
 function trocaMesaDisponivel() {
@@ -234,7 +234,7 @@ function trocaMesaDisponivel() {
     if (v === 'true') return true;
     if (v === 'false') return false;
   } catch (e) {}
-  return !!restauranteAtual && ['servidelivery-demo'].includes(restauranteAtual.slug);
+  return !!restauranteAtual; // liberado para todas as lojas (planos Simples e Completo)
 }
 
 function mapaTrocaBotaoHtml() {
