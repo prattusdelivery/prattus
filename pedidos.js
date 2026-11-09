@@ -54,7 +54,7 @@ async function carregarModoComanda(comandaId) {
       let semPedidos = true;
       try {
         const { count } = await db.from('pedidos').select('id', { count: 'exact', head: true })
-          .eq('codigo_comanda_id', codigo.id).gte('criado_em', codigo.aberta_em || '1970-01-01');
+          .eq('codigo_comanda_id', codigo.id).neq('status', 'cancelado').gte('criado_em', codigo.aberta_em || '1970-01-01');
         semPedidos = (count || 0) === 0;
       } catch (e) {}
       const resp = await perguntarMesaComanda({
@@ -309,11 +309,12 @@ async function abrirFechamentoComanda() {
       comandaAtual.abertaEm = codigo?.aberta_em || null;
     }
     const r2 = await comTimeout(db.from('pedidos')
-      .select('id,total,criado_em,pedido_itens(nome,quantidade,preco)')
+      .select('id,total,status,criado_em,pedido_itens(nome,quantidade,preco)')
       .eq('codigo_comanda_id', comandaAtual.id)
       .gte('criado_em', codigo?.aberta_em)
       .order('criado_em'));
-    pedidos = r2.data;
+    // Pedido recusado não entra na conta da mesa
+    pedidos = (r2.data || []).filter(p => p.status !== 'cancelado');
   } catch (e) {
     document.getElementById('fechar-comanda-lista').innerHTML = '<div class="empty"><div class="empty-txt">Demorou demais pra carregar. Feche essa janela e tente de novo — se continuar acontecendo, avise o suporte.</div></div>';
     return;
@@ -359,7 +360,7 @@ async function confirmarFechamentoComanda(btn) {
   let totalFechamento = comandaAtual.totalFechamento;
   if (totalFechamento === null || totalFechamento === undefined) {
     const { data: pedidosFechando } = await db.from('pedidos').select('total')
-      .eq('codigo_comanda_id', comandaAtual.id).gte('criado_em', comandaAtual.abertaEm || '1970-01-01');
+      .eq('codigo_comanda_id', comandaAtual.id).neq('status', 'cancelado').gte('criado_em', comandaAtual.abertaEm || '1970-01-01');
     totalFechamento = (pedidosFechando||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
   }
 
@@ -679,16 +680,18 @@ async function renderComandas() {
   let pedidosDasMesas = [];
   if ((mesasAbertas||[]).length > 0) {
     const { data: pm } = await db.from('pedidos')
-      .select('id,total,criado_em,codigo_comanda_id')
+      .select('id,total,status,criado_em,codigo_comanda_id')
       .eq('restaurante_id', restauranteAtual.id)
       .in('codigo_comanda_id', mesasAbertas.map(m => m.id));
     pedidosDasMesas = pm || [];
   }
+  // Pedido recusado ("cancelado") não conta no total da mesa. Mesa que só tem pedido recusado sai da lista (fica livre).
   const mesasComTotal = (mesasAbertas||[]).map(m => {
-    const pedidosDaMesa = pedidosDasMesas.filter(p => p.codigo_comanda_id === m.id && dataDoBanco(p.criado_em) >= dataDoBanco(m.aberta_em));
+    const todosDaMesa = pedidosDasMesas.filter(p => p.codigo_comanda_id === m.id && dataDoBanco(p.criado_em) >= dataDoBanco(m.aberta_em));
+    const pedidosDaMesa = todosDaMesa.filter(p => p.status !== 'cancelado');
     const total = pedidosDaMesa.reduce((s,p) => s + parseFloat(p.total||0), 0);
-    return { ...m, total, qtdPedidos: pedidosDaMesa.length };
-  });
+    return { ...m, total, qtdPedidos: pedidosDaMesa.length, soRecusados: todosDaMesa.length > 0 && pedidosDaMesa.length === 0 };
+  }).filter(m => !m.soRecusados);
 
   document.getElementById('conteudo').innerHTML = `
     ${meuPapel !== 'garcom' ? '' : `<div class="card" style="margin-bottom:20px;text-align:center;">

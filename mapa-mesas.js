@@ -114,7 +114,7 @@ async function mapaMesaSoltarSeVazia(com) {
     const { data: cod } = await db.from('codigos_comanda').select('id,codigo_curto,status').eq('id', com.id).maybeSingle();
     if (!cod || cod.status !== 'em_uso' || !/^M\d{1,2}$/.test(cod.codigo_curto || '')) return;
     const { count } = await db.from('pedidos').select('id', { count: 'exact', head: true })
-      .eq('codigo_comanda_id', com.id).gte('criado_em', com.abertaEm || '1970-01-01');
+      .eq('codigo_comanda_id', com.id).neq('status', 'cancelado').gte('criado_em', com.abertaEm || '1970-01-01');
     if ((count || 0) > 0) return;
     const { error } = await db.from('codigos_comanda').update({ status: 'livre', mesa: null, aberta_em: null }).eq('id', com.id);
     if (error) return;
