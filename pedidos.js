@@ -692,7 +692,7 @@ async function renderComandas() {
     const pedidosDaMesa = todosDaMesa.filter(p => p.status !== 'cancelado');
     const total = pedidosDaMesa.reduce((s,p) => s + parseFloat(p.total||0), 0);
     return { ...m, total, qtdPedidos: pedidosDaMesa.length, soRecusados: todosDaMesa.length > 0 && pedidosDaMesa.length === 0 };
-  }).filter(m => !m.soRecusados);
+  }).filter(m => !m.soRecusados || /[+\/]/.test(String(m.mesa || '')));
 
   document.getElementById('conteudo').innerHTML = `
     ${meuPapel !== 'garcom' ? '' : `<div class="card" style="margin-bottom:20px;text-align:center;">

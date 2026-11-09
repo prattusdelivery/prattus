@@ -26,12 +26,12 @@ function mapaMesasAtivo() {
   return !!restauranteAtual && mapaMesasDisponivel() && mapaMesasModo() !== 'qr' && (parseInt(restauranteAtual.qtd_mesas) || 0) > 0;
 }
 
-// Mesas juntas: a comanda guarda "13+14" no campo mesa. Aqui separamos os números e montamos o rótulo.
+// Mesas juntas: a comanda guarda "2/3" no campo mesa. Aqui separamos os números e montamos o rótulo.
 function mapaNumerosDaMesa(mesa) {
-  return String(mesa == null ? '' : mesa).split('+').map(x => parseInt(x)).filter(x => x > 0);
+  return String(mesa == null ? '' : mesa).split(/[+\/]/).map(x => parseInt(x)).filter(x => x > 0);
 }
 function mapaRotulo(nums) {
-  return Array.from(new Set(nums)).sort((a, b) => a - b).join('+');
+  return Array.from(new Set(nums)).sort((a, b) => a - b).join('/');
 }
 
 // Desenha o mapa no topo da tela de Comandas. "mesas" = comandas abertas agora (com total).
@@ -41,11 +41,11 @@ function mapaMesasInserir(mesas) {
   if (!cont || document.getElementById('mapa-mesas-card')) return;
   const qtd = Math.min(parseInt(restauranteAtual.qtd_mesas) || 0, 99);
   const porMesa = {};
-  // Mesas juntas ocupam todos os quadradinhos do grupo (cada um mostra "13+14" e a conta única)
+  // Mesas juntas ocupam todos os quadradinhos do grupo (cada um mostra "2/3" e a conta única)
   (mesas || []).forEach(m => {
     const nums = mapaNumerosDaMesa(m.mesa);
     const rot = nums.length > 1 ? mapaRotulo(nums) : null;
-    nums.forEach(n => { porMesa[String(n)] = { m, rot }; });
+    nums.forEach(n => { porMesa[String(n)] = { m, rot, primeira: Math.min.apply(null, nums) }; });
   });
 
   let tiles = '';
@@ -53,14 +53,15 @@ function mapaMesasInserir(mesas) {
     const pm = porMesa[String(n)];
     const m = pm && pm.m;
     const rot = pm && pm.rot;
+    if (rot && n !== pm.primeira) continue; // mesas juntas: aparecem num quadradinho só (na posição da primeira)
     // Só fica "com pedido" depois que algum pedido foi enviado. Mesa aberta sem pedido continua "livre".
     const ocupada = !!m && (m.qtdPedidos || 0) > 0;
-    const total = ocupada ? 'R$ ' + (m.total || 0).toFixed(2).replace('.', ',') : 'livre';
+    const total = ocupada ? 'R$ ' + (m.total || 0).toFixed(2).replace('.', ',') : (rot ? 'juntas' : 'livre');
     tiles += `<button type="button" onclick="mapaMesaTocar(${n})" style="
         display:flex;flex-direction:column;align-items:center;justify-content:center;height:78px;border-radius:14px;cursor:pointer;font-family:inherit;
-        border:2px solid ${ocupada ? 'var(--laranja)' : 'var(--creme-borda)'};
+        border:2px solid ${ocupada || rot ? 'var(--laranja)' : 'var(--creme-borda)'};
         background:${ocupada ? 'var(--laranja)' : '#fff'};color:${ocupada ? '#fff' : 'var(--texto)'};">
-        <span style="font-size:${rot && ocupada ? (rot.length > 5 ? 15 : 19) : 24}px;font-weight:800;line-height:1.1;">${ocupada && rot ? rot : n}</span>
+        <span style="font-size:${rot ? (rot.length > 5 ? 15 : 20) : 24}px;font-weight:800;line-height:1.1;">${rot ? rot : n}</span>
         <span style="font-size:12px;margin-top:2px;${ocupada ? 'font-weight:700;' : 'color:var(--texto-muted);'}">${total}</span>
       </button>`;
   }
@@ -83,7 +84,7 @@ function mapaMesasInserir(mesas) {
   }
   // A lista "Mesas abertas agora" repetiria o mapa — esconde, a não ser que tenha comanda sem número de mesa (balança)
   const lista = document.getElementById('mesas-abertas-lista');
-  if (lista && (mesas || []).every(m => m.mesa && /^\d+(\+\d+)*$/.test(String(m.mesa).trim()) && mapaNumerosDaMesa(m.mesa).every(x => x >= 1 && x <= qtd))) {
+  if (lista && (mesas || []).every(m => m.mesa && /^\d+([+\/]\d+)*$/.test(String(m.mesa).trim()) && mapaNumerosDaMesa(m.mesa).every(x => x >= 1 && x <= qtd))) {
     lista.style.display = 'none';
   }
   cont.querySelectorAll('.empty').forEach(el => { if (/Escaneie o QR/.test(el.textContent || '')) el.style.display = 'none'; });
@@ -96,7 +97,7 @@ async function mapaMesaTocar(n) {
   try {
     const rid = restauranteAtual.id;
     // Mesa já aberta (por mapa ou por QR): continua nela
-    // (inclui mesas juntas: "13+14" abre a mesma conta tocando no 13 ou no 14)
+    // (inclui mesas juntas: "2/3" abre a mesma conta tocando no 13 ou no 14)
     const { data: abertas } = await db.from('codigos_comanda').select('id,mesa')
       .eq('restaurante_id', rid).eq('status', 'em_uso').not('mesa', 'is', null);
     const aberta = (abertas || []).filter(a => mapaNumerosDaMesa(a.mesa).includes(n));
@@ -128,6 +129,7 @@ async function mapaMesaTocar(n) {
 async function mapaMesaSoltarSeVazia(com) {
   try {
     if (!com || !com.id || !mapaMesasAtivo()) return;
+    if (mapaNumerosDaMesa(com.mesa).length > 1) return; // mesas juntas ficam juntas até pagar
     const { data: cod } = await db.from('codigos_comanda').select('id,codigo_curto,status').eq('id', com.id).maybeSingle();
     if (!cod || cod.status !== 'em_uso' || !/^M\d{1,2}$/.test(cod.codigo_curto || '')) return;
     const { count } = await db.from('pedidos').select('id', { count: 'exact', head: true })
@@ -221,8 +223,8 @@ async function mapaMesasSalvar() {
 // ===== TROCAR / JUNTAR MESAS =====
 // Botão "🔄 Trocar / juntar mesa" na tela da comanda.
 //  • Trocar = passar a conta pra outra mesa livre (a mesa antiga fica livre).
-//  • Juntar = as mesas continuam TODAS ocupadas (quadradinho mostra "13+14"), mas a conta vira uma só.
-//    A comanda guarda "13+14" no campo mesa. Fechar a conta libera todas as mesas do grupo de uma vez.
+//  • Juntar = as mesas continuam TODAS ocupadas (quadradinho mostra "2/3"), mas a conta vira uma só.
+//    A comanda guarda "2/3" no campo mesa. Fechar a conta libera todas as mesas do grupo de uma vez.
 // Liberado só na loja Demo por enquanto (localStorage 'troca_mesa' = 'true'/'false' força).
 var mapaTrocaDados = null;
 
@@ -293,9 +295,12 @@ async function mapaTrocaAbrir(modo) {
     for (let n = 1; n <= qtd; n++) {
       const d = cob[String(n)];
       const minhaMesa = meusNums.includes(n);
+      if (minhaMesa && emGrupo && n !== Math.min.apply(null, meusNums)) continue;
+      if (!minhaMesa && d && d.nums.length > 1 && n !== Math.min.apply(null, d.nums)) continue;
       const ocupada = !!d && d.qtd > 0;
       let bloqueada = false, fundo = '#fff', borda = 'var(--creme-borda)', cor = 'var(--texto)', sub = 'livre', grande = String(n);
-      if (minhaMesa) { bloqueada = true; fundo = '#444'; borda = '#444'; cor = '#fff'; sub = emGrupo ? 'esta conta' : 'esta mesa'; }
+      if (minhaMesa) { bloqueada = true; fundo = '#444'; borda = '#444'; cor = '#fff'; sub = emGrupo ? 'esta conta' : 'esta mesa'; if (emGrupo) grande = minha; }
+      else if (d && d.nums.length > 1 && !ocupada) { grande = d.rot; sub = 'juntas'; if (modo === 'trocar') { bloqueada = true; fundo = '#bbb'; borda = '#bbb'; cor = '#fff'; } else { borda = 'var(--laranja)'; } }
       else if (ocupada) {
         fundo = 'var(--laranja)'; borda = 'var(--laranja)'; cor = '#fff'; sub = mapaRs(d.total);
         if (d.nums.length > 1) grande = d.rot;
