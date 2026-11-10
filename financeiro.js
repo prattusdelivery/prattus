@@ -4,6 +4,7 @@
 // Usa as variáveis globais do app: db, restauranteAtual, meuPapel, esc, toast, dataBR, dataDoBanco.
 
 var finEstado = { periodo: 'mes', ini: null, fim: null }; // ini/fim só valem no período "Personalizado"
+var FIN_LOJAS_LIBERADAS = ['servidelivery-demo', 'sorveteria-skina', 'quiosquedapraca', 'frigideiras-bar'];
 var FIN_CATEGORIAS = [
   ['ingredientes', '🥩 Ingredientes / mercadoria'],
   ['funcionarios', '👥 Funcionários'],
@@ -15,7 +16,8 @@ var FIN_CATEGORIAS = [
   ['outros', '🧾 Outros']
 ];
 
-// Loja liberada: plano Completo. Por enquanto só a Demo (localStorage 'financeiro' = 'true'/'false' força).
+// Loja liberada: plano Completo E recurso premium ligado nessa loja (lista abaixo; loja nova só entra se o Alessandro liberar).
+// localStorage 'financeiro' = 'true'/'false' força num aparelho (teste).
 function finLojaLiberada() {
   if (!restauranteAtual) return false;
   if (restauranteAtual.plano_painel === 'simples') return false;
@@ -24,7 +26,7 @@ function finLojaLiberada() {
     if (v === 'true') return true;
     if (v === 'false') return false;
   } catch (e) {}
-  return ['servidelivery-demo'].includes(restauranteAtual.slug);
+  return FIN_LOJAS_LIBERADAS.includes(restauranteAtual.slug);
 }
 // A tela Financeiro é só do dono
 function financeiroDisponivel() {
