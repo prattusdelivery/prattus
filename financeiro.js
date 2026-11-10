@@ -15,9 +15,9 @@ var FIN_CATEGORIAS = [
   ['outros', '🧾 Outros']
 ];
 
-// Só plano Completo e só o dono. Por enquanto liberado só na Demo (localStorage 'financeiro' = 'true'/'false' força).
-function financeiroDisponivel() {
-  if (!restauranteAtual || meuPapel !== 'dono') return false;
+// Loja liberada: plano Completo. Por enquanto só a Demo (localStorage 'financeiro' = 'true'/'false' força).
+function finLojaLiberada() {
+  if (!restauranteAtual) return false;
   if (restauranteAtual.plano_painel === 'simples') return false;
   try {
     const v = localStorage.getItem('financeiro');
@@ -25,6 +25,36 @@ function financeiroDisponivel() {
     if (v === 'false') return false;
   } catch (e) {}
   return ['servidelivery-demo'].includes(restauranteAtual.slug);
+}
+// A tela Financeiro é só do dono
+function financeiroDisponivel() {
+  return finLojaLiberada() && meuPapel === 'dono';
+}
+
+// ----- Fechar conta da mesa: como o cliente pagou (Pix / Cartão / Dinheiro) -----
+// Aparece na janela "Fechar conta" (pedidos.js chama finFormaPagMostrar). Só plano Completo; garçom não fecha conta.
+var finFormaSel = null;
+var FIN_FORMAS = [['pix', '📱 Pix'], ['cartao', '💳 Cartão'], ['dinheiro', '💵 Dinheiro']];
+function finFormaPagDisponivel() { return finLojaLiberada() && meuPapel !== 'garcom'; }
+function finFormaPagFaltando() { return finFormaPagDisponivel() && !finFormaSel; }
+function finFormaPagValor() { return finFormaPagDisponivel() ? finFormaSel : null; }
+function finFormaPagMostrar() {
+  finFormaSel = null;
+  const el = document.getElementById('fechar-forma-pag');
+  if (!el) return;
+  if (!finFormaPagDisponivel()) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'block';
+  el.innerHTML = `<div style="font-size:14px;font-weight:700;margin-bottom:8px;">Como o cliente pagou?</div>
+    <div style="display:flex;gap:8px;">${FIN_FORMAS.map(([v, t]) => `<button type="button" data-forma="${v}" onclick="finFormaPagEscolher('${v}')" style="flex:1;padding:14px 4px;border-radius:12px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;border:2px solid var(--creme-borda);background:#fff;color:var(--texto);">${t}</button>`).join('')}</div>`;
+}
+function finFormaPagEscolher(f) {
+  finFormaSel = f;
+  document.querySelectorAll('#fechar-forma-pag button[data-forma]').forEach(b => {
+    const on = b.dataset.forma === f;
+    b.style.background = on ? 'var(--laranja)' : '#fff';
+    b.style.color = on ? '#fff' : 'var(--texto)';
+    b.style.borderColor = on ? 'var(--laranja)' : 'var(--creme-borda)';
+  });
 }
 
 // Mostra ou esconde o item "Financeiro" no menu
@@ -92,7 +122,7 @@ function finFormaPag(p) {
   if (t.includes('pix')) return 'Pix';
   if (t.includes('cart')) return 'Cartão';
   if (t.includes('dinheiro')) return 'Dinheiro';
-  return p.codigo_comanda_id ? 'Mesas (pagas no caixa)' : 'Outros';
+  return 'Outros';
 }
 
 function finBarras(mapa, cor) {
@@ -121,10 +151,13 @@ async function renderFinanceiro(periodo) {
   if (finEstado.periodo === 'custom' && !finEstado.ini) { const p0 = finPeriodo('custom'); finEstado.ini = p0.ini; finEstado.fim = p0.fim; }
   const { ini, fim, rotulo } = finPeriodo(finEstado.periodo);
 
-  const [rp, rd] = await Promise.all([
+  const [rp, rd, rh] = await Promise.all([
     finBuscarPedidos(rid, ini, fim),
     db.from('despesas').select('id,descricao,valor,categoria,data').eq('restaurante_id', rid)
-      .gte('data', ini).lte('data', fim).order('data', { ascending: false }).order('criado_em', { ascending: false }).limit(1000)
+      .gte('data', ini).lte('data', fim).order('data', { ascending: false }).order('criado_em', { ascending: false }).limit(1000),
+    // contas de mesa fechadas no período (com a forma de pagamento marcada no caixa)
+    db.from('comandas_historico').select('total,forma_pagamento').eq('restaurante_id', rid).not('fechada_em', 'is', null)
+      .gte('fechada_em', ini + 'T00:00:00-03:00').lte('fechada_em', fim + 'T23:59:59-03:00').limit(3000)
   ]);
   if (rp.erro || rd.error) {
     c.innerHTML = '<div class="card"><div style="font-size:15px;">Não consegui abrir o Financeiro agora. Recarregue a página e tente de novo.</div></div>';
@@ -137,20 +170,22 @@ async function renderFinanceiro(periodo) {
   const lucro = entradas - saidas;
   const margem = entradas > 0 ? Math.round(lucro / entradas * 100) : null;
 
-  const porPag = {}, porCat = {}, porDia = {};
+  const porPag = {}, porMesa = {}, porDia = {};
   pedidos.forEach(p => {
     const v = parseFloat(p.total || 0);
-    const f = finFormaPag(p);
-    porPag[f] = (porPag[f] || 0) + v;
+    if (!p.codigo_comanda_id) { const f = finFormaPag(p); porPag[f] = (porPag[f] || 0) + v; } // só delivery
     const dia = dataBR(dataDoBanco(p.criado_em));
     (porDia[dia] = porDia[dia] || { e: 0, s: 0 }).e += v;
   });
   const nomeCat = Object.fromEntries(FIN_CATEGORIAS);
   despesas.forEach(d => {
     const v = parseFloat(d.valor || 0);
-    const n = nomeCat[d.categoria] || nomeCat.outros;
-    porCat[n] = (porCat[n] || 0) + v;
     (porDia[d.data] = porDia[d.data] || { e: 0, s: 0 }).s += v;
+  });
+  const nomeForma = { pix: 'Pix', cartao: 'Cartão', dinheiro: 'Dinheiro' };
+  ((rh && rh.data) || []).forEach(h => {
+    const f = nomeForma[h.forma_pagamento] || 'Não informado';
+    porMesa[f] = (porMesa[f] || 0) + parseFloat(h.total || 0);
   });
   const dias = Object.keys(porDia).sort().reverse();
 
@@ -192,20 +227,8 @@ async function renderFinanceiro(periodo) {
       </div>
       <div class="card">
         <div class="card-titulo">Para onde foi o dinheiro</div>
-        ${finBarras(porCat, vermelho)}
-      </div>
-    </div>
-
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-titulo">Como os clientes pagaram</div>
-        ${finBarras(porPag, verde)}
-        ${porPag['Mesas (pagas no caixa)'] ? '<div style="font-size:12px;color:var(--texto-muted);margin-top:6px;">Nas mesas o sistema não anota se foi Pix, cartão ou dinheiro: o cliente paga no caixa.</div>' : ''}
-      </div>
-      <div class="card">
-        <div class="card-titulo">Despesas do período</div>
         ${despesas.length === 0 ? '<div class="empty-txt" style="color:var(--texto-muted);">Nenhuma despesa anotada neste período</div>' :
-          '<div style="max-height:320px;overflow:auto;">' + despesas.map(d => `
+          '<div style="max-height:360px;overflow:auto;">' + despesas.map(d => `
           <div class="frete-row">
             <div style="flex:1;min-width:0;">
               <div style="font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;">${esc(d.descricao)}</div>
@@ -214,6 +237,18 @@ async function renderFinanceiro(periodo) {
             <div style="font-size:15px;font-weight:700;color:${vermelho};margin:0 10px;white-space:nowrap;">${finReais(parseFloat(d.valor))}</div>
             <button type="button" class="btn-sm" onclick="finExcluirDespesa('${d.id}')" title="Apagar esta despesa" style="padding:6px 10px;font-size:12px;">Apagar</button>
           </div>`).join('') + '</div>'}
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-titulo">🛵 Delivery — como pagaram</div>
+        ${finBarras(porPag, verde)}
+      </div>
+      <div class="card">
+        <div class="card-titulo">🍽️ Mesas — como pagaram</div>
+        ${finBarras(porMesa, verde)}
+        ${porMesa['Não informado'] ? '<div style="font-size:12px;color:var(--texto-muted);margin-top:6px;">"Não informado" são contas fechadas antes de o caixa marcar a forma de pagamento.</div>' : ''}
       </div>
     </div>
 
@@ -231,7 +266,7 @@ async function renderFinanceiro(periodo) {
         </tr>`; }).join('')}
       </table></div>`}
     </div>
-    <div style="font-size:12px;color:var(--texto-muted);text-align:center;margin:4px 0 20px;">"Entrou" conta os pedidos do delivery e das comandas (menos os recusados). "Saiu" é o que você anota aqui.${rp.cheio ? '<br><b>Atenção:</b> o período é muito grande e só os primeiros 5.000 pedidos foram somados. Escolha um período menor.' : ''}</div>`;
+    <div style="font-size:12px;color:var(--texto-muted);text-align:center;margin:4px 0 20px;">"Entrou" conta os pedidos do delivery e das mesas (menos os recusados). "Mesas — como pagaram" mostra as contas fechadas no período. "Saiu" é o que você anota aqui.${rp.cheio ? '<br><b>Atenção:</b> o período é muito grande e só os primeiros 5.000 pedidos foram somados. Escolha um período menor.' : ''}</div>`;
 }
 
 // Botão "Ver" do período personalizado

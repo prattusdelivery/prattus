@@ -294,6 +294,7 @@ async function abrirFechamentoComanda() {
   document.getElementById('fechar-comanda-lista').innerHTML = 'Carregando...';
   document.getElementById('fechar-comanda-total').textContent = 'R$ 0,00';
   abrirModal('modal-fechar-comanda');
+  if (typeof finFormaPagMostrar === 'function') finFormaPagMostrar(); // Completo: Pix / Cartão / Dinheiro
 
   const comTimeout = (promessa) => Promise.race([
     promessa,
@@ -352,6 +353,7 @@ async function confirmarFechamentoComanda(btn) {
   if (meuPapel === 'garcom') { toast('Só o gerente/caixa fecha a conta.', 'erro'); return; }
   if (!comandaAtual) return;
   if (btn && btn.disabled) return;
+  if (typeof finFormaPagFaltando === 'function' && finFormaPagFaltando()) { toast('Escolha como o cliente pagou: Pix, Cartão ou Dinheiro.', 'erro'); return; }
   if (!confirm('Confirma o pagamento e libera essa mesa pra um novo cliente?')) return;
   const textoBtn = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Fechando a conta...'; }
@@ -365,10 +367,11 @@ async function confirmarFechamentoComanda(btn) {
     totalFechamento = (pedidosFechando||[]).reduce((s,p) => s + parseFloat(p.total||0), 0);
   }
 
+  const formaPago = (typeof finFormaPagValor === 'function') ? finFormaPagValor() : null; // 'pix' | 'cartao' | 'dinheiro' (só Completo)
   // Histórico e liberação da mesa ao mesmo tempo (mais rápido)
   const [, resLiberar] = await Promise.all([
     comandaAtual.historicoId
-      ? db.from('comandas_historico').update({ fechada_em: new Date().toISOString(), total: totalFechamento }).eq('id', comandaAtual.historicoId)
+      ? db.from('comandas_historico').update({ fechada_em: new Date().toISOString(), total: totalFechamento, ...(formaPago ? { forma_pagamento: formaPago } : {}) }).eq('id', comandaAtual.historicoId)
       : Promise.resolve(),
     db.from('codigos_comanda').update({ status: 'livre', mesa: null, aberta_em: null }).eq('id', comandaAtual.id)
   ]);
