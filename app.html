@@ -833,6 +833,10 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
       Relatórios
     </div>
+    <div class="nav-item nav-somente-dono" id="nav-financeiro" style="display:none" onclick="irPara('financeiro')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 6H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+      Financeiro
+    </div>
     <div class="nav-item nav-somente-dono" onclick="irPara('historico')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
       Histórico de pedidos
@@ -2950,7 +2954,7 @@ function irPara(pagina) {
     toast('Seu acesso é só para as comandas.', 'erro');
     return;
   }
-  const paginasSomenteDono = ['dashboard', 'relatorios', 'equipe', 'avaliacoes'];
+  const paginasSomenteDono = ['dashboard', 'relatorios', 'equipe', 'avaliacoes', 'financeiro'];
   if (paginasSomenteDono.includes(pagina) && meuPapel !== 'dono') {
     toast('Só o dono do restaurante tem acesso a essa área.', 'erro');
     return;
@@ -2960,6 +2964,10 @@ function irPara(pagina) {
     toast('Essa área é do plano Completo.', 'erro');
     return;
   }
+  if (pagina === 'financeiro' && !(typeof financeiroDisponivel === 'function' && financeiroDisponivel())) {
+    toast('O Financeiro é do plano Completo.', 'erro');
+    return;
+  }
   paginaAtual = pagina;
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('ativo'));
   event && event.currentTarget && event.currentTarget.classList.add('ativo');
@@ -2967,7 +2975,7 @@ function irPara(pagina) {
   
   const titulos = {
     dashboard:'Dashboard', pedidos:'Pedidos', comandas:'Comandas', cardapio:'Cardápio',
-    clientes:'Clientes', avaliacoes:'Avaliações', relatorios:'Relatórios', fretes:'Fretes por bairro',
+    clientes:'Clientes', avaliacoes:'Avaliações', relatorios:'Relatórios', financeiro:'Financeiro', fretes:'Fretes por bairro',
     cupons:'Cupons', config:'Configurações', equipe:'Equipe', mensalidade:'Mensalidade', historico:'Histórico de pedidos'
   };
   document.getElementById('topbar-titulo').textContent = titulos[pagina] || pagina;
@@ -2978,7 +2986,7 @@ function irPara(pagina) {
   const fns = {
     dashboard: renderDashboard, pedidos: renderPedidos, comandas: renderComandas,
     cardapio: renderCardapio, clientes: renderClientes, avaliacoes: renderAvaliacoes,
-    relatorios: renderRelatorios, fretes: renderFretes,
+    relatorios: renderRelatorios, financeiro: renderFinanceiro, fretes: renderFretes,
     cupons: renderCupons, config: renderConfig, equipe: renderEquipe, mensalidade: renderMensalidade, historico: renderHistorico
   };
   if (fns[pagina]) fns[pagina]();
@@ -7272,6 +7280,7 @@ async function garantirUserIdRestaurante() {
 <script src="pedidos.js?v=20261109i"></script>
 <script src="impressoras.js?v=20261029c"></script>
 <script src="relatorios.js"></script>
+<script src="financeiro.js?v=20261110a"></script>
 <script src="clientes.js"></script>
 <script src="modo-facil.js?v=20261105e"></script>
 <script src="mapa-mesas.js?v=20261109i"></script>
