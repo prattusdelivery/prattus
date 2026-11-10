@@ -42,7 +42,8 @@ if (typeof aplicarRestricoesGarcom === 'function' && !window.__finWrap) {
 }
 
 function finReais(v) {
-  return 'R$ ' + (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  v = v || 0;
+  return (v < 0 ? '-' : '') + 'R$ ' + Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 function finDataBr(iso) { return iso ? iso.split('-').reverse().join('/') : ''; }
 
@@ -200,7 +201,7 @@ async function renderFinanceiro(periodo) {
               <div style="font-size:12px;color:var(--texto-muted);">${finDataBr(d.data)} · ${esc(nomeCat[d.categoria] || nomeCat.outros)}</div>
             </div>
             <div style="font-size:15px;font-weight:700;color:${vermelho};margin:0 10px;white-space:nowrap;">${finReais(parseFloat(d.valor))}</div>
-            <button type="button" class="btn-sm" onclick="finExcluirDespesa('${d.id}')" title="Apagar" style="padding:6px 10px;">🗑</button>
+            <button type="button" class="btn-sm" onclick="finExcluirDespesa('${d.id}')" title="Apagar esta despesa" style="padding:6px 10px;font-size:12px;">Apagar</button>
           </div>`).join('') + '</div>'}
       </div>
     </div>
