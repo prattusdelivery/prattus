@@ -695,7 +695,12 @@ async function renderComandas() {
     const pedidosDaMesa = todosDaMesa.filter(p => p.status !== 'cancelado');
     const total = pedidosDaMesa.reduce((s,p) => s + parseFloat(p.total||0), 0);
     return { ...m, total, qtdPedidos: pedidosDaMesa.length, soRecusados: todosDaMesa.length > 0 && pedidosDaMesa.length === 0 };
-  }).filter(m => !m.soRecusados || /[+\/]/.test(String(m.mesa || '')));
+  }).filter(m => {
+    if (!m.soRecusados) return true;
+    // Mesas juntas em que todos os pedidos foram recusados: desfaz a junção (as mesas voltam a ser livres, cada uma no seu quadradinho)
+    if (/[+\/]/.test(String(m.mesa || '')) && typeof mapaLiberarLinha === 'function') mapaLiberarLinha(m.id);
+    return false;
+  });
 
   document.getElementById('conteudo').innerHTML = `
     ${meuPapel !== 'garcom' ? '' : `<div class="card" style="margin-bottom:20px;text-align:center;">
