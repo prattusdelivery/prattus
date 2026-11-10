@@ -3,7 +3,7 @@
 // Entradas vêm dos pedidos (mesmos status do Relatórios). Saídas ficam na tabela "despesas" (supabase/financeiro.sql).
 // Usa as variáveis globais do app: db, restauranteAtual, meuPapel, esc, toast, dataBR, dataDoBanco.
 
-var finEstado = { periodo: 'mes' };
+var finEstado = { periodo: 'mes', ini: null, fim: null }; // ini/fim só valem no período "Personalizado"
 var FIN_CATEGORIAS = [
   ['ingredientes', '🥩 Ingredientes / mercadoria'],
   ['funcionarios', '👥 Funcionários'],
@@ -59,6 +59,7 @@ function finPeriodo(p) {
   const [a, m] = hoje.split('-').map(Number);
   const pad = x => String(x).padStart(2, '0');
   if (p === 'hoje') return { ini: hoje, fim: hoje, rotulo: 'Hoje' };
+  if (p === 'custom') return { ini: finEstado.ini || finSomarDias(hoje, -29), fim: finEstado.fim || hoje, rotulo: 'Período escolhido' };
   if (p === '7') return { ini: finSomarDias(hoje, -6), fim: hoje, rotulo: 'Últimos 7 dias' };
   if (p === 'passado') {
     const ini = m === 1 ? `${a - 1}-12-01` : `${a}-${pad(m - 1)}-01`;
@@ -82,7 +83,7 @@ async function finBuscarPedidos(rid, ini, fim) {
     todos = todos.concat(data || []);
     if (!data || data.length < 1000) break;
   }
-  return { dados: todos };
+  return { dados: todos, cheio: todos.length >= 5000 };
 }
 
 function finFormaPag(p) {
@@ -91,7 +92,7 @@ function finFormaPag(p) {
   if (t.includes('pix')) return 'Pix';
   if (t.includes('cart')) return 'Cartão';
   if (t.includes('dinheiro')) return 'Dinheiro';
-  return p.codigo_comanda_id ? 'Comanda (paga no caixa)' : 'Outros';
+  return p.codigo_comanda_id ? 'Mesas (pagas no caixa)' : 'Outros';
 }
 
 function finBarras(mapa, cor) {
@@ -117,6 +118,7 @@ async function renderFinanceiro(periodo) {
   }
   if (typeof periodo === 'string') finEstado.periodo = periodo;
   const rid = restauranteAtual.id;
+  if (finEstado.periodo === 'custom' && !finEstado.ini) { const p0 = finPeriodo('custom'); finEstado.ini = p0.ini; finEstado.fim = p0.fim; }
   const { ini, fim, rotulo } = finPeriodo(finEstado.periodo);
 
   const [rp, rd] = await Promise.all([
@@ -157,8 +159,16 @@ async function renderFinanceiro(periodo) {
 
   c.innerHTML = `
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
-      ${chip('hoje', 'Hoje')}${chip('7', '7 dias')}${chip('mes', 'Este mês')}${chip('passado', 'Mês passado')}
+      ${chip('hoje', 'Hoje')}${chip('7', '7 dias')}${chip('mes', 'Este mês')}${chip('passado', 'Mês passado')}${chip('custom', '📅 Personalizado')}
     </div>
+    ${finEstado.periodo === 'custom' ? `
+    <div class="card" style="margin:10px 0 6px;padding:14px;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="form-group" style="margin:0;flex:1;min-width:140px;"><label style="font-size:12px;">De</label><input type="date" id="fin-ini" value="${ini}"></div>
+        <div class="form-group" style="margin:0;flex:1;min-width:140px;"><label style="font-size:12px;">Até</label><input type="date" id="fin-fim" value="${fim}"></div>
+        <button class="btn btn-laranja" style="width:auto;padding:11px 22px;" onclick="finAplicarPersonalizado()">Ver</button>
+      </div>
+    </div>` : ''}
     <div style="font-size:13px;color:var(--texto-muted);margin-bottom:18px;">${rotulo}: ${finDataBr(ini)}${ini !== fim ? ' a ' + finDataBr(fim) : ''}</div>
 
     <div class="metricas">
@@ -188,8 +198,9 @@ async function renderFinanceiro(periodo) {
 
     <div class="grid-2">
       <div class="card">
-        <div class="card-titulo">De onde veio o dinheiro</div>
+        <div class="card-titulo">Como os clientes pagaram</div>
         ${finBarras(porPag, verde)}
+        ${porPag['Mesas (pagas no caixa)'] ? '<div style="font-size:12px;color:var(--texto-muted);margin-top:6px;">Nas mesas o sistema não anota se foi Pix, cartão ou dinheiro: o cliente paga no caixa.</div>' : ''}
       </div>
       <div class="card">
         <div class="card-titulo">Despesas do período</div>
@@ -220,7 +231,18 @@ async function renderFinanceiro(periodo) {
         </tr>`; }).join('')}
       </table></div>`}
     </div>
-    <div style="font-size:12px;color:var(--texto-muted);text-align:center;margin:4px 0 20px;">"Entrou" conta os pedidos do delivery e das comandas (menos os recusados). "Saiu" é o que você anota aqui.</div>`;
+    <div style="font-size:12px;color:var(--texto-muted);text-align:center;margin:4px 0 20px;">"Entrou" conta os pedidos do delivery e das comandas (menos os recusados). "Saiu" é o que você anota aqui.${rp.cheio ? '<br><b>Atenção:</b> o período é muito grande e só os primeiros 5.000 pedidos foram somados. Escolha um período menor.' : ''}</div>`;
+}
+
+// Botão "Ver" do período personalizado
+function finAplicarPersonalizado() {
+  const ini = (document.getElementById('fin-ini') || {}).value;
+  const fim = (document.getElementById('fin-fim') || {}).value;
+  if (!ini || !fim) { toast('Escolha o dia inicial e o dia final.', 'erro'); return; }
+  if (ini > fim) { toast('O dia inicial precisa ser antes do dia final.', 'erro'); return; }
+  if ((new Date(fim + 'T12:00:00Z') - new Date(ini + 'T12:00:00Z')) / 86400000 > 366) { toast('Escolha no máximo 1 ano.', 'erro'); return; }
+  finEstado.ini = ini; finEstado.fim = fim;
+  renderFinanceiro('custom');
 }
 
 // "1.250,50" / "35,5" / "35.50" → número
