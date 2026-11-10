@@ -73,7 +73,7 @@ async function finBuscarPedidos(rid, ini, fim) {
   let todos = [];
   for (let i = 0; i < 5; i++) {
     const { data, error } = await db.from('pedidos')
-      .select('total,criado_em,pagamento,codigo_comanda_id')
+      .select('total,criado_em,observacao,codigo_comanda_id')
       .eq('restaurante_id', rid).in('status', ['preparando', 'entrega', 'entregue'])
       .gte('criado_em', ini + 'T00:00:00-03:00').lte('criado_em', fim + 'T23:59:59-03:00')
       .range(i * 1000, i * 1000 + 999);
@@ -85,7 +85,8 @@ async function finBuscarPedidos(rid, ini, fim) {
 }
 
 function finFormaPag(p) {
-  const t = String(p.pagamento || '').toLowerCase();
+  const m = /Pagamento:\s*([^\n]*)/i.exec(p.observacao || ''); // o pedido guarda "Pagamento: Dinheiro" no texto
+  const t = (m ? m[1] : '').toLowerCase();
   if (t.includes('pix')) return 'Pix';
   if (t.includes('cart')) return 'Cartão';
   if (t.includes('dinheiro')) return 'Dinheiro';
