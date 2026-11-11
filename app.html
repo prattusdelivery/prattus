@@ -5648,7 +5648,7 @@ function buscarItens(termo) {
 
 // ===== ACOMPANHAMENTO SIMPLES (teste na loja Demo) =====
 function acompSimplesAtivo() {
-  try { return window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase() === 'servidelivery-demo'; } catch (e) { return false; }
+  return true; // liberado para todas as lojas (acompanhamento automático depois do pedido)
 }
 
 // Logo depois de confirmar o pedido: vai direto pro acompanhamento (sem perguntar nada ao cliente).
@@ -6173,8 +6173,8 @@ function opcoesPagamento(r) {
 
 // Nova ordem de pagamento (pagar quando chegar em cima, online embaixo): por enquanto só na loja Demo
 function novaOrdemPagamento(r) {
-  try { if (localStorage.getItem('nova_ordem_pgto') === '1') return true; if (localStorage.getItem('nova_ordem_pgto') === '0') return false; } catch (e) {}
-  return !!r && r.slug === 'servidelivery-demo';
+  try { if (localStorage.getItem('nova_ordem_pgto') === '0') return false; } catch (e) {}
+  return true; // liberado para todas as lojas
 }
 
 // ===== PIX MANUAL: mostra QR Code e "copia e cola" com o valor do pedido =====
@@ -7366,7 +7366,7 @@ async function garantirUserIdRestaurante() {
 }
 </script>
 <script src="cardapio.js"></script>
-<script src="pedidos.js?v=20261111a"></script>
+<script src="pedidos.js?v=20261111b"></script>
 <script src="impressoras.js?v=20261029c"></script>
 <script src="relatorios.js"></script>
 <script src="financeiro.js?v=20261111a"></script>

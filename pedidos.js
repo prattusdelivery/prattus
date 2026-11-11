@@ -1175,7 +1175,7 @@ function impressaoNaoFiscalAtiva() {
     if (v === 'true') return true;
     if (v === 'false') return false;
   } catch (e) {}
-  return !!(restauranteAtual && restauranteAtual.slug === 'servidelivery-demo');
+  return true; // liberado para todas as lojas
 }
 
 function tempoDecorridoTexto(dataIso) {
