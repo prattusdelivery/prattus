@@ -1094,6 +1094,10 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
 
     <!-- ENDERECO (só delivery) -->
     <div id="bloco-endereco">
+      <div id="gps-endereco-bloco" style="display:none;margin-bottom:12px;">
+        <button type="button" id="gps-endereco-btn" onclick="usarMinhaLocalizacao()" style="width:100%;box-sizing:border-box;background:#fff;border:2px solid var(--laranja);color:var(--laranja);border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">📍 Usar minha localização</button>
+        <div id="gps-endereco-msg" style="font-size:12px;color:var(--texto-muted);margin-top:6px;text-align:center;">O celular pede permissão e o endereço é preenchido sozinho. Depois é só conferir.</div>
+      </div>
       <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;">
         <div class="form-group"><label>Rua</label><input type="text" id="ped-rua" placeholder="Nome da rua"></div>
         <div class="form-group"><label>Número</label><input type="text" id="ped-numero" placeholder="Nº"></div>
@@ -5641,6 +5645,17 @@ function acompSimplesAtivo() {
   try { return window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase() === 'servidelivery-demo'; } catch (e) { return false; }
 }
 
+// Logo depois de confirmar o pedido: vai direto pro acompanhamento (sem perguntar nada ao cliente).
+async function acompIrAposPedido(pedidoId) {
+  try { sessionStorage.removeItem('sd_cardapio_livre'); } catch (e) {}
+  await mostrarAcompanhamento(pedidoId);
+  try { window.scrollTo(0, 0); } catch (e) {}
+}
+// "Voltar ao cardápio": avisa que o cliente quer ver o cardápio (senão o acompanhamento reabriria sozinho)
+function acompVoltarAoCardapio() {
+  try { sessionStorage.setItem('sd_cardapio_livre', '1'); } catch (e) {}
+}
+
 async function renderAcompSimples(pedidoId, pedido, statusExibicao) {
   const slug = window.location.pathname.replace(/^\/+|\/+$/g, '');
   if (!window.__acompRest) {
@@ -5688,7 +5703,9 @@ async function renderAcompSimples(pedidoId, pedido, statusExibicao) {
         <div style="font-size:13px;color:var(--texto-muted);">Pedido #${esc(pedido.id.slice(-6).toUpperCase())}</div>
       </div>
       <div style="background:var(--branco);border-radius:20px;padding:26px 20px;border:1px solid var(--creme-borda);text-align:center;">
-        <div style="font-size:64px;line-height:1;">${m[0]}</div>
+        ${statusExibicao === 'novo'
+          ? '<style>@keyframes sdgira{to{transform:rotate(360deg)}}</style><div style="width:60px;height:60px;margin:2px auto 0;border:6px solid #f0e4d6;border-top-color:var(--laranja);border-radius:50%;animation:sdgira 1s linear infinite;"></div>'
+          : `<div style="font-size:64px;line-height:1;">${m[0]}</div>`}
         <div style="font-family:var(--font-display);font-size:23px;font-weight:700;margin:12px 0 4px;">${m[1]}</div>
         <div style="font-size:15px;color:var(--texto-muted);">${m[2]}</div>
         ${lista}
@@ -5700,12 +5717,12 @@ async function renderAcompSimples(pedidoId, pedido, statusExibicao) {
         <div style="margin-top:8px;">${(pedido.pedido_itens || []).map(i => `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--creme-borda);font-size:14px;"><span>${i.quantidade}x ${esc(i.nome)}${i.observacao ? ' (' + esc(i.observacao) + ')' : ''}</span><span>${din(parseFloat(i.preco) * i.quantidade)}</span></div>`).join('')}</div>
       </details>
       ${fone ? `<a href="https://wa.me/${fone}" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;background:#25D366;color:#fff;font-weight:700;font-size:15px;border-radius:12px;padding:14px;margin-bottom:10px;">💬 Falar com o restaurante</a>` : ''}
-      <a href="/${esc(window.location.pathname.replace(/^\/+|\/+$/g, ''))}" style="display:block;text-align:center;text-decoration:none;background:var(--creme);border:1px solid var(--creme-borda);color:var(--texto-muted);font-size:14px;border-radius:12px;padding:13px;">Voltar ao cardápio</a>
+      <a href="/${esc(window.location.pathname.replace(/^\/+|\/+$/g, ''))}" onclick="acompVoltarAoCardapio()" style="display:block;text-align:center;text-decoration:none;background:var(--creme);border:1px solid var(--creme-borda);color:var(--texto-muted);font-size:14px;border-radius:12px;padding:13px;">Voltar ao cardápio</a>
     </div>`;
 
   if (acompanhamentoInterval) clearInterval(acompanhamentoInterval);
   if (statusExibicao !== 'entregue' && statusExibicao !== 'cancelado') {
-    acompanhamentoInterval = setInterval(() => mostrarAcompanhamento(pedidoId), 15000);
+    acompanhamentoInterval = setInterval(() => mostrarAcompanhamento(pedidoId), statusExibicao === 'novo' ? 8000 : 15000);
   }
 }
 
@@ -5724,6 +5741,13 @@ async function verificarPedidoEmAndamento() {
     let st = pedido.status;
     if (st === 'entrega' && pedido.saiu_entrega_em && Date.now() - dataDoBanco(pedido.saiu_entrega_em).getTime() > 30 * 60 * 1000) st = 'entregue';
     if (st === 'entregue' || st === 'cancelado') { document.getElementById('barra-acomp')?.remove(); return; }
+    // Pedido em andamento: ao voltar pro site, o acompanhamento já abre sozinho (a não ser que o cliente tenha tocado em "Voltar ao cardápio")
+    let querCardapio = false;
+    try { querCardapio = sessionStorage.getItem('sd_cardapio_livre') === '1'; } catch (e) {}
+    if (!querCardapio && !new URLSearchParams(window.location.search).get('mesa')) {
+      window.location.replace(`${window.location.pathname.replace(/\/+$/, '')}?acompanhar=${pedido.id}`);
+      return;
+    }
     const ret = pedido.retirada === true;
     const txt = { novo: '📥 Pedido enviado — aguardando o restaurante', preparando: '👨‍🍳 Seu pedido está em preparo', entrega: ret ? '🏃 Seu pedido está pronto para retirar' : '🛵 Seu pedido saiu para entrega' }[st] || '📥 Seu pedido';
     let b = document.getElementById('barra-acomp');
@@ -6329,6 +6353,68 @@ function preencherDadosSalvos() {
   } catch (e) {}
 }
 
+// ===== Endereço pelo GPS do celular ("📍 Usar minha localização") =====
+// Por enquanto só na loja Demo (localStorage 'gps_endereco' = 'true' liga / 'false' desliga neste aparelho).
+function gpsEnderecoDisponivel() {
+  try {
+    const v = localStorage.getItem('gps_endereco');
+    if (v === 'true') return true;
+    if (v === 'false') return false;
+  } catch (e) {}
+  return !!(typeof restPublico !== 'undefined' && restPublico && restPublico.slug === 'servidelivery-demo');
+}
+function gpsSemAcento(s) {
+  return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function gpsEnderecoMostrar() {
+  const bloco = document.getElementById('gps-endereco-bloco');
+  if (bloco) bloco.style.display = (gpsEnderecoDisponivel() && !!navigator.geolocation) ? 'block' : 'none';
+}
+async function usarMinhaLocalizacao() {
+  const btn = document.getElementById('gps-endereco-btn');
+  const msg = document.getElementById('gps-endereco-msg');
+  const aviso = (t, cor) => { if (msg) { msg.textContent = t; msg.style.color = cor || 'var(--texto-muted)'; } };
+  if (!navigator.geolocation) { aviso('Este aparelho não consegue achar a localização. Digite o endereço.', '#C0392B'); return; }
+  if (btn) { btn.disabled = true; btn.textContent = '📍 Procurando você...'; }
+  const voltaBtn = () => { if (btn) { btn.disabled = false; btn.textContent = '📍 Usar minha localização'; } };
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    try {
+      const url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18&accept-language=pt-BR&lat=' + pos.coords.latitude + '&lon=' + pos.coords.longitude;
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error('http ' + resp.status);
+      const j = await resp.json();
+      const a = (j && j.address) || {};
+      const rua = a.road || a.pedestrian || a.residential || a.path || '';
+      const numero = a.house_number || '';
+      const bairroGps = a.suburb || a.neighbourhood || a.quarter || a.city_district || '';
+      if (!rua && !bairroGps) { aviso('Não consegui achar o endereço aqui. Digite o endereço.', '#C0392B'); voltaBtn(); return; }
+      const setar = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
+      setar('ped-rua', rua);
+      if (numero) setar('ped-numero', numero);
+      // Bairro: só escolhe se for um dos bairros que a loja atende (a lista do frete)
+      let bairroAchado = false;
+      const sel = document.getElementById('ped-bairro');
+      if (sel && bairroGps) {
+        const alvo = gpsSemAcento(bairroGps);
+        const op = [...sel.options].find(o => o.value && (gpsSemAcento(o.value) === alvo || gpsSemAcento(o.textContent) === alvo))
+          || [...sel.options].find(o => o.value && alvo.length >= 4 && (gpsSemAcento(o.value).includes(alvo) || alvo.includes(gpsSemAcento(o.value))));
+        if (op) { sel.value = op.value; bairroAchado = true; try { calcFrete(); } catch (e) {} }
+      }
+      let t = '✅ Endereço preenchido. Confira';
+      if (!numero) t += ', coloque o número';
+      if (!bairroAchado) t += ' e escolha o bairro na lista';
+      aviso(t + '.', '#0F6E56');
+      if (!numero) { const n = document.getElementById('ped-numero'); if (n) n.focus(); }
+    } catch (e) {
+      aviso('Não consegui achar o endereço agora. Digite o endereço.', '#C0392B');
+    }
+    voltaBtn();
+  }, (err) => {
+    aviso(err && err.code === 1 ? 'Você não liberou a localização. Toque no cadeado 🔒 perto do endereço do site, permita a localização e tente de novo. Ou digite o endereço.' : 'Não consegui pegar a localização. Digite o endereço.', '#C0392B');
+    voltaBtn();
+  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+}
+
 function abrirCarrinho() {
   atualizarTotalCarrinho();
   garantirOpcaoPixCorreta();
@@ -6337,6 +6423,7 @@ function abrirCarrinho() {
   abrirModal('modal-carrinho');
   try { selecionarModo(modoAtual); } catch(e) {}
   preencherDadosSalvos();
+  gpsEnderecoMostrar();
   renderRankingCarrinho();
   atualizarAvisoPausado();
 
@@ -6751,6 +6838,10 @@ async function finalizarPedidoInterno() {
   fecharModal('modal-carrinho');
   document.getElementById('ped-pagamento').value = '';
   toast('Pedido enviado!', 'ok');
+  if (pedido && acompSimplesAtivo()) {
+    // Vai direto pro acompanhamento (com a rodinha girando enquanto o restaurante não aceita)
+    try { await acompIrAposPedido(pedido.id); return; } catch (e) {}
+  }
   if (!abrirWhats) mostrarPedidoEnviado(pedido.id, linkAcomp);
   else setTimeout(verificarPedidoEmAndamento, 800);
 }
@@ -6894,6 +6985,12 @@ function sucessoPixOnline(pedidoId, d) {
   atualizarCarrinho();
   fecharModal('modal-carrinho');
   document.getElementById('ped-pagamento').value = '';
+  if (acompSimplesAtivo()) {
+    // Pix pago: vai direto pro acompanhamento
+    fecharTelaPix();
+    acompIrAposPedido(pedidoId).catch(() => {});
+    return;
+  }
   const link = `${window.location.href.split('?')[0]}?acompanhar=${pedidoId}`;
   const caixa = document.getElementById('pix-caixa');
   if (caixa) caixa.innerHTML = `
