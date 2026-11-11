@@ -4612,6 +4612,9 @@ async function salvarConfig() {
     chavePixPublica = { restId: null, chave: null };
     document.getElementById('sb-rest-nome').textContent = dados.nome;
     document.getElementById('topbar-rest').textContent = dados.nome;
+    // O botão "Salvar configurações" também salva as mesas (quantidade e modo: Mapa / QR Code / Os dois)
+    // — senão a escolha voltava ao que estava antes quando a tela era redesenhada.
+    if (typeof mapaMesasSalvar === 'function') { try { await mapaMesasSalvar(true); } catch (e) {} }
     toast('Configurações salvas!', 'ok');
     renderConfig();
   } else {
@@ -7284,6 +7287,6 @@ async function garantirUserIdRestaurante() {
 <script src="financeiro.js?v=20261111a"></script>
 <script src="clientes.js"></script>
 <script src="modo-facil.js?v=20261105e"></script>
-<script src="mapa-mesas.js?v=20261109i"></script>
+<script src="mapa-mesas.js?v=20261111a"></script>
 </body>
 </html>

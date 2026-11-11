@@ -194,8 +194,9 @@ function mapaMesasConfigHtml(r) {
       </div>`;
 }
 
-async function mapaMesasSalvar() {
+async function mapaMesasSalvar(silencioso) {
   if (!restauranteAtual) return;
+  if (!document.getElementById('mapa-qtd-mesas')) return; // campos das mesas não estão na tela
   const qtd = parseInt((document.getElementById('mapa-qtd-mesas') || {}).value) || 0;
   if (qtd < 0 || qtd > 99) { toast('Digite um número de mesas entre 1 e 99.', 'erro'); return; }
   const simples = typeof planoSimplesLoja === 'function' && planoSimplesLoja(restauranteAtual);
@@ -217,7 +218,7 @@ async function mapaMesasSalvar() {
     }
   }
   restauranteAtual = { ...restauranteAtual, qtd_mesas: qtd, comanda_modo: modo };
-  toast('Mesas salvas!', 'ok');
+  if (!silencioso) toast('Mesas salvas!', 'ok');
 }
 
 // ===== TROCAR / JUNTAR MESAS =====
