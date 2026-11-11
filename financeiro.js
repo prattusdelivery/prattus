@@ -26,7 +26,7 @@ function finLojaLiberada() {
     if (v === 'true') return true;
     if (v === 'false') return false;
   } catch (e) {}
-  return FIN_LOJAS_LIBERADAS.includes(restauranteAtual.slug);
+  return true; // todo plano Completo recebe o Financeiro (plano Simples não)
 }
 // A tela Financeiro é só do dono
 function financeiroDisponivel() {
