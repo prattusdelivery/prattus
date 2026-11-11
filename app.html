@@ -6385,12 +6385,11 @@ async function usarMinhaLocalizacao() {
       const j = await resp.json();
       const a = (j && j.address) || {};
       const rua = a.road || a.pedestrian || a.residential || a.path || '';
-      const numero = a.house_number || '';
+      const numero = ''; // o número da casa o mapa costuma errar: o cliente sempre digita
       const bairroGps = a.suburb || a.neighbourhood || a.quarter || a.city_district || '';
       if (!rua && !bairroGps) { aviso('Não consegui achar o endereço aqui. Digite o endereço.', '#C0392B'); voltaBtn(); return; }
       const setar = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
       setar('ped-rua', rua);
-      if (numero) setar('ped-numero', numero);
       // Bairro: só escolhe se for um dos bairros que a loja atende (a lista do frete)
       let bairroAchado = false;
       const sel = document.getElementById('ped-bairro');
