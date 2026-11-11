@@ -1150,6 +1150,7 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
         <option value="Cartão online">Cartão de crédito</option>
         <option value="Dinheiro">Dinheiro</option>
         <option value="Cartão na entrega">Cartão na entrega</option>
+        <option value="Pix na maquininha">Pix na maquininha</option>
       </select>
       <div id="lista-pagamento"></div>
     </div>
@@ -3743,6 +3744,9 @@ async function salvarFormasPagamento() {
     pgto_cartao_online: document.getElementById('pg-cartao-auto').checked,
     pgto_maquininha: document.getElementById('pg-maquininha').checked
   };
+  if (document.getElementById('pg-pix-maq')) {
+    dados.avisos_whatsapp = { ...(restauranteAtual.avisos_whatsapp || {}), pix_maquininha: document.getElementById('pg-pix-maq').checked };
+  }
   const { error } = await db.from('restaurantes').update(dados).eq('id', restauranteAtual.id);
   if (error) { toast('Não consegui salvar: ' + error.message, 'erro'); return; }
   if (chave) {
@@ -3918,6 +3922,11 @@ async function renderConfig() {
         <label style="font-size:14px;font-weight:700;">💰 Formas de pagamento do seu cardápio</label>
         <div style="font-size:12px;color:var(--texto-muted);margin:4px 0 12px;">Escolha o que o cliente vê na hora de pagar. <b>Dinheiro fica sempre liberado.</b></div>
         ${simplesCfg ? '<div style="font-size:12px;background:#FFF7F1;border:1px solid var(--laranja);color:var(--laranja-dark);border-radius:8px;padding:8px 10px;margin-bottom:10px;">⚡ Pix automático e cartão online fazem parte do plano <b>Completo</b>. Veja em <b>Mensalidade</b>.</div>' : ''}
+        ${novaOrdemPagamento(r) ? `
+        <label style="display:flex;align-items:flex-start;gap:10px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin-bottom:12px;cursor:pointer;font-size:13px;">
+          <input type="checkbox" id="pg-pix-maq" ${r.avisos_whatsapp?.pix_maquininha !== false ? 'checked' : ''} style="width:18px;height:18px;margin-top:2px;">
+          <span><b>📲 Pix na maquininha</b> <span style="font-size:10px;background:#E1F5EE;color:#0F6E56;padding:2px 6px;border-radius:6px;font-weight:700;">RECOMENDADO</span><br><span style="font-size:11px;color:var(--texto-muted);">O cliente paga o Pix na hora que o pedido chega, na sua maquininha. Você não precisa conferir comprovante. Só aparece se a <b>Maquininha</b> (abaixo) estiver marcada.</span></span>
+        </label>` : ''}
         <div style="font-size:13px;font-weight:700;margin-bottom:6px;">Pix (escolha só um)</div>
         <label style="display:${simplesCfg ? 'none' : 'flex'};align-items:flex-start;gap:10px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;font-size:13px;">
           <input type="checkbox" id="pg-pix-auto" ${(r.pgto_pix || 'auto') === 'auto' ? 'checked' : ''} onchange="pgMarcarPix('auto', this.checked)" style="width:18px;height:18px;margin-top:2px;">
@@ -3925,7 +3934,7 @@ async function renderConfig() {
         </label>
         <label style="display:flex;align-items:flex-start;gap:10px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;font-size:13px;">
           <input type="checkbox" id="pg-pix-manual" ${r.pgto_pix === 'manual' ? 'checked' : ''} onchange="pgMarcarPix('manual', this.checked)" style="width:18px;height:18px;margin-top:2px;">
-          <span><b>📲 Pix manual</b><br><span style="font-size:11px;color:var(--texto-muted);">O cliente paga na sua chave Pix e manda o comprovante no WhatsApp. Você confere antes de liberar o pedido.</span></span>
+          <span><b>${novaOrdemPagamento(r) ? '📲 Pix com comprovante (na sua chave)' : '📲 Pix manual'}</b><br><span style="font-size:11px;color:var(--texto-muted);">O cliente paga na sua chave Pix e manda o comprovante no WhatsApp. Você confere antes de liberar o pedido.${novaOrdemPagamento(r) ? ' O dinheiro cai direto na sua conta, sem taxa de maquininha.' : ''}</span></span>
         </label>
         <div id="pg-pix-chave-wrap" style="display:${r.pgto_pix === 'manual' ? 'block' : 'none'};margin-bottom:12px;">
           <input type="text" id="cfg-pix" value="${esc(chavePixAtual)}" placeholder="Coloque sua chave Pix aqui" autocomplete="off" style="width:100%;">
@@ -4593,6 +4602,7 @@ async function salvarConfig() {
       preparando: { ativo: document.getElementById('cfg-aviso-preparando-ativo').checked, texto: document.getElementById('cfg-aviso-preparando-texto').value.trim() || null },
       entrega: { ativo: document.getElementById('cfg-aviso-entrega-ativo').checked, texto: document.getElementById('cfg-aviso-entrega-texto').value.trim() || null },
       business: restauranteAtual.avisos_whatsapp?.business || null,
+      pix_maquininha: document.getElementById('pg-pix-maq') ? document.getElementById('pg-pix-maq').checked : (restauranteAtual.avisos_whatsapp?.pix_maquininha !== false),
       abrir_apos_pedido: document.getElementById('cfg-abrir-whats') ? document.getElementById('cfg-abrir-whats').checked : (restauranteAtual.avisos_whatsapp?.abrir_apos_pedido !== false),
       fechado_so_agendar: document.getElementById('cfg-fechado-agendar') ? document.getElementById('cfg-fechado-agendar').checked : (restauranteAtual.avisos_whatsapp?.fechado_so_agendar !== false)
     },
@@ -6150,12 +6160,21 @@ function opcoesPagamento(r) {
   const online = !!r.pix_online_ativo && !simples;
   let pix = r.pgto_pix || 'auto';
   if (simples && pix === 'auto') pix = 'nenhum';
+  const maquininha = r.pgto_maquininha != null ? !!r.pgto_maquininha : !r.so_online;
   return {
     pixAuto: online && pix === 'auto',
     pixManual: pix === 'manual',
     cartaoAuto: online && r.pgto_cartao_online !== false,
-    maquininha: r.pgto_maquininha != null ? !!r.pgto_maquininha : !r.so_online
+    maquininha,
+    // Pix pago na maquininha (na entrega/retirada): acompanha a maquininha e o dono pode desligar
+    pixMaq: novaOrdemPagamento(r) && maquininha && r.avisos_whatsapp?.pix_maquininha !== false
   };
+}
+
+// Nova ordem de pagamento (pagar quando chegar em cima, online embaixo): por enquanto só na loja Demo
+function novaOrdemPagamento(r) {
+  try { if (localStorage.getItem('nova_ordem_pgto') === '1') return true; if (localStorage.getItem('nova_ordem_pgto') === '0') return false; } catch (e) {}
+  return !!r && r.slug === 'servidelivery-demo';
 }
 
 // ===== PIX MANUAL: mostra QR Code e "copia e cola" com o valor do pedido =====
@@ -6203,7 +6222,7 @@ async function garantirOpcaoPixCorreta() {
   if (!sel || !box || !restPublico) return;
   const op = opcoesPagamento(restPublico);
   const grupoAgora = op.pixAuto || op.pixManual || op.cartaoAuto;
-  const permitido = { 'Pix online': op.pixAuto, 'Cartão online': op.cartaoAuto, 'Pix': op.pixManual, 'Cartão na entrega': op.maquininha, 'Dinheiro': true };
+  const permitido = { 'Pix online': op.pixAuto, 'Cartão online': op.cartaoAuto, 'Pix': op.pixManual, 'Cartão na entrega': op.maquininha, 'Pix na maquininha': op.pixMaq, 'Dinheiro': true };
   if (sel.value && !permitido[sel.value]) sel.value = '';
   const atual = sel.value;
   if (pagEntregaAberto === null) pagEntregaAberto = !grupoAgora;
@@ -6218,6 +6237,36 @@ async function garantirOpcaoPixCorreta() {
     </div>`;
   const cartaoIcone = '<svg width="28" height="26" viewBox="0 0 28 26"><rect x="1.5" y="4" width="25" height="18" rx="4" fill="#FF6B1A"/><rect x="1.5" y="9" width="25" height="3.5" fill="#B8430A" opacity=".55"/><rect x="5" y="15.5" width="7" height="3.5" rx="1.2" fill="#fff"/><circle cx="21" cy="17.5" r="2.2" fill="#fff" opacity=".85"/></svg>';
   const pixIcone = '<svg width="26" height="26" viewBox="0 0 26 26"><g fill="#32BCAD"><rect x="9" y="1.5" width="8" height="8" rx="2" transform="rotate(45 13 5.5)"/><rect x="9" y="16.5" width="8" height="8" rx="2" transform="rotate(45 13 20.5)"/><rect x="1.5" y="9" width="8" height="8" rx="2" transform="rotate(45 5.5 13)"/><rect x="16.5" y="9" width="8" height="8" rx="2" transform="rotate(45 20.5 13)"/></g></svg>';
+
+  if (novaOrdemPagamento(restPublico)) {
+    // NOVA ORDEM: em cima "Pagar quando chegar" (maquininha, Pix na maquininha, dinheiro); embaixo, fechado, "pagar agora pelo site"
+    const temOnline = op.pixAuto || op.cartaoAuto;
+    const onlineAberto = !!pagOnlineAberto || atual === 'Pix online' || atual === 'Cartão online';
+    box.innerHTML = `
+      <div style="border:1.5px solid var(--creme-borda);border-radius:12px;overflow:hidden;">
+        <div style="background:var(--creme);padding:12px;">
+          <div style="font-size:15px;font-weight:700;">Como você prefere pagar?</div>
+          <div style="font-size:12px;color:var(--texto-muted);">Pague na hora que o pedido chegar ou for retirado</div>
+        </div>
+        ${op.maquininha ? linha('Cartão na entrega', cartaoIcone, 'Cartão', 'Maquininha na entrega ou retirada') : ''}
+        ${op.pixMaq ? linha('Pix na maquininha', pixIcone, 'Pix na maquininha', 'Você paga pelo Pix na hora que chegar') : ''}
+        ${op.pixManual ? linha('Pix', pixIcone, 'Pix com comprovante', 'Pague agora e envie o comprovante no WhatsApp') : ''}
+        ${linha('Dinheiro', '💵', 'Dinheiro', '')}
+        ${temOnline ? `
+          <div onclick="alternarGrupoOnline()" style="background:#efefef;padding:13px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-top:1px solid var(--creme-borda);">
+            <div style="font-size:14px;font-weight:600;color:#777;">Prefere pagar agora pelo site?</div>
+            <span style="font-size:14px;color:#777;">${onlineAberto ? '▲' : '▼'}</span>
+          </div>
+          ${onlineAberto ? `
+            <div style="background:var(--creme);padding:10px 12px;font-size:12px;color:var(--texto-muted);">Pix ou cartão, seu pedido é confirmado na hora</div>
+            ${op.pixAuto ? linha('Pix online', pixIcone, 'Pix', 'Pague agora') : ''}
+            ${op.cartaoAuto ? linha('Cartão online', cartaoIcone, 'Cartão de crédito', 'Pague agora') : ''}
+          ` : ''}
+        ` : ''}
+      </div>`;
+    atualizarBotaoFinalizar();
+    return;
+  }
 
   box.innerHTML = `
     <div style="border:1.5px solid var(--creme-borda);border-radius:12px;overflow:hidden;">
@@ -6237,6 +6286,12 @@ async function garantirOpcaoPixCorreta() {
       ${aberto ? linha('Dinheiro', '💵', 'Dinheiro', '') + (op.maquininha ? linha('Cartão na entrega', cartaoIcone, 'Cartão', 'Maquininha na entrega ou retirada') : '') : ''}
     </div>`;
   atualizarBotaoFinalizar();
+}
+
+var pagOnlineAberto = false;
+function alternarGrupoOnline() {
+  pagOnlineAberto = !pagOnlineAberto;
+  garantirOpcaoPixCorreta();
 }
 
 function alternarGrupoEntrega() {
