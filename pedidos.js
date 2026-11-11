@@ -1162,8 +1162,20 @@ function imprimirComanda(p, forcarNormal) {
     ${ehDelivery ? `<div class="cp-par cp-info"><span>Frete</span><span>${frete > 0 ? reais(frete) : 'Grátis'}</span></div>` : ''}
     ${desconto > 0.009 ? `<div class="cp-par cp-info"><span>Desconto</span><span>- ${reais(desconto)}</span></div>` : ''}
     <div class="cp-par cp-total"><span>TOTAL</span><span>${reais(totalPedido)}</span></div>
+    ${impressaoNaoFiscalAtiva() ? '<div class="cp-linha"></div><div style="text-align:center;font-size:13px;font-weight:700;margin-top:4px;">NÃO É DOCUMENTO FISCAL</div>' : ''}
   `;
   imprimirPapelAjustado();
+}
+
+// Linha "NÃO É DOCUMENTO FISCAL" no fim da comanda impressa. Por enquanto só na loja Demo
+// (localStorage 'print_nao_fiscal' = 'true' liga / 'false' desliga neste aparelho).
+function impressaoNaoFiscalAtiva() {
+  try {
+    const v = localStorage.getItem('print_nao_fiscal');
+    if (v === 'true') return true;
+    if (v === 'false') return false;
+  } catch (e) {}
+  return !!(restauranteAtual && restauranteAtual.slug === 'servidelivery-demo');
 }
 
 function tempoDecorridoTexto(dataIso) {
