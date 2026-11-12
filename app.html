@@ -989,10 +989,12 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
     <button class="modal-fechar" onclick="fecharModal('modal-fechar-comanda')">×</button>
   </div>
   <div id="fechar-comanda-lista">Carregando...</div>
+  <div id="fechar-conta-taxa" style="display:none;"></div>
   <div style="display:flex;justify-content:space-between;margin-top:14px;padding-top:14px;border-top:1px solid var(--creme-borda);">
     <span style="font-weight:700;">Total da visita</span>
     <span id="fechar-comanda-total" style="font-weight:700;color:var(--laranja);">R$ 0,00</span>
   </div>
+  <div id="fechar-conta-dividir" style="display:none;"></div>
   <div id="fechar-forma-pag" style="display:none;margin-top:14px;"></div>
   <button class="btn btn-laranja" style="margin-top:14px;" onclick="confirmarFechamentoComanda(this)">Confirmar pagamento e liberar mesa</button>
 </div>
@@ -3951,7 +3953,21 @@ async function renderConfig() {
         </label>
         <div style="font-size:13px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin-bottom:12px;">💵 <b>Dinheiro</b> — sempre liberado</div>
         <button type="button" class="btn-sm" style="width:100%;padding:11px;" onclick="salvarFormasPagamento()">Salvar formas de pagamento</button>
-      </div>` : ''}
+      </div>${(typeof contaMesaAtiva === 'function' && contaMesaAtiva()) ? `
+      <div class="form-group" style="background:var(--creme);border-radius:10px;padding:14px;">
+        <label style="font-size:14px;font-weight:700;">🍽️ Taxa de serviço (mesas)</label>
+        <div style="font-size:12px;color:var(--texto-muted);margin:4px 0 12px;">Aparece na conta da mesa na hora de fechar. O caixa pode tirar com um toque se o cliente não quiser pagar.</div>
+        <label style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;font-size:13px;">
+          <input type="checkbox" id="cfg-taxa-ativa" ${r.avisos_whatsapp?.taxa_servico?.ativo ? 'checked' : ''} style="width:18px;height:18px;">
+          <span><b>Cobrar taxa de serviço</b></span>
+        </label>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <span style="font-size:13px;">Quantos por cento?</span>
+          <input type="number" id="cfg-taxa-pct" value="${r.avisos_whatsapp?.taxa_servico?.pct || 10}" min="1" max="30" step="0.5" style="width:90px;">
+          <span style="font-size:13px;">%</span>
+        </div>
+        <button type="button" class="btn-sm" style="width:100%;padding:11px;" onclick="salvarTaxaServico()">Salvar taxa de serviço</button>
+      </div>` : ''}` : ''}
       <div class="form-group" style="${escCfg}">
         <label>Cashback pro cliente (%)</label>
         <input type="number" id="cfg-cashback" value="${r.cashback_percentual || ''}" placeholder="Ex: 5" min="0" max="100" step="0.1">
@@ -4602,6 +4618,7 @@ async function salvarConfig() {
       preparando: { ativo: document.getElementById('cfg-aviso-preparando-ativo').checked, texto: document.getElementById('cfg-aviso-preparando-texto').value.trim() || null },
       entrega: { ativo: document.getElementById('cfg-aviso-entrega-ativo').checked, texto: document.getElementById('cfg-aviso-entrega-texto').value.trim() || null },
       business: restauranteAtual.avisos_whatsapp?.business || null,
+      taxa_servico: (typeof taxaServicoLerCampos === 'function' && taxaServicoLerCampos()) || restauranteAtual.avisos_whatsapp?.taxa_servico || null,
       pix_maquininha: document.getElementById('pg-pix-maq') ? document.getElementById('pg-pix-maq').checked : (restauranteAtual.avisos_whatsapp?.pix_maquininha !== false),
       abrir_apos_pedido: document.getElementById('cfg-abrir-whats') ? document.getElementById('cfg-abrir-whats').checked : (restauranteAtual.avisos_whatsapp?.abrir_apos_pedido !== false),
       fechado_so_agendar: document.getElementById('cfg-fechado-agendar') ? document.getElementById('cfg-fechado-agendar').checked : (restauranteAtual.avisos_whatsapp?.fechado_so_agendar !== false)
@@ -7366,12 +7383,13 @@ async function garantirUserIdRestaurante() {
 }
 </script>
 <script src="cardapio.js"></script>
-<script src="pedidos.js?v=20261111b"></script>
+<script src="pedidos.js?v=20261112a"></script>
 <script src="impressoras.js?v=20261029c"></script>
 <script src="relatorios.js"></script>
-<script src="financeiro.js?v=20261111a"></script>
+<script src="financeiro.js?v=20261112a"></script>
 <script src="clientes.js"></script>
 <script src="modo-facil.js?v=20261105e"></script>
 <script src="mapa-mesas.js?v=20261111a"></script>
+<script src="conta-mesa.js?v=20261112a"></script>
 </body>
 </html>

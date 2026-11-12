@@ -153,14 +153,19 @@ async function renderFinanceiro(periodo) {
   if (finEstado.periodo === 'custom' && !finEstado.ini) { const p0 = finPeriodo('custom'); finEstado.ini = p0.ini; finEstado.fim = p0.fim; }
   const { ini, fim, rotulo } = finPeriodo(finEstado.periodo);
 
-  const [rp, rd, rh] = await Promise.all([
+  const [rp, rd, rh0] = await Promise.all([
     finBuscarPedidos(rid, ini, fim),
     db.from('despesas').select('id,descricao,valor,categoria,data').eq('restaurante_id', rid)
       .gte('data', ini).lte('data', fim).order('data', { ascending: false }).order('criado_em', { ascending: false }).limit(1000),
     // contas de mesa fechadas no período (com a forma de pagamento marcada no caixa)
-    db.from('comandas_historico').select('total,forma_pagamento').eq('restaurante_id', rid).not('fechada_em', 'is', null)
+    db.from('comandas_historico').select('total,forma_pagamento,taxa_servico,pagamentos').eq('restaurante_id', rid).not('fechada_em', 'is', null)
       .gte('fechada_em', ini + 'T00:00:00-03:00').lte('fechada_em', fim + 'T23:59:59-03:00').limit(3000)
   ]);
+  let rh = rh0;
+  if (rh0 && rh0.error) { // banco sem as colunas novas: usa só o básico
+    rh = await db.from('comandas_historico').select('total,forma_pagamento').eq('restaurante_id', rid).not('fechada_em', 'is', null)
+      .gte('fechada_em', ini + 'T00:00:00-03:00').lte('fechada_em', fim + 'T23:59:59-03:00').limit(3000);
+  }
   if (rp.erro || rd.error) {
     c.innerHTML = '<div class="card"><div style="font-size:15px;">Não consegui abrir o Financeiro agora. Recarregue a página e tente de novo.</div></div>';
     return;
@@ -185,7 +190,13 @@ async function renderFinanceiro(periodo) {
     (porDia[d.data] = porDia[d.data] || { e: 0, s: 0 }).s += v;
   });
   const nomeForma = { pix: 'Pix', cartao: 'Cartão', dinheiro: 'Dinheiro' };
+  let taxaTotal = 0;
   ((rh && rh.data) || []).forEach(h => {
+    taxaTotal += parseFloat(h.taxa_servico || 0);
+    if (h.pagamentos && typeof h.pagamentos === 'object' && Object.keys(h.pagamentos).length) { // conta dividida / com taxa: cada parte na sua forma
+      Object.entries(h.pagamentos).forEach(([k, v]) => { const n = nomeForma[k] || 'Não informado'; porMesa[n] = (porMesa[n] || 0) + parseFloat(v || 0); });
+      return;
+    }
     const f = nomeForma[h.forma_pagamento] || 'Não informado';
     porMesa[f] = (porMesa[f] || 0) + parseFloat(h.total || 0);
   });
@@ -250,6 +261,7 @@ async function renderFinanceiro(periodo) {
       <div class="card">
         <div class="card-titulo">🍽️ Mesas — como pagaram</div>
         ${finBarras(porMesa, verde)}
+        ${taxaTotal > 0.009 ? `<div style="font-size:12px;color:var(--texto-muted);margin-top:6px;">🧾 Os valores acima incluem <b>${finReais(taxaTotal)}</b> de taxa de serviço (dinheiro dos garçons, para repassar).</div>` : ''}
         ${porMesa['Não informado'] ? '<div style="font-size:12px;color:var(--texto-muted);margin-top:6px;">"Não informado" são contas fechadas antes de o caixa marcar a forma de pagamento.</div>' : ''}
       </div>
     </div>

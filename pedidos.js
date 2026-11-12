@@ -294,6 +294,7 @@ async function abrirFechamentoComanda() {
   document.getElementById('fechar-comanda-lista').innerHTML = 'Carregando...';
   document.getElementById('fechar-comanda-total').textContent = 'R$ 0,00';
   abrirModal('modal-fechar-comanda');
+  if (typeof contaMesaLimpar === 'function') contaMesaLimpar();
   if (typeof finFormaPagMostrar === 'function') finFormaPagMostrar(); // Completo: Pix / Cartão / Dinheiro
 
   const comTimeout = (promessa) => Promise.race([
@@ -347,13 +348,16 @@ async function abrirFechamentoComanda() {
   `).join('');
   document.getElementById('fechar-comanda-total').textContent = 'R$ ' + total.toFixed(2).replace('.',',');
   comandaAtual.totalFechamento = total;
+  if (typeof contaMesaIniciar === 'function') contaMesaIniciar(total, Object.entries(itensAgrupados)); // taxa de serviço + dividir conta
 }
 
 async function confirmarFechamentoComanda(btn) {
   if (meuPapel === 'garcom') { toast('Só o gerente/caixa fecha a conta.', 'erro'); return; }
   if (!comandaAtual) return;
   if (btn && btn.disabled) return;
-  if (typeof finFormaPagFaltando === 'function' && finFormaPagFaltando()) { toast('Escolha como o cliente pagou: Pix, Cartão ou Dinheiro.', 'erro'); return; }
+  if (typeof contaMesaValidar === 'function') { const msgConta = contaMesaValidar(); if (msgConta) { toast(msgConta, 'erro'); return; } }
+  const dividindoConta = typeof contaMesaDividindo === 'function' && contaMesaDividindo();
+  if (!dividindoConta && typeof finFormaPagFaltando === 'function' && finFormaPagFaltando()) { toast('Escolha como o cliente pagou: Pix, Cartão ou Dinheiro.', 'erro'); return; }
   if (!confirm('Confirma o pagamento e libera essa mesa pra um novo cliente?')) return;
   const textoBtn = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Fechando a conta...'; }
@@ -368,15 +372,24 @@ async function confirmarFechamentoComanda(btn) {
   }
 
   const formaPago = (typeof finFormaPagValor === 'function') ? finFormaPagValor() : null; // 'pix' | 'cartao' | 'dinheiro' (só Completo)
+  // Taxa de serviço / conta dividida (só quando a função está ligada): o total passa a incluir a taxa
+  const camposConta = (typeof contaMesaCampos === 'function') ? contaMesaCampos() : null;
+  if (camposConta && camposConta.total != null) totalFechamento = camposConta.total;
+  const dadosFechamento = { fechada_em: new Date().toISOString(), total: totalFechamento, ...(formaPago ? { forma_pagamento: formaPago } : {}) };
+  const dadosFechamentoCompleto = camposConta ? { ...dadosFechamento, ...camposConta } : dadosFechamento;
   // Histórico e liberação da mesa ao mesmo tempo (mais rápido)
-  const [, resLiberar] = await Promise.all([
+  const [resHist, resLiberar] = await Promise.all([
     comandaAtual.historicoId
-      ? db.from('comandas_historico').update({ fechada_em: new Date().toISOString(), total: totalFechamento, ...(formaPago ? { forma_pagamento: formaPago } : {}) }).eq('id', comandaAtual.historicoId)
+      ? db.from('comandas_historico').update(dadosFechamentoCompleto).eq('id', comandaAtual.historicoId)
       : Promise.resolve(),
     db.from('codigos_comanda').update({ status: 'livre', mesa: null, aberta_em: null }).eq('id', comandaAtual.id)
   ]);
 
   if (resLiberar && resLiberar.error) { toast('Erro ao liberar a mesa. Tente de novo.', 'erro'); reabilita(); return; }
+  // Se o banco ainda não tem as colunas novas, grava só o básico (a conta nunca fica sem registro)
+  if (resHist && resHist.error && camposConta && comandaAtual.historicoId) {
+    await db.from('comandas_historico').update(dadosFechamento).eq('id', comandaAtual.historicoId);
+  }
 
   reabilita();
   fecharModal('modal-fechar-comanda');
