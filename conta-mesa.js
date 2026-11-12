@@ -162,7 +162,7 @@ function contaMesaCampos() {
     ctm.vals.forEach((v, i) => { const f = ctm.formas[i]; por[f] = ctmArred((por[f] || 0) + v); });
     c.pagamentos = por;
     const fs = Object.keys(por);
-    c.forma_pagamento = fs.length === 1 ? fs[0] : 'misto';
+    if (fs.length === 1) c.forma_pagamento = fs[0]; // formas diferentes: fica vazio (o banco só aceita pix/cartao/dinheiro); o detalhe está em 'pagamentos'
   } else if (!ctm.dividir && typeof finFormaPagValor === 'function' && finFormaPagValor()) {
     c.pagamentos = { [finFormaPagValor()]: ctmTotal() };
   }
