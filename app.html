@@ -4620,6 +4620,7 @@ async function salvarConfig() {
       business: restauranteAtual.avisos_whatsapp?.business || null,
       taxa_servico: (typeof taxaServicoLerCampos === 'function' && taxaServicoLerCampos()) || restauranteAtual.avisos_whatsapp?.taxa_servico || null,
       pix_maquininha: document.getElementById('pg-pix-maq') ? document.getElementById('pg-pix-maq').checked : (restauranteAtual.avisos_whatsapp?.pix_maquininha !== false),
+      primeiros_passos: restauranteAtual.avisos_whatsapp?.primeiros_passos || null,
       abrir_apos_pedido: document.getElementById('cfg-abrir-whats') ? document.getElementById('cfg-abrir-whats').checked : (restauranteAtual.avisos_whatsapp?.abrir_apos_pedido !== false),
       fechado_so_agendar: document.getElementById('cfg-fechado-agendar') ? document.getElementById('cfg-fechado-agendar').checked : (restauranteAtual.avisos_whatsapp?.fechado_so_agendar !== false)
     },
@@ -7391,5 +7392,6 @@ async function garantirUserIdRestaurante() {
 <script src="modo-facil.js?v=20261105e"></script>
 <script src="mapa-mesas.js?v=20261111a"></script>
 <script src="conta-mesa.js?v=20261112c"></script>
+<script src="primeiros-passos.js?v=20261113a"></script>
 </body>
 </html>
