@@ -1,16 +1,13 @@
 // ===== Fechar conta da mesa: taxa de serviço + dividir a conta =====
-// Por enquanto só na loja Demo (localStorage 'conta_mesa_nova' = '1' liga / '0' desliga neste aparelho).
+// Plano Completo (todas as lojas Completas).
 // Chamado por pedidos.js (abrirFechamentoComanda / confirmarFechamentoComanda) e financeiro.js.
 
 var ctm = null; // conta que está sendo fechada agora
 
 function contaMesaAtiva() {
-  try {
-    const v = localStorage.getItem('conta_mesa_nova');
-    if (v === '1') return true;
-    if (v === '0') return false;
-  } catch (e) {}
-  return !!(typeof restauranteAtual !== 'undefined' && restauranteAtual && restauranteAtual.slug === 'servidelivery-demo');
+  // Liberado para todo plano Completo (o plano Simples não recebe). localStorage 'conta_mesa_nova' = '0' desliga neste aparelho.
+  try { if (localStorage.getItem('conta_mesa_nova') === '0') return false; } catch (e) {}
+  return !!(typeof restauranteAtual !== 'undefined' && restauranteAtual && restauranteAtual.plano_painel !== 'simples');
 }
 
 function ctmReais(v) { return 'R$ ' + (Number(v) || 0).toFixed(2).replace('.', ','); }
