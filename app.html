@@ -4445,6 +4445,11 @@ function cfgOrganizarEmAbas() {
       atual = 'divulgar';
       return;
     }
+    // Cartão "Mapa de mesas": fica na aba "Impressão e comandas" (antes ia parar em "Divulgar e backup", difícil de achar). Por enquanto só na Demo.
+    if (restauranteAtual && restauranteAtual.slug === 'servidelivery-demo' && el.querySelector && el.querySelector('#mapa-qtd-mesas')) {
+      secoes['impressao'].appendChild(el);
+      return;
+    }
     if (!depoisDoSalvar) {
       const regra = regras.find(([teste]) => teste(el));
       if (regra) atual = regra[1];
