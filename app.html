@@ -4445,8 +4445,8 @@ function cfgOrganizarEmAbas() {
       atual = 'divulgar';
       return;
     }
-    // Cartão "Mapa de mesas": fica na aba "Impressão e comandas" (antes ia parar em "Divulgar e backup", difícil de achar). Por enquanto só na Demo.
-    if (restauranteAtual && restauranteAtual.slug === 'servidelivery-demo' && el.querySelector && el.querySelector('#mapa-qtd-mesas')) {
+    // Cartão "Mapa de mesas": fica na aba "Impressão e comandas" (antes ia parar em "Divulgar e backup", difícil de achar). Liberado para todas as lojas.
+    if (el.querySelector && el.querySelector('#mapa-qtd-mesas')) {
       secoes['impressao'].appendChild(el);
       return;
     }
