@@ -1,7 +1,7 @@
 // ===================================================================
 // MODO FÁCIL — painel simples para quem só quer receber o pedido.
 // Uma tela só, com UM botão grande por pedido (Aceitar -> Saiu/Pronto).
-// Por enquanto só na loja Demo. Para ligar/desligar num aparelho:
+// Liberado para todas as lojas (Completa troca pelo botão laranja; plano Simples fica sempre no Fácil). Para desligar num aparelho:
 //   localStorage.setItem('modo_facil_disponivel','true' ou 'false')
 // Quem está no Modo Fácil volta ao Modo Completo pelo link "Modo Completo"
 // (e do Completo para o Fácil pelo botão laranja no menu de baixo).
@@ -12,20 +12,27 @@ function modoFacilPlanoSimples() {
 }
 
 function modoFacilDisponivel() {
-  if (modoFacilPlanoSimples()) return true;
+  // O botão "Mudar para o Modo Fácil" existe para toda loja (dono). O plano não muda: a loja Completa só troca a tela.
   try {
     const v = localStorage.getItem('modo_facil_disponivel');
-    if (v === 'true') return true;
     if (v === 'false') return false;
   } catch (e) {}
-  return !!restauranteAtual && meuPapel !== 'garcom' && ['servidelivery-demo'].includes(restauranteAtual.slug);
+  if (modoFacilPlanoSimples()) return true;
+  return !!restauranteAtual && meuPapel !== 'garcom';
 }
 
+// Loja Completa começa no Modo Completo; só vai para o Fácil se o dono apertar o botão laranja
 function modoFacilAtivo() {
   if (!modoFacilDisponivel()) return false;
   if (modoFacilPlanoSimples()) return true;
-  try { if (localStorage.getItem('modo_painel_' + restauranteAtual.id) === 'completo') return false; } catch (e) {}
-  return true;
+  try { if (localStorage.getItem('modo_painel_' + restauranteAtual.id) === 'facil') return true; } catch (e) {}
+  return false;
+}
+
+// Tela de Pedidos com os cartões grandes: no Modo Fácil, e na Demo (teste que já existia) mesmo no Modo Completo
+function modoFacilCartoes() {
+  if (modoFacilAtivo()) return true;
+  return !!restauranteAtual && meuPapel !== 'garcom' && restauranteAtual.slug === 'servidelivery-demo';
 }
 
 function modoFacilTrocar(facil) {
@@ -279,7 +286,7 @@ function renderPedidosFacil(lista) {
 }
 
 function facilRedesenhar() {
-  if (paginaAtual === 'pedidos' && modoFacilDisponivel()) renderPedidosFacil(pedidosCache || []);
+  if (paginaAtual === 'pedidos' && modoFacilCartoes()) renderPedidosFacil(pedidosCache || []);
 }
 
 async function facilAceitar(id, btn) {
