@@ -4109,7 +4109,8 @@ async function renderConfig() {
             ${linha('imprimir_auto', 'Imprimir o pedido sozinho ao aceitar', 'Desligue se esse aparelho não tem impressora. O botão 🖨️ de cada pedido continua funcionando.', imprDel, 'Impressão automática (delivery)')}
             <div style="font-weight:700;font-size:13px;margin-top:12px;">🍽️ Comandas (mesas)</div>
             ${linha('aceitar_auto_comanda', 'Enviar para a cozinha sozinho', 'O pedido da mesa já vai para "Em preparo" sem esperar o seu clique.', lig('aceitar_auto_comanda', false), 'Envio sozinho (comanda)')}
-            ${linha('imprimir_auto_comanda', 'Imprimir a comanda sozinha', 'Imprime o pedido da mesa, com o número da mesa grande no topo.', lig('imprimir_auto_comanda', imprDel), 'Impressão automática (comanda)')}`;
+            ${linha('imprimir_auto_comanda', 'Imprimir a comanda sozinha', 'Imprime o pedido da mesa, com o número da mesa grande no topo.', lig('imprimir_auto_comanda', imprDel), 'Impressão automática (comanda)')}
+            ${typeof semBebidasLiberado === 'function' && semBebidasLiberado() ? linha('nao_imprimir_bebidas', 'Bebidas só no sistema (não imprimir)', 'No papel sai só a COMIDA. As bebidas aparecem na tela do sistema, mas não saem na impressora. Se o pedido for só de bebida, não imprime nada.', lig('nao_imprimir_bebidas', false), 'Bebidas só no sistema') : ''}`;
         })()}
       </div>
 
@@ -4120,6 +4121,8 @@ async function renderConfig() {
           ${(() => { let t = 'normal'; try { t = localStorage.getItem('imprimir_tam_' + restauranteAtual.id) || 'normal'; } catch (e) {} return [['normal','Normal'],['grande','Grande'],['extra','Extra grande'],['gigante','Gigante']].map(o => `<option value="${o[0]}" ${t === o[0] ? 'selected' : ''}>${o[1]}</option>`).join(''); })()}
         </select>
       </div>
+
+      ${typeof semBebidasBlocoHtml === 'function' ? semBebidasBlocoHtml() : ''}
 
       ${typeof impBlocoConfig === 'function' ? impBlocoConfig() : ''}
 
@@ -7389,14 +7392,15 @@ async function garantirUserIdRestaurante() {
 }
 </script>
 <script src="cardapio.js"></script>
-<script src="pedidos.js?v=20261113a"></script>
+<script src="pedidos.js?v=20261113b"></script>
 <script src="impressoras.js?v=20261029c"></script>
 <script src="relatorios.js"></script>
 <script src="financeiro.js?v=20261112a"></script>
 <script src="clientes.js"></script>
 <script src="modo-facil.js?v=20261113a"></script>
-<script src="mapa-mesas.js?v=20261111a"></script>
+<script src="mapa-mesas.js?v=20261113a"></script>
 <script src="conta-mesa.js?v=20261112c"></script>
 <script src="primeiros-passos.js?v=20261113a"></script>
+<script src="sem-bebidas.js?v=20261113a"></script>
 </body>
 </html>

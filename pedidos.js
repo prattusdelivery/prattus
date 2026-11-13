@@ -1054,6 +1054,19 @@ function imprimirPapelAjustado() {
 }
 
 function imprimirComanda(p, forcarNormal) {
+  // "Não imprimir as bebidas" (só comandas, só quem ligou neste aparelho): tira a bebida do papel;
+  // pedido só de bebida não imprime. Se der qualquer problema, imprime tudo do jeito de sempre.
+  if (!forcarNormal && !p.__semBebidas && ehComandaPedido(p) && typeof semBebidasAtivo === 'function' && semBebidasAtivo()
+      && !(typeof impressaoSeparadaAtiva === 'function' && impressaoSeparadaAtiva())) {
+    semBebidasFiltrar(p).then(r => {
+      if (r.vazio) { toast('Pedido só de bebidas: não imprimiu (fica só no sistema).', 'ok'); return; }
+      imprimirComanda(r.pedido, forcarNormal);
+    }).catch(e => {
+      console.error('Filtro de bebidas falhou, imprimindo tudo:', e);
+      imprimirComanda(Object.assign({}, p, { __semBebidas: true }), forcarNormal);
+    });
+    return;
+  }
   // Comanda com comida e bebida em impressoras diferentes (só quem ligou isso neste aparelho).
   // Se der qualquer problema, imprime do jeito normal logo em seguida.
   if (!forcarNormal && ehComandaPedido(p) && typeof impressaoSeparadaAtiva === 'function' && impressaoSeparadaAtiva()) {
