@@ -9,7 +9,6 @@
 var mapaTocando = false;
 
 // Lojas em que, no modo "só mapa", o quadro do código de barras fica escondido (Demo primeiro; depois vale para todas)
-var MAPA_ESCONDE_BARRAS = ['servidelivery-demo'];
 
 // Liberado para todas as lojas. Quem não digitar a quantidade de mesas em Configurações continua só com QR Code.
 function mapaMesasDisponivel() {
@@ -84,8 +83,8 @@ function mapaMesasInserir(mesas) {
     const bt = cont.querySelector('button[onclick="abrirLeitorQr()"]');
     const cartao = bt && bt.closest('.card');
     if (cartao) cartao.style.display = 'none';
-    // Só mapa: o quadro "Fechar conta pelo código de barras" é do cartão de comanda e não serve aqui (só na Demo por enquanto)
-    if (restauranteAtual && MAPA_ESCONDE_BARRAS.indexOf(restauranteAtual.slug) >= 0) {
+    // Só mapa: o quadro "Fechar conta pelo código de barras" é do cartão de comanda e não serve aqui
+    if (restauranteAtual) {
       const barras = document.getElementById('busca-codigo-barras');
       const cartaoBarras = barras && barras.closest('.card');
       if (cartaoBarras) cartaoBarras.style.display = 'none';
