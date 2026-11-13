@@ -4,8 +4,7 @@
 // Regras:
 //  • só dono e gerente (o garçom não vê);
 //  • só enquanto o pedido está aguardando (antes de ir para a cozinha);
-//  • só se, neste aparelho, "enviar para a cozinha sozinho" e "imprimir sozinha" estiverem DESLIGADOS
-//    (senão o pedido já foi para a cozinha/papel e editar aqui não corrigiria o papel).
+//  • pedido aguardando ainda NÃO saiu no papel (o papel sai quando ele vai para a cozinha), então dá para editar com segurança.
 // Por enquanto só na loja Demo.
 
 var ECOM_LOJAS = ['servidelivery-demo'];
@@ -19,8 +18,6 @@ function editarComandaPode(p) {
     if (!editarComandaLiberado()) return false;
     if (typeof meuPapel !== 'undefined' && meuPapel === 'garcom') return false;
     if (!p || p.status !== 'novo' || !p.codigo_comanda_id) return false;
-    if (typeof aceitarAutoPara === 'function' && aceitarAutoPara(true)) return false;
-    if (typeof imprimirAutoPara === 'function' && imprimirAutoPara(true)) return false;
     const itens = p.pedido_itens || [];
     return itens.length > 0 && itens.every(i => i.id);
   } catch (e) { return false; }
@@ -93,7 +90,7 @@ function ecomDesenhar() {
         <div style="font-weight:800;font-size:17px;color:var(--laranja);">${ecomReais(ecomTotalNovo())}</div>
       </div>
       ${sobram.length === 0 ? '<div style="font-size:12px;color:#c0392b;margin-top:8px;">Para tirar tudo, feche aqui e use o botão <b>Recusar</b>.</div>' : ''}
-      <div style="font-size:12px;color:#8F3010;background:#FFF3E0;border-radius:8px;padding:8px 10px;margin-top:10px;line-height:1.5;">⚠️ Se este pedido já saiu no papel, avise a cozinha da mudança.</div>
+      <div style="font-size:12px;color:#8F3010;background:#FFF3E0;border-radius:8px;padding:8px 10px;margin-top:10px;line-height:1.5;">⚠️ Se você já imprimiu este pedido, avise a cozinha da mudança.</div>
       <div style="display:flex;gap:8px;margin-top:14px;">
         <button class="btn-sm" style="flex:1;padding:12px;" onclick="ecomFechar()">Cancelar</button>
         <button class="btn-sm" id="ecom-salvar" style="flex:1;padding:12px;background:var(--verde);color:#fff;border:none;${(!mudou || sobram.length === 0) ? 'opacity:.4;' : ''}" ${(!mudou || sobram.length === 0) ? 'disabled' : ''} onclick="ecomSalvar()">Salvar alterações</button>
