@@ -5,12 +5,12 @@
 //  • só dono e gerente (o garçom não vê);
 //  • só enquanto o pedido está aguardando (antes de ir para a cozinha);
 //  • pedido aguardando ainda NÃO saiu no papel (o papel sai quando ele vai para a cozinha), então dá para editar com segurança.
-// Por enquanto só na loja Demo.
+// Liberado para todas as lojas.
 
-var ECOM_LOJAS = ['servidelivery-demo'];
+
 
 function editarComandaLiberado() {
-  return !!restauranteAtual && ECOM_LOJAS.indexOf(restauranteAtual.slug) >= 0;
+  return !!restauranteAtual;
 }
 
 function editarComandaPode(p) {
