@@ -649,7 +649,7 @@ async function renderComandas() {
   const desde = new Date(Date.now() - 3*24*3600*1000).toISOString();
   const [{ data: pedidos }, { data: mesasAbertas }] = await Promise.all([
     db.from('pedidos')
-      .select('*,pedido_itens(nome,quantidade,preco,observacao)')
+      .select('*,pedido_itens(id,nome,quantidade,preco,observacao)')
       .eq('restaurante_id', restauranteAtual.id)
       .gte('criado_em', desde)
       .order('criado_em', {ascending: false})
@@ -1224,6 +1224,7 @@ function montaBotoesStatus(p, telefone) {
     return `
       <button class="btn-sm" style="background:var(--verde);color:#fff;border:none;" onclick="avancarStatus('${p.id}','preparando','${nomeCliente.replace(/'/g,"")}','${telefone||''}','${p.id.slice(-4).toUpperCase()}')">${ehComanda ? 'Enviar para Cozinha' : 'Aceitar pedido'}</button>
       <button class="btn-sm perigo" onclick="mudarStatus('${p.id}','cancelado')">Recusar</button>
+      ${typeof editarComandaPode === 'function' && editarComandaPode(p) ? `<button class="btn-sm" onclick="editarComandaAbrir('${p.id}')">✏️ Editar comanda</button>` : ''}
     `;
   }
   if (p.status === 'preparando') {
