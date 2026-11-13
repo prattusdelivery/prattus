@@ -5,12 +5,11 @@
 //  • Delivery não muda.
 // A escolha fica guardada NA LOJA (coluna restaurantes.sem_bebidas = {ativo:true, cats:[ids]}),
 // então vale para todos os aparelhos da loja, não só para o aparelho onde foi ligada.
-// Só aparece nas lojas da lista abaixo. Se qualquer coisa der errado, imprime do jeito de sempre.
+// Fica desligado até alguém ligar. Se qualquer coisa der errado, imprime do jeito de sempre.
 
-var SEMB_LOJAS = ['servidelivery-demo'];
-
+// Liberado para as lojas do plano Completo (o plano Simples não vê).
 function semBebidasLiberado() {
-  return !!restauranteAtual && SEMB_LOJAS.indexOf(restauranteAtual.slug) >= 0;
+  return !!restauranteAtual && restauranteAtual.plano_painel !== 'simples';
 }
 
 function semBebidasCfg() {
