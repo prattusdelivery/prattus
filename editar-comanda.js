@@ -1,6 +1,6 @@
 // ===== EDITAR COMANDA =====
 // Botão "Editar comanda" no cartão de um pedido de mesa que ainda está "Aguardando confirmação".
-// Deixa TIRAR um item ou DIMINUIR a quantidade. O total do pedido (e da mesa) acompanha.
+// Deixa TIRAR um item ou AUMENTAR/DIMINUIR a quantidade. O total do pedido (e da mesa) acompanha.
 // Regras:
 //  • só dono e gerente (o garçom não vê);
 //  • só enquanto o pedido está aguardando (antes de ir para a cozinha);
@@ -74,7 +74,7 @@ function ecomDesenhar() {
   fundo.innerHTML = `
     <div style="background:#fff;border-radius:14px;max-width:440px;width:100%;max-height:90vh;overflow:auto;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.3);">
       <div style="font-weight:800;font-size:17px;">✏️ Editar comanda${ecomEstado.mesa ? ' — Mesa ' + esc(ecomEstado.mesa) : ''}</div>
-      <div style="font-size:12px;color:var(--texto-muted);margin:4px 0 12px;line-height:1.5;">Tire um item ou diminua a quantidade. Para colocar mais itens, toque na mesa e faça um pedido novo.</div>
+      <div style="font-size:12px;color:var(--texto-muted);margin:4px 0 12px;line-height:1.5;">Use + e − para mudar a quantidade ou "Tirar" para tirar o item. Para um item que não está na lista, toque na mesa e faça um pedido novo.</div>
       ${itens.map((i, n) => `
         <div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--creme-borda);${i.qtd === 0 ? 'opacity:.45;' : ''}">
           <div style="flex:1;min-width:0;">
@@ -84,6 +84,7 @@ function ecomDesenhar() {
           </div>
           ${i.qtd > 0 ? `
             <button class="btn-sm" onclick="ecomMenos(${n})" ${i.qtd <= 1 ? 'disabled style="opacity:.4;"' : ''} title="Diminuir 1">−</button>
+            <button class="btn-sm" onclick="ecomMais(${n})" ${i.qtd >= 99 ? 'disabled style="opacity:.4;"' : ''} title="Aumentar 1">+</button>
             <button class="btn-sm perigo" onclick="ecomTirar(${n})">Tirar</button>` : `
             <button class="btn-sm" onclick="ecomDesfazer(${n})">Desfazer</button>`}
         </div>`).join('')}
@@ -101,6 +102,7 @@ function ecomDesenhar() {
 }
 
 function ecomMenos(n) { const i = ecomEstado && ecomEstado.itens[n]; if (i && i.qtd > 1) { i.qtd--; ecomDesenhar(); } }
+function ecomMais(n) { const i = ecomEstado && ecomEstado.itens[n]; if (i && i.qtd < 99) { i.qtd++; ecomDesenhar(); } }
 function ecomTirar(n) { const i = ecomEstado && ecomEstado.itens[n]; if (i) { i.qtd = 0; ecomDesenhar(); } }
 function ecomDesfazer(n) { const i = ecomEstado && ecomEstado.itens[n]; if (i) { i.qtd = i.qtdOriginal; ecomDesenhar(); } }
 
