@@ -4108,7 +4108,9 @@ async function renderConfig() {
             <div style="font-weight:700;font-size:13px;margin-top:4px;">🛵 Pedidos de delivery</div>
             ${linha('imprimir_auto', 'Imprimir o pedido sozinho ao aceitar', 'Desligue se esse aparelho não tem impressora. O botão 🖨️ de cada pedido continua funcionando.', imprDel, 'Impressão automática (delivery)')}
             <div style="font-weight:700;font-size:13px;margin-top:12px;">🍽️ Comandas (mesas)</div>
-            ${linha('aceitar_auto_comanda', 'Enviar para a cozinha sozinho', 'O pedido da mesa já vai para "Em preparo" sem esperar o seu clique.', lig('aceitar_auto_comanda', false), 'Envio sozinho (comanda)')}
+            ${restauranteAtual.slug === 'servidelivery-demo'
+              ? linha('aceitar_auto_comanda', 'Aceitar o pedido da mesa sozinho', 'O pedido da mesa já entra como aceito (Em preparo) sem esperar o seu clique. Se a impressão sozinha estiver ligada, o papel sai junto.', lig('aceitar_auto_comanda', false), 'Aceite sozinho (comanda)')
+              : linha('aceitar_auto_comanda', 'Enviar para a cozinha sozinho', 'O pedido da mesa já vai para "Em preparo" sem esperar o seu clique.', lig('aceitar_auto_comanda', false), 'Envio sozinho (comanda)')}
             ${linha('imprimir_auto_comanda', 'Imprimir a comanda sozinha', 'Imprime o pedido da mesa, com o número da mesa grande no topo.', lig('imprimir_auto_comanda', imprDel), 'Impressão automática (comanda)')}
             ${typeof semBebidasChavinhaHtml === 'function' ? semBebidasChavinhaHtml() : ''}`;
         })()}
@@ -4128,7 +4130,7 @@ async function renderConfig() {
 
       <div class="form-group" style="margin-top:24px;">
         <label style="font-size:14px;font-weight:700;">Comandas</label>
-        <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Todo pedido de mesa passa por "Aguardando Confirmação" antes do preparo — garante que alguém sempre veja e avise a cozinha. Se preferir, ligue "Enviar para a cozinha sozinho" ali em cima (só no aparelho da cozinha/impressora).</div>
+        <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Todo pedido de mesa passa por "Aguardando Confirmação" antes do preparo — garante que alguém sempre veja e avise a cozinha. Se preferir, ligue "${restauranteAtual.slug === 'servidelivery-demo' ? 'Aceitar o pedido da mesa sozinho' : 'Enviar para a cozinha sozinho'}" ali em cima (só no aparelho da cozinha/impressora).</div>
       </div>
 
       <div class="form-group" style="margin-top:24px;">
