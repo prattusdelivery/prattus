@@ -214,6 +214,24 @@ function adicionarPratoLivre() {
   toast(`Prato Livre — R$ ${valor.toFixed(2).replace('.', ',')} adicionado!`);
 }
 
+// Nome de quem lançou o pedido da mesa (login do garçom/gerente; o dono aparece como "Dono").
+// Vai no papel, em baixo, para a cozinha saber a quem entregar, e em letra pequena no cartão do painel.
+// Por enquanto só grava na loja Demo.
+function lancadoPorAtivo() {
+  return !!restauranteAtual && restauranteAtual.slug === 'servidelivery-demo';
+}
+function nomeDeQuemLancou() {
+  try {
+    if (typeof meuPapel !== 'undefined' && meuPapel === 'dono') return 'Dono';
+    const em = (typeof usuarioAtual !== 'undefined' && usuarioAtual && usuarioAtual.email) || '';
+    if (em.endsWith('.equipe.servidelivery.internal')) {
+      const u = em.split('@')[0];
+      return u ? u.charAt(0).toUpperCase() + u.slice(1) : '';
+    }
+    return (typeof meuPapel !== 'undefined' && meuPapel === 'funcionario') ? 'Gerente' : '';
+  } catch (e) { return ''; }
+}
+
 var comandaEmAndamento = false;
 async function finalizarComanda() {
   if (comandaEmAndamento) return;
@@ -248,6 +266,7 @@ async function finalizarComandaInterno(jaConfirmado) {
     observacao: `Comanda — ${textoMesa(comandaAtual.mesa)}${obsGeral ? '\nObs: '+obsGeral : ''}`
   };
   if (jaConfirmado || soEspeciais) dadosPedido.aceito_em = new Date().toISOString();
+  if (lancadoPorAtivo()) { const quem = nomeDeQuemLancou(); if (quem) dadosPedido.lancado_por = quem; }
 
   const { data: pedido, error } = await db.from('pedidos').insert(dadosPedido).select().single();
 
@@ -708,7 +727,8 @@ async function renderComandas() {
         ${mesaMatch ? `<div style="display:inline-block;background:var(--laranja);color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;">🍽️ Mesa ${esc(mesaMatch[1])}</div>` : ''}
         ${p.status === 'preparando' && p.aceito_em ? `<div style="display:inline-block;background:#FFF3E0;color:#B26A00;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;margin-left:4px;">⏱️ ${tempoDecorridoTexto(p.aceito_em)} em preparo</div>` : ''}
         <div class="pedido-cliente" style="margin-bottom:8px;">${[p.endereco, p.bairro].filter(x => x && String(x).trim()).map(esc).join(' — ')}</div>
-        <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">${itensTxt}</div>
+        <div style="font-size:12px;color:var(--texto-muted);margin-bottom:${p.lancado_por ? '4' : '10'}px;">${itensTxt}</div>
+        ${p.lancado_por ? `<div style="font-size:11px;color:var(--texto-muted);margin-bottom:10px;">por ${esc(p.lancado_por)}</div>` : ''}
         ${obsFormatada(p)}
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
           ${montaBotoesStatus(p, telefone)}
@@ -1214,6 +1234,7 @@ function imprimirComanda(p, forcarNormal) {
     ${ehDelivery ? `<div class="cp-par cp-info"><span>Frete</span><span>${frete > 0 ? reais(frete) : 'Grátis'}</span></div>` : ''}
     ${desconto > 0.009 ? `<div class="cp-par cp-info"><span>Desconto</span><span>- ${reais(desconto)}</span></div>` : ''}
     <div class="cp-par cp-total"><span>TOTAL</span><span>${reais(totalPedido)}</span></div>
+    ${(ehCom && p.lancado_por) ? `<div class="cp-linha"></div><div style="text-align:center;font-size:16px;font-weight:800;margin-top:2px;">${p.lancado_por === 'Dono' ? 'Atendente' : 'Garçom'}: ${esc(p.lancado_por)}</div>` : ''}
     ${impressaoNaoFiscalAtiva() ? '<div class="cp-linha"></div><div style="text-align:center;font-size:13px;font-weight:700;margin-top:4px;">NÃO É DOCUMENTO FISCAL</div>' : ''}
   `;
   imprimirPapelAjustado();
