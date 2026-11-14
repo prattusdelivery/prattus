@@ -2471,7 +2471,7 @@ async function carregarRestaurante() {
 
   if (data) {
     restauranteAtual = data;
-    document.body.classList.toggle('fix-topbar-cel', data.slug === 'servidelivery-demo');
+    document.body.classList.add('fix-topbar-cel');
   if (typeof chamadosIniciar === 'function') { try { chamadosIniciar(); } catch (e) {} }
     document.getElementById('sb-rest-nome').textContent = data.nome;
     document.getElementById('topbar-rest').textContent = data.nome;
@@ -7409,7 +7409,7 @@ async function garantirUserIdRestaurante() {
 }
 </script>
 <script src="cardapio.js"></script>
-<script src="pedidos.js?v=20261114b"></script>
+<script src="pedidos.js?v=20261114c"></script>
 <script src="impressoras.js?v=20261029c"></script>
 <script src="relatorios.js"></script>
 <script src="financeiro.js?v=20261112a"></script>

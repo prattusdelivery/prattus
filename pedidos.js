@@ -427,10 +427,10 @@ async function autoFinalizarEntregasAntigas() {
 
 // Comandas das mesas que ficaram "em preparo" por mais de 45 minutos (ninguém clicou em "Pronto para Servir")
 // passam sozinhas para "Servido". Só comandas; o delivery não muda. Sem aviso de WhatsApp.
-// Por enquanto só vale para a loja Demo.
+// Vale para todas as lojas.
 async function autoFinalizarComandasAntigas() {
   try {
-    if (!restauranteAtual || restauranteAtual.slug !== 'servidelivery-demo') return;
+    if (!restauranteAtual) return;
     const agora = Date.now();
     const limiteMs = 45 * 60 * 1000;
     const limite = new Date(agora - limiteMs).toISOString();
