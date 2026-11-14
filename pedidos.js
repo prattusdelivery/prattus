@@ -216,9 +216,9 @@ function adicionarPratoLivre() {
 
 // Nome de quem lançou o pedido da mesa (login do garçom/gerente; o dono aparece como "Dono").
 // Vai no papel, em baixo, para a cozinha saber a quem entregar, e em letra pequena no cartão do painel.
-// Por enquanto só grava na loja Demo.
+// Vale para todas as lojas.
 function lancadoPorAtivo() {
-  return !!restauranteAtual && restauranteAtual.slug === 'servidelivery-demo';
+  return !!restauranteAtual; // liberado para todas as lojas
 }
 function nomeDeQuemLancou() {
   try {

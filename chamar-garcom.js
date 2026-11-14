@@ -3,10 +3,10 @@
 //    "Chamar o garçom". O aviso vai para o servidor (/api/consultar-pontos, ação chamar_garcom) e fica na tabela chamados_garcom.
 // 2) No painel (dono, gerente e garçom) a mesa que chamou pisca em verde neon, sem som: no mapa de mesas e numa faixa embaixo da tela.
 //    Quando o garçom toca na mesa (ou na faixa), o chamado some.
-// Por enquanto só na loja Demo (servidelivery-demo). Para liberar para todas: trocar chamadoLojaLiberada() por "return true".
+// Liberado para todas as lojas.
 
 function chamadoLojaLiberada(slug) {
-  return slug === 'servidelivery-demo';
+  return true; // liberado para todas as lojas
 }
 
 (function () {
