@@ -403,6 +403,32 @@ async function autoFinalizarEntregasAntigas() {
   const limite = new Date(Date.now() - 30*60*1000).toISOString();
   await db.from('pedidos').update({ status: 'entregue' })
     .eq('restaurante_id', restauranteAtual.id).eq('status', 'entrega').lt('saiu_entrega_em', limite);
+  await autoFinalizarComandasAntigas();
+}
+
+// Comandas das mesas que ficaram "em preparo" por mais de 45 minutos (ninguém clicou em "Pronto para Servir")
+// passam sozinhas para "Servido". Só comandas; o delivery não muda. Sem aviso de WhatsApp.
+// Por enquanto só vale para a loja Demo.
+async function autoFinalizarComandasAntigas() {
+  try {
+    if (!restauranteAtual || restauranteAtual.slug !== 'servidelivery-demo') return;
+    const agora = Date.now();
+    const limiteMs = 45 * 60 * 1000;
+    const limite = new Date(agora - limiteMs).toISOString();
+    const { data: abertos, error } = await db.from('pedidos')
+      .select('id,codigo_comanda_id,observacao,aceito_em,criado_em')
+      .eq('restaurante_id', restauranteAtual.id).eq('status', 'preparando').lt('criado_em', limite).limit(200);
+    if (error || !abertos || !abertos.length) return;
+    const ids = abertos.filter(p => {
+      const ehComanda = !!p.codigo_comanda_id || (p.observacao || '').includes('Modo: Consumir no local');
+      if (!ehComanda) return false;
+      const base = dataDoBanco(p.aceito_em || p.criado_em);
+      return base && (agora - base.getTime()) >= limiteMs;
+    }).map(p => p.id);
+    if (!ids.length) return;
+    await db.from('pedidos').update({ status: 'entrega', saiu_entrega_em: new Date().toISOString() })
+      .in('id', ids).eq('status', 'preparando');
+  } catch (e) { console.warn('autoFinalizarComandasAntigas:', e); }
 }
 
 async function renderDashboard() {
