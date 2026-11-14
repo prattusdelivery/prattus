@@ -73,7 +73,7 @@ function chamadosDesenhar() {
   let f = document.getElementById('chamados-faixa');
   if (!chamadosLista.length) { if (f) f.remove(); chamadosMarcarMapa(); return; }
   if (!f) { f = document.createElement('div'); f.id = 'chamados-faixa'; document.body.appendChild(f); }
-  f.innerHTML = `<div class="ch-txt">🔔 Chamando</div>
+  f.innerHTML = `<div class="ch-txt">🔔 Mesa chamando</div>
     <div class="ch-lista">${chamadosLista.map(n => `<button type="button" onclick="chamadoAtender(${n})" aria-label="Atender mesa ${n}">${n}</button>`).join('')}</div>`;
   chamadoPosicionar();
   chamadosMarcarMapa();
