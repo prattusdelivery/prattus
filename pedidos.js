@@ -1287,6 +1287,7 @@ function montaBotoesStatus(p, telefone) {
 }
 
 async function avancarStatus(id, novoStatus, nomeCliente, telefone, numPedido) {
+  if (typeof chamadoAtenderDoPedido === 'function') chamadoAtenderDoPedido(id);
   const dadosUpdate = { status: novoStatus };
   if (novoStatus === 'preparando') dadosUpdate.aceito_em = new Date().toISOString();
   if (novoStatus === 'entrega') dadosUpdate.saiu_entrega_em = new Date().toISOString();
@@ -1335,6 +1336,7 @@ async function avancarStatus(id, novoStatus, nomeCliente, telefone, numPedido) {
 }
 
 async function mudarStatus(id, status) {
+  if (typeof chamadoAtenderDoPedido === 'function') chamadoAtenderDoPedido(id);
   await db.from('pedidos').update({ status }).eq('id', id);
   toast('Status atualizado!', 'ok');
   if (paginaAtual === 'pedidos') renderPedidos(); else if (paginaAtual === 'comandas') renderComandas();

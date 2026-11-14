@@ -98,6 +98,18 @@ async function chamadoAtender(n) {
   } catch (e) { /* o próximo ciclo mostra de novo se não apagou */ }
 }
 
+// Aceitar, recusar ou mexer num pedido de uma mesa também conta como "atendi": o chamado dessa mesa some
+async function chamadoAtenderDoPedido(pedidoId) {
+  try {
+    if (!chamadosLista.length || !restauranteAtual) return;
+    const { data } = await db.from('pedidos').select('observacao,endereco').eq('id', pedidoId).maybeSingle();
+    if (!data) return;
+    const m = String((data.observacao || '') + ' ' + (data.endereco || '')).match(/Mesa\s+(\d+(?:\s*\/\s*\d+)*)/i);
+    if (!m) return;
+    m[1].split('/').map(x => parseInt(x)).filter(n => chamadosLista.includes(n)).forEach(n => chamadoAtender(n));
+  } catch (e) { /* sem problema: o garçom ainda pode tocar no número */ }
+}
+
 // Mesas juntas ("2/3"): tocar na mesa atende todas do grupo
 function chamadoAtenderVarias(nums) {
   (nums || []).forEach(n => chamadoAtender(n));
