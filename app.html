@@ -2472,6 +2472,7 @@ async function carregarRestaurante() {
   if (data) {
     restauranteAtual = data;
     document.body.classList.toggle('fix-topbar-cel', data.slug === 'servidelivery-demo');
+  if (typeof chamadosIniciar === 'function') { try { chamadosIniciar(); } catch (e) {} }
     document.getElementById('sb-rest-nome').textContent = data.nome;
     document.getElementById('topbar-rest').textContent = data.nome;
     document.getElementById('topbar-avatar').textContent = data.nome.charAt(0).toUpperCase();
@@ -4330,6 +4331,7 @@ async function renderConfig() {
     </div>
     <div style="font-size:12px;color:var(--texto-muted);margin-top:6px;">Sai no mesmo tamanho dos códigos de comanda, vários por folha, prontos para recortar e colar no canto da mesa.</div>` : ''}
   `;
+  if (typeof chamadoConfigInserir === 'function') { try { chamadoConfigInserir(); } catch (e) {} }
   if (usarConfigEmAbas()) cfgOrganizarEmAbas();
 }
 
@@ -4899,6 +4901,7 @@ async function carregarPublico(restId) {
     document.getElementById('btn-meus-pedidos').style.display = 'none';
     renderItensPublico(todosItensPublico);
     renderRankingHome();
+    if (mesaParam && typeof chamarGarcomMontar === 'function') { try { chamarGarcomMontar(rest, mesaParam); } catch (e) {} }
   } else if (mesaParam) {
     selecionarModo('local');
     const campoMesaInput = document.getElementById('ped-mesa');
@@ -7412,10 +7415,11 @@ async function garantirUserIdRestaurante() {
 <script src="financeiro.js?v=20261112a"></script>
 <script src="clientes.js"></script>
 <script src="modo-facil.js?v=20261113a"></script>
-<script src="mapa-mesas.js?v=20261113b"></script>
+<script src="mapa-mesas.js?v=20261114a"></script>
 <script src="conta-mesa.js?v=20261112c"></script>
 <script src="primeiros-passos.js?v=20261113a"></script>
 <script src="sem-bebidas.js?v=20261113c"></script>
 <script src="editar-comanda.js?v=20261113d"></script>
+<script src="chamar-garcom.js?v=20261114a"></script>
 </body>
 </html>

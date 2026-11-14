@@ -59,7 +59,8 @@ function mapaMesasInserir(mesas) {
     // Só fica "com pedido" depois que algum pedido foi enviado. Mesa aberta sem pedido continua "livre".
     const ocupada = !!m && (m.qtdPedidos || 0) > 0;
     const total = ocupada ? 'R$ ' + (m.total || 0).toFixed(2).replace('.', ',') : (rot ? 'juntas' : 'livre');
-    tiles += `<button type="button" onclick="mapaMesaTocar(${n})" style="
+    const numsTile = pm ? mapaNumerosDaMesa(pm.m.mesa) : [n];
+    tiles += `<button type="button" data-mesas="${numsTile.join(',')}" onclick="mapaMesaTocar(${n})" style="
         display:flex;flex-direction:column;align-items:center;justify-content:center;height:78px;border-radius:14px;cursor:pointer;font-family:inherit;
         border:2px solid ${ocupada || rot ? 'var(--laranja)' : 'var(--creme-borda)'};
         background:${ocupada ? 'var(--laranja)' : '#fff'};color:${ocupada ? '#fff' : 'var(--texto)'};">
@@ -77,6 +78,8 @@ function mapaMesasInserir(mesas) {
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:10px;">${tiles}</div>
       <div style="font-size:12px;color:var(--texto-muted);margin-top:12px;text-align:center;">Toque numa mesa para abrir ou continuar o pedido</div>
     </div>`);
+
+  if (typeof chamadosMarcarMapa === 'function') chamadosMarcarMapa();
 
   // Só mapa: o garçom não precisa do leitor de QR
   if (mapaMesasModo() === 'mapa') {
@@ -104,12 +107,17 @@ async function mapaMesaTocar(n) {
   mapaTocando = true;
   try {
     const rid = restauranteAtual.id;
+    // Garçom foi atender: some o chamado piscando dessa mesa
+    if (typeof chamadoAtender === 'function') chamadoAtender(n);
     // Mesa já aberta (por mapa ou por QR): continua nela
     // (inclui mesas juntas: "2/3" abre a mesma conta tocando no 13 ou no 14)
     const { data: abertas } = await db.from('codigos_comanda').select('id,mesa')
       .eq('restaurante_id', rid).eq('status', 'em_uso').not('mesa', 'is', null);
     const aberta = (abertas || []).filter(a => mapaNumerosDaMesa(a.mesa).includes(n));
-    if (aberta.length) { window.location.href = '?comanda=' + aberta[0].id; return; }
+    if (aberta.length) {
+      if (typeof chamadoAtenderVarias === 'function') chamadoAtenderVarias(mapaNumerosDaMesa(aberta[0].mesa));
+      window.location.href = '?comanda=' + aberta[0].id; return;
+    }
 
     // Mesa livre: usa a comanda "M<n>" (cria se ainda não existir)
     const cod = 'M' + n;
