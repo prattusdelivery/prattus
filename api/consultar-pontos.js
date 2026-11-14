@@ -723,7 +723,8 @@ async function chamarGarcom(req, res, headers) {
   const ja = await jaR.json();
   if (Array.isArray(ja) && ja.length) return res.status(200).json({ ok: true, jaChamando: true });
 
-  if (ipHash && await contar(`restaurante_id=eq.${restauranteId}&ip_hash=eq.${ipHash}`) >= 6) {
+  // Muita gente no mesmo Wi-Fi do restaurante usa o mesmo endereço de rede, por isso o limite por rede é folgado (o teto de 40 abertos por restaurante vem logo abaixo)
+  if (ipHash && await contar(`restaurante_id=eq.${restauranteId}&ip_hash=eq.${ipHash}`) >= 30) {
     return res.status(429).json({ error: 'Você já chamou o garçom agora há pouco. Aguarde um instante.' });
   }
   const abR = await fetch(`${SUPABASE_URL}/rest/v1/chamados_garcom?restaurante_id=eq.${restauranteId}&select=id&limit=200`, { headers });
