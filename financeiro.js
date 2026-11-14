@@ -107,7 +107,7 @@ async function finBuscarPedidos(rid, ini, fim) {
   let todos = [];
   for (let i = 0; i < 5; i++) {
     const { data, error } = await db.from('pedidos')
-      .select('total,criado_em,observacao,codigo_comanda_id')
+      .select('total,criado_em,observacao,codigo_comanda_id,lancado_por')
       .eq('restaurante_id', rid).in('status', ['preparando', 'entrega', 'entregue'])
       .gte('criado_em', ini + 'T00:00:00-03:00').lte('criado_em', fim + 'T23:59:59-03:00')
       .range(i * 1000, i * 1000 + 999);
@@ -125,6 +125,30 @@ function finFormaPag(p) {
   if (t.includes('cart')) return 'Cartão';
   if (t.includes('dinheiro')) return 'Dinheiro';
   return 'Outros';
+}
+
+// ----- Vendas por garçom (quem lançou o pedido) — por enquanto só na Demo -----
+function finGarcomLiberado() { return !!restauranteAtual && restauranteAtual.slug === 'servidelivery-demo'; }
+function finGarcomCard(porGarcom) {
+  const itens = Object.entries(porGarcom).sort((a, b) => b[1].v - a[1].v);
+  let corpo;
+  if (!itens.length) {
+    corpo = '<div class="empty-txt" style="color:var(--texto-muted);">Nenhum pedido com nome neste período</div>';
+  } else {
+    const max = Math.max(...itens.map(i => i[1].v), 1);
+    corpo = itens.map(([nome, g]) => `
+      <div style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;gap:8px;font-size:14px;margin-bottom:4px;">
+          <span>👤 ${esc(nome)} <span style="color:var(--texto-muted);font-size:12px;">· ${g.n} pedido(s)</span></span><span style="font-weight:700;">${finReais(g.v)}</span>
+        </div>
+        <div style="height:8px;background:var(--creme-borda);border-radius:6px;overflow:hidden;"><div style="height:100%;width:${Math.max(3, g.v / max * 100)}%;background:#0F6E56;border-radius:6px;"></div></div>
+      </div>`).join('');
+  }
+  return `<div class="card">
+    <div class="card-titulo">👤 Vendas por garçom</div>
+    ${corpo}
+    <div style="font-size:12px;color:var(--texto-muted);margin-top:6px;">Mostra quem lançou cada pedido (menos os recusados). Pedidos feitos antes do nome ser guardado e pedidos que o cliente fez sozinho não entram aqui.</div>
+  </div>`;
 }
 
 function finBarras(mapa, cor) {
@@ -177,9 +201,10 @@ async function renderFinanceiro(periodo) {
   const lucro = entradas - saidas;
   const margem = entradas > 0 ? Math.round(lucro / entradas * 100) : null;
 
-  const porPag = {}, porMesa = {}, porDia = {};
+  const porPag = {}, porMesa = {}, porDia = {}, porGarcom = {};
   pedidos.forEach(p => {
     const v = parseFloat(p.total || 0);
+    if (p.lancado_por) { const g = (porGarcom[p.lancado_por] = porGarcom[p.lancado_por] || { v: 0, n: 0 }); g.v += v; g.n += 1; }
     if (!p.codigo_comanda_id) { const f = finFormaPag(p); porPag[f] = (porPag[f] || 0) + v; } // só delivery
     const dia = dataBR(dataDoBanco(p.criado_em));
     (porDia[dia] = porDia[dia] || { e: 0, s: 0 }).e += v;
@@ -265,6 +290,8 @@ async function renderFinanceiro(periodo) {
         ${porMesa['Não informado'] ? '<div style="font-size:12px;color:var(--texto-muted);margin-top:6px;">"Não informado" são contas fechadas antes de o caixa marcar a forma de pagamento.</div>' : ''}
       </div>
     </div>
+
+    ${finGarcomLiberado() ? finGarcomCard(porGarcom) : ''}
 
     <div class="card">
       <div class="card-titulo">Dia a dia</div>
