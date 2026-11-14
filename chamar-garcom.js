@@ -19,9 +19,11 @@ function chamadoLojaLiberada(slug) {
       50%      { box-shadow: 0 0 0 0 rgba(57,255,20,0), 0 0 0 0 rgba(57,255,20,0); border-color: var(--creme-borda) !important; }
     }
     .mesa-chamando { animation: chamadoPisca 1s ease-in-out infinite; border-color: #39ff14 !important; }
-    #chamados-faixa { position: fixed; left: 10px; right: 10px; bottom: 10px; z-index: 950; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; pointer-events: none; }
-    #chamados-faixa button { pointer-events: auto; background: #fff; color: #0a3d00; border: 2px solid #39ff14; border-radius: 12px; padding: 10px 16px; font-size: 15px; font-weight: 800; font-family: inherit; cursor: pointer; animation: chamadoPisca 1s ease-in-out infinite; }
-    #chamados-faixa button small { display: block; font-size: 11px; font-weight: 600; opacity: .8; }
+    #chamados-faixa { position: fixed; left: 10px; right: 10px; bottom: 10px; z-index: 950; display: flex; align-items: center; gap: 8px; background: #fff; border: 2px solid #39ff14; border-radius: 14px; padding: 7px 10px; max-width: 520px; margin: 0 auto; animation: chamadoPisca 1s ease-in-out infinite; }
+    #chamados-faixa .ch-txt { flex-shrink: 0; font-size: 12px; font-weight: 800; color: #0a3d00; line-height: 1.15; }
+    #chamados-faixa .ch-txt small { display: block; font-size: 10px; font-weight: 600; opacity: .8; }
+    #chamados-faixa .ch-lista { display: flex; gap: 6px; overflow-x: auto; flex: 1; padding: 2px; }
+    #chamados-faixa button { flex-shrink: 0; min-width: 40px; height: 40px; border-radius: 10px; border: 2px solid #39ff14; background: #eaffe3; color: #0a3d00; font-size: 17px; font-weight: 800; font-family: inherit; cursor: pointer; padding: 0 8px; }
   `;
   document.head.appendChild(st);
 })();
@@ -60,8 +62,8 @@ function chamadosDesenhar() {
   let f = document.getElementById('chamados-faixa');
   if (!chamadosLista.length) { if (f) f.remove(); chamadosMarcarMapa(); return; }
   if (!f) { f = document.createElement('div'); f.id = 'chamados-faixa'; document.body.appendChild(f); }
-  f.innerHTML = chamadosLista.map(n =>
-    `<button type="button" onclick="chamadoAtender(${n})">🔔 Mesa ${n} chamando<small>toque quando for atender</small></button>`).join('');
+  f.innerHTML = `<div class="ch-txt">🔔 Chamando<small>toque no número<br>quando atender</small></div>
+    <div class="ch-lista">${chamadosLista.map(n => `<button type="button" onclick="chamadoAtender(${n})" aria-label="Atender mesa ${n}">${n}</button>`).join('')}</div>`;
   chamadosMarcarMapa();
 }
 
