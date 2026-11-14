@@ -19,15 +19,11 @@ function chamadoLojaLiberada(slug) {
       50%      { box-shadow: 0 0 0 0 rgba(57,255,20,0), 0 0 0 0 rgba(57,255,20,0); border-color: var(--creme-borda) !important; }
     }
     .mesa-chamando { animation: chamadoPisca 1s ease-in-out infinite; border-color: #39ff14 !important; }
-    #chamados-faixa { position: fixed; left: 10px; right: 10px; bottom: 10px; z-index: 950; display: flex; align-items: center; gap: 8px; background: #fff; border: 2px solid #39ff14; border-radius: 14px; padding: 7px 10px; max-width: 520px; margin: 0 auto; animation: chamadoPisca 1s ease-in-out infinite; }
-    /* Na tela de montar o pedido da mesa o botão de enviar fica embaixo: a faixa vai para o topo, pequena, para não cobrir */
-    #chamados-faixa.ch-topo { bottom: auto; top: 8px; left: 50%; right: auto; transform: translateX(-50%); width: max-content; max-width: calc(100% - 20px); padding: 4px 8px; border-radius: 12px; gap: 6px; }
-    #chamados-faixa.ch-topo .ch-txt small { display: none; }
-    #chamados-faixa.ch-topo button { min-width: 32px; height: 32px; font-size: 15px; border-radius: 8px; }
+    /* Faixa sempre no topo, pequena: nas telas do painel fica logo abaixo da barra de cima; ao montar pedido da mesa, no alto da tela */
+    #chamados-faixa { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 20px); z-index: 950; display: flex; align-items: center; gap: 6px; background: #fff; border: 2px solid #39ff14; border-radius: 12px; padding: 4px 8px; animation: chamadoPisca 1s ease-in-out infinite; }
     #chamados-faixa .ch-txt { flex-shrink: 0; font-size: 12px; font-weight: 800; color: #0a3d00; line-height: 1.15; }
-    #chamados-faixa .ch-txt small { display: block; font-size: 10px; font-weight: 600; opacity: .8; }
     #chamados-faixa .ch-lista { display: flex; gap: 6px; overflow-x: auto; flex: 1; padding: 2px; }
-    #chamados-faixa button { flex-shrink: 0; min-width: 40px; height: 40px; border-radius: 10px; border: 2px solid #39ff14; background: #eaffe3; color: #0a3d00; font-size: 17px; font-weight: 800; font-family: inherit; cursor: pointer; padding: 0 8px; }
+    #chamados-faixa button { flex-shrink: 0; min-width: 32px; height: 32px; border-radius: 8px; border: 2px solid #39ff14; background: #eaffe3; color: #0a3d00; font-size: 15px; font-weight: 800; font-family: inherit; cursor: pointer; padding: 0 8px; }
   `;
   document.head.appendChild(st);
 })();
@@ -63,20 +59,21 @@ async function chamadosBuscar() {
   } catch (e) { /* sem rede: tenta de novo no próximo ciclo */ }
 }
 
-// Na tela de montar pedido da mesa (comanda aberta), a faixa fica no topo; nas demais telas, embaixo
+// A faixa fica sempre no topo: logo abaixo da barra de cima do painel (ou no alto da tela, quando não há barra, como ao montar o pedido da mesa)
 function chamadoPosicionar() {
   const f = document.getElementById('chamados-faixa');
   if (!f) return;
-  const t = document.getElementById('tela-cliente');
-  const noPedido = (typeof modoComandaAtivo !== 'undefined' && modoComandaAtivo) || (t && t.classList.contains('ativa'));
-  f.classList.toggle('ch-topo', !!noPedido);
+  let topo = 8;
+  const t = document.querySelector('#tela-painel.ativa .topbar');
+  if (t) { const r = t.getBoundingClientRect(); if (r.height > 0 && r.bottom > 0) topo = Math.round(r.bottom) + 6; }
+  f.style.top = topo + 'px';
 }
 
 function chamadosDesenhar() {
   let f = document.getElementById('chamados-faixa');
   if (!chamadosLista.length) { if (f) f.remove(); chamadosMarcarMapa(); return; }
   if (!f) { f = document.createElement('div'); f.id = 'chamados-faixa'; document.body.appendChild(f); }
-  f.innerHTML = `<div class="ch-txt">🔔 Chamando<small>toque no número<br>quando atender</small></div>
+  f.innerHTML = `<div class="ch-txt">🔔 Chamando</div>
     <div class="ch-lista">${chamadosLista.map(n => `<button type="button" onclick="chamadoAtender(${n})" aria-label="Atender mesa ${n}">${n}</button>`).join('')}</div>`;
   chamadoPosicionar();
   chamadosMarcarMapa();
