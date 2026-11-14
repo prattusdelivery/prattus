@@ -72,6 +72,9 @@ export default async function handler(req, res) {
     if (acao === 'pedido_criar') {
       return await pedidoCriar(req, res, headers);
     }
+    if (acao === 'chamar_garcom') {
+      return await chamarGarcom(req, res, headers);
+    }
 
     if (acao === 'buscar_pix') {
       if (!restauranteId) return res.status(400).json({ error: 'restauranteId é obrigatório' });
@@ -691,6 +694,53 @@ async function criarPedidoPago(pend, headers) {
   }
 }
 
+
+// =====================================================================
+// CHAMAR GARÇOM — o cliente toca no botão do cardápio da mesa (QR com ?mesa=N) e a mesa fica "chamando" no painel.
+// Grava na tabela chamados_garcom (1 linha por mesa). Limites de abuso por aparelho/rede e por restaurante.
+// =====================================================================
+async function chamarGarcom(req, res, headers) {
+  const { restauranteId, mesa } = req.body || {};
+  const n = Number(mesa);
+  if (!restauranteId || !/^[0-9a-f-]{36}$/i.test(String(restauranteId)) || !Number.isInteger(n) || n < 1 || n > 99) {
+    return res.status(400).json({ error: 'Mesa inválida.' });
+  }
+  const rr = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}&select=id,qtd_mesas`, { headers });
+  const rest = (await rr.json())?.[0];
+  if (!rest) return res.status(400).json({ error: 'Restaurante não encontrado.' });
+  if (n > (parseInt(rest.qtd_mesas) || 0)) return res.status(400).json({ error: 'Essa mesa não existe.' });
+
+  const ip = String((req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '')).split(',')[0].trim();
+  const ipHash = ip ? crypto.createHash('sha256').update('sd-chamado:' + ip).digest('hex').slice(0, 32) : null;
+  const desde = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  async function contar(filtro) {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/chamados_garcom?select=id&criado_em=gte.${desde}&${filtro}&limit=100`, { headers });
+    const d = await r.json();
+    return Array.isArray(d) ? d.length : 0;
+  }
+  // Mesma mesa já chamando: só confirma (não duplica)
+  const jaR = await fetch(`${SUPABASE_URL}/rest/v1/chamados_garcom?restaurante_id=eq.${restauranteId}&mesa=eq.${n}&select=id`, { headers });
+  const ja = await jaR.json();
+  if (Array.isArray(ja) && ja.length) return res.status(200).json({ ok: true, jaChamando: true });
+
+  if (ipHash && await contar(`restaurante_id=eq.${restauranteId}&ip_hash=eq.${ipHash}`) >= 6) {
+    return res.status(429).json({ error: 'Você já chamou o garçom agora há pouco. Aguarde um instante.' });
+  }
+  const abR = await fetch(`${SUPABASE_URL}/rest/v1/chamados_garcom?restaurante_id=eq.${restauranteId}&select=id&limit=200`, { headers });
+  const ab = await abR.json();
+  if (Array.isArray(ab) && ab.length >= 40) return res.status(429).json({ error: 'Muitos chamados agora. Chame o garçom com a mão, por favor.' });
+
+  const ins = await fetch(`${SUPABASE_URL}/rest/v1/chamados_garcom`, {
+    method: 'POST',
+    headers: { ...headers, 'Prefer': 'return=minimal,resolution=ignore-duplicates', },
+    body: JSON.stringify({ restaurante_id: restauranteId, mesa: n, ip_hash: ipHash })
+  });
+  if (!ins.ok && ins.status !== 409) {
+    await reportarErro(new Error('chamar_garcom: falha ao gravar: ' + (await ins.text()).slice(0, 300)), 'chamar-garcom');
+    return res.status(500).json({ error: 'Não consegui avisar o garçom. Tente de novo.' });
+  }
+  return res.status(200).json({ ok: true });
+}
 
 // =====================================================================
 // PEDIDO NORMAL (dinheiro, maquininha, Pix manual) — criado AQUI no servidor, com checagens.
