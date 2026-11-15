@@ -2440,7 +2440,7 @@ function paginaInicialDoPapel() {
 function aplicarRestricoesGarcom() {
   const ehGarcom = meuPapel === 'garcom';
   document.querySelectorAll('.sidebar-scroll .nav-item').forEach(el => {
-    const ehComandas = (el.getAttribute('onclick') || '').includes("'comandas'");
+    const ehComandas = (el.getAttribute('onclick') || '').includes("'comandas'") || el.id === 'nav-instalar-app'; // "Instalar app" também fica para o garçom
     const escondeDono = el.classList.contains('nav-somente-dono') && meuPapel !== 'dono';
     el.style.display = (ehGarcom && !ehComandas) || escondeDono ? 'none' : '';
   });
