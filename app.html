@@ -462,8 +462,8 @@ body.fix-topbar-cel .main{min-width:0;}
   box-shadow:0 2px 8px -4px rgba(35,25,20,0.06);
 }
 .pub-item:last-child{margin-bottom:0;}
-.ilust-selo{position:absolute;right:3px;bottom:3px;font-size:7px;line-height:1;padding:2px 4px;border-radius:4px;background:rgba(0,0,0,0.55);color:#fff;font-weight:500;letter-spacing:.1px;pointer-events:none;white-space:nowrap;}
-.ilust-selo-grande{font-size:10px;padding:3px 6px;right:6px;bottom:6px;border-radius:6px;}
+.ilust-selo{position:absolute;right:2px;bottom:2px;font-size:6px;line-height:1;padding:1px 3px;border-radius:3px;background:rgba(0,0,0,0.28);color:rgba(255,255,255,0.8);font-weight:400;pointer-events:none;white-space:nowrap;}
+.ilust-selo-grande{font-size:8.5px;padding:2px 5px;right:5px;bottom:5px;border-radius:4px;}
 .pub-item-foto{position:relative;
   width:72px;height:72px;border-radius:12px;background:var(--laranja-light);
   display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;
@@ -5068,7 +5068,7 @@ function imgIlustAtivo() {
 }
 function seloIlust(grande) {
   if (!imgIlustAtivo()) return '';
-  return grande ? '<span class="ilust-selo ilust-selo-grande">Imagem ilustrativa</span>' : '<span class="ilust-selo">Ilustrativa</span>';
+  return '<span class="ilust-selo' + (grande ? ' ilust-selo-grande' : '') + '">Imagem ilustrativa</span>';
 }
 
 function renderRankingCard(item) {
