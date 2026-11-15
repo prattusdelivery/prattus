@@ -22,7 +22,6 @@ window.addEventListener('beforeinstallprompt', function (e) {
 });
 window.addEventListener('appinstalled', function () {
   appInstalarEvento = null;
-  try { localStorage.setItem('app_instalado', '1'); } catch (x) {}
   appInstalarFechar();
   var b = document.getElementById('app-instalar-faixa'); if (b) b.remove();
   var n = document.getElementById('nav-instalar-app'); if (n) n.remove();
@@ -51,9 +50,8 @@ function appInstalarCss() {
 // Chamado depois que a loja carrega
 function appInstalarIniciar() {
   if (!appInstalarLiberado() || !appInstalarEhCelular() || appInstalarJaApp()) return;
-  var jaInstalou = false, dispensou = false;
-  try { jaInstalou = localStorage.getItem('app_instalado') === '1'; dispensou = localStorage.getItem('app_instalar_dispensado') === '1'; } catch (e) {}
-  if (jaInstalou) return;
+  var dispensou = false;
+  try { dispensou = localStorage.getItem('app_instalar_dispensado') === '1'; } catch (e) {}
   appInstalarCss();
   appInstalarMenu();
   if (!dispensou && meuPapel === 'garcom') appInstalarFaixa(); // a faixa é só do garçom; o dono usa o item do menu
