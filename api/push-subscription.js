@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   };
 
   try {
-    const { acao, tipo, restauranteId, subscription, endpoint, tokenAdmin } = req.body || {};
+    const { acao, tipo, restauranteId, subscription, endpoint, tokenAdmin, somenteGarcom } = req.body || {};
 
     if (tipo === 'admin') {
       // Confirma que quem está chamando é o Super Admin de verdade
@@ -46,11 +46,15 @@ export default async function handler(req, res) {
     // tipo === 'restaurante' (padrão)
     if (acao === 'salvar') {
       if (!restauranteId || !subscription) return res.status(400).json({ error: 'Dados incompletos' });
-      await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?on_conflict=endpoint`, {
+      // Aparelho do garçom: só recebe "mesa chamando" (não os avisos de pedido novo)
+      const linha = { restaurante_id: restauranteId, endpoint: subscription.endpoint, subscription };
+      if (somenteGarcom === true) linha.somente_garcom = true;
+      const salvo = await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?on_conflict=endpoint`, {
         method: 'POST',
         headers: { ...svcHeaders, 'Prefer': 'return=minimal,resolution=merge-duplicates' },
-        body: JSON.stringify({ restaurante_id: restauranteId, endpoint: subscription.endpoint, subscription })
+        body: JSON.stringify(linha)
       });
+      if (somenteGarcom === true && !salvo.ok) return res.status(500).json({ error: 'Não consegui ligar o aviso.' });
     } else if (acao === 'remover') {
       if (!endpoint) return res.status(400).json({ error: 'endpoint é obrigatório' });
       await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}`, {

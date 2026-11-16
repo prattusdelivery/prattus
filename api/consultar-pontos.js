@@ -7,6 +7,7 @@
 // conferir o pagamento e só então criar o pedido de verdade no painel (ações mp_conectar,
 // mp_desconectar, pix_criar, pix_status e o aviso automático do Mercado Pago em ?mp=1).
 import crypto from 'crypto';
+import webpush from 'web-push';
 import { reportarErro } from './_sentry.js';
 
 const SUPABASE_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
@@ -705,7 +706,7 @@ async function chamarGarcom(req, res, headers) {
   if (!restauranteId || !/^[0-9a-f-]{36}$/i.test(String(restauranteId)) || !Number.isInteger(n) || n < 1 || n > 99) {
     return res.status(400).json({ error: 'Mesa inválida.' });
   }
-  const rr = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}&select=id,qtd_mesas`, { headers });
+  const rr = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}&select=id,qtd_mesas,slug`, { headers });
   const rest = (await rr.json())?.[0];
   if (!rest) return res.status(400).json({ error: 'Restaurante não encontrado.' });
   if (n > (parseInt(rest.qtd_mesas) || 0)) return res.status(400).json({ error: 'Essa mesa não existe.' });
@@ -740,7 +741,33 @@ async function chamarGarcom(req, res, headers) {
     await reportarErro(new Error('chamar_garcom: falha ao gravar: ' + (await ins.text()).slice(0, 300)), 'chamar-garcom');
     return res.status(500).json({ error: 'Não consegui avisar o garçom. Tente de novo.' });
   }
+  // Aviso no celular dos garçons (mesmo com a tela bloqueada). É um extra: se falhar, o chamado já está gravado.
+  await Promise.race([avisarMesaChamando(restauranteId, n, rest.slug, headers), new Promise(r => setTimeout(r, 5000))]);
   return res.status(200).json({ ok: true });
+}
+
+// Lojas que já têm o aviso de "mesa chamando" no celular dos garçons (por enquanto só a Demo)
+const PUSH_MESA_LOJAS = ['servidelivery-demo'];
+
+async function avisarMesaChamando(restauranteId, mesa, slug, headers) {
+  try {
+    if (!PUSH_MESA_LOJAS.includes(slug)) return;
+    if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return;
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?restaurante_id=eq.${restauranteId}&somente_garcom=eq.true&select=id,subscription`, { headers });
+    const lista = await r.json();
+    if (!Array.isArray(lista) || !lista.length) return;
+    webpush.setVapidDetails('mailto:contato@servidelivery.com.br', process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
+    const payload = JSON.stringify({ titulo: '🔔 Mesa ' + mesa + ' chamando', corpo: 'Toque para abrir o painel.', url: '/painel', tag: 'mesa-' + mesa });
+    await Promise.all(lista.map(async (insc) => {
+      try {
+        await webpush.sendNotification(insc.subscription, payload, { TTL: 120, urgency: 'high' });
+      } catch (err) {
+        if (err && (err.statusCode === 404 || err.statusCode === 410)) {
+          await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?id=eq.${insc.id}`, { method: 'DELETE', headers }).catch(() => {});
+        }
+      }
+    }));
+  } catch (e) { /* o garçom ainda vê a mesa piscando no painel */ }
 }
 
 // =====================================================================

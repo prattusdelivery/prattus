@@ -72,8 +72,13 @@ export default async function handler(req, res) {
       inscricoes = await resp.json();
     } else {
       if (!restauranteId) return res.status(400).json({ error: 'restauranteId é obrigatório' });
-      const resp = await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?restaurante_id=eq.${restauranteId}&select=id,subscription`, { headers });
+      // Aparelhos de garçom (somente_garcom) só recebem "mesa chamando", não pedido novo
+      let resp = await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?restaurante_id=eq.${restauranteId}&somente_garcom=eq.false&select=id,subscription`, { headers });
       inscricoes = await resp.json();
+      if (!Array.isArray(inscricoes)) { // coluna ainda não existe no banco: volta ao comportamento antigo
+        resp = await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?restaurante_id=eq.${restauranteId}&select=id,subscription`, { headers });
+        inscricoes = await resp.json();
+      }
     }
 
     if (!Array.isArray(inscricoes) || inscricoes.length === 0) {
