@@ -3,17 +3,16 @@
 //    "Chamar o garçom". O aviso vai para o servidor (/api/consultar-pontos, ação chamar_garcom) e fica na tabela chamados_garcom.
 // 2) No painel (dono, gerente e garçom) a mesa que chamou pisca em verde neon: no mapa de mesas e numa faixa no topo da tela.
 //    Quando o garçom toca na mesa (ou na faixa), o chamado some.
-// 3) SOM (ding-dong) quando chega chamado novo: só na loja Demo por enquanto (ver chamadoSomLiberado).
-// Pisca/faixa: liberado para todas as lojas.
+// 3) SOM (ding-dong) quando chega chamado novo (ver chamadoSomLiberado).
+// Tudo liberado para todas as lojas.
 
 function chamadoLojaLiberada(slug) {
   return true; // liberado para todas as lojas
 }
 
-// SOM ao chegar um chamado novo (ding-dong, 2 vezes + vibração no celular).
-// Por enquanto só na loja Demo; para liberar às outras lojas é só trocar o teste abaixo por "return true".
+// SOM ao chegar um chamado novo (ding-dong, 2 vezes + vibração no celular). Liberado para todas as lojas.
 function chamadoSomLiberado() {
-  return !!(restauranteAtual && restauranteAtual.slug === 'servidelivery-demo');
+  return !!restauranteAtual;
 }
 function chamadoTocarSom() {
   try {
