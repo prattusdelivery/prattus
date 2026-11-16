@@ -2440,7 +2440,7 @@ function paginaInicialDoPapel() {
 function aplicarRestricoesGarcom() {
   const ehGarcom = meuPapel === 'garcom';
   document.querySelectorAll('.sidebar-scroll .nav-item').forEach(el => {
-    const ehComandas = (el.getAttribute('onclick') || '').includes("'comandas'") || el.id === 'nav-instalar-app'; // "Instalar app" também fica para o garçom
+    const ehComandas = (el.getAttribute('onclick') || '').includes("'comandas'") || el.id === 'nav-instalar-app' || el.id === 'nav-aviso-mesa'; // "Instalar app" e "Aviso de mesa" também ficam para o garçom
     const escondeDono = el.classList.contains('nav-somente-dono') && meuPapel !== 'dono';
     el.style.display = (ehGarcom && !ehComandas) || escondeDono ? 'none' : '';
   });
@@ -7434,7 +7434,7 @@ async function garantirUserIdRestaurante() {
 <script src="primeiros-passos.js?v=20261113a"></script>
 <script src="sem-bebidas.js?v=20261113c"></script>
 <script src="editar-comanda.js?v=20261113d"></script>
-<script src="chamar-garcom.js?v=20261116c"></script>
+<script src="chamar-garcom.js?v=20261116d"></script>
 <script src="app-instalar.js?v=20261116a"></script>
 </body>
 </html>

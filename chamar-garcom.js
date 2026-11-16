@@ -65,6 +65,81 @@ function chamadoTocarSom() {
   document.head.appendChild(st);
 })();
 
+// ---------- AVISO NO CELULAR BLOQUEADO (notificação) — só garçom, só loja Demo por enquanto ----------
+// O garçom liga uma vez no menu "Aviso de mesa". Quando o cliente chama, o servidor manda uma notificação para o aparelho dele.
+// (O servidor também confere a loja: ver PUSH_MESA_LOJAS em api/consultar-pontos.js.)
+function avisoMesaLiberado() {
+  return !!(restauranteAtual && restauranteAtual.slug === 'servidelivery-demo' && meuPapel === 'garcom');
+}
+function avisoMesaSuportado() {
+  return ('Notification' in window) && ('serviceWorker' in navigator) && ('PushManager' in window);
+}
+function avisoMesaLigado() {
+  try { return !!restauranteAtual && avisoMesaSuportado() && Notification.permission === 'granted' && localStorage.getItem('aviso_mesa_' + restauranteAtual.id) === 'true'; } catch (e) { return false; }
+}
+function avisoMesaRotulo() {
+  return '<span style="font-size:14px;width:15px;text-align:center;">🔔</span> ' + (avisoMesaLigado() ? 'Aviso de mesa: LIGADO ✓' : 'Ligar aviso de mesa (tela bloqueada)');
+}
+function avisoMesaMenu() {
+  const antigo = document.getElementById('nav-aviso-mesa');
+  if (!avisoMesaLiberado()) { if (antigo) antigo.remove(); return; }
+  if (antigo) { antigo.innerHTML = avisoMesaRotulo(); return; }
+  const cfg = document.querySelector('.sidebar-scroll .nav-item[onclick*="config"]');
+  if (!cfg || !cfg.parentNode) return;
+  const d = document.createElement('div');
+  d.className = 'nav-item';
+  d.id = 'nav-aviso-mesa';
+  d.setAttribute('onclick', 'avisoMesaAlternar()');
+  d.innerHTML = avisoMesaRotulo();
+  cfg.parentNode.insertBefore(d, cfg.nextSibling);
+}
+async function avisoMesaAlternar() {
+  if (!avisoMesaLiberado()) return;
+  const chave = 'aviso_mesa_' + restauranteAtual.id;
+  if (!avisoMesaSuportado()) { toast('Este celular não aceita esse tipo de aviso.', 'erro'); return; }
+  const ehIphone = /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+  const jaApp = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  if (ehIphone && !jaApp) { toast('No iPhone, primeiro toque em "Instalar app no celular", abra pelo ícone e ligue o aviso lá.', 'erro', 9000); return; }
+
+  // Já ligado: desliga
+  if (avisoMesaLigado()) {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = await reg?.pushManager.getSubscription();
+      if (sub) {
+        await fetch('/api/push-subscription', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'remover', tipo: 'restaurante', endpoint: sub.endpoint }) });
+        await sub.unsubscribe();
+      }
+    } catch (e) {}
+    try { localStorage.removeItem(chave); } catch (e) {}
+    toast('Aviso de mesa desligado.', 'ok');
+    avisoMesaMenu();
+    return;
+  }
+
+  const msgBloqueado = 'O celular está bloqueando os avisos deste site. Abra as configurações do navegador (ou do app), procure "Notificações" e escolha "Permitir". Depois toque aqui de novo.';
+  if (Notification.permission === 'denied') { toast(msgBloqueado, 'erro', 9000); return; }
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') { toast(perm === 'denied' ? msgBloqueado : 'Você não permitiu os avisos. Toque aqui de novo e escolha "Permitir".', 'erro', 9000); return; }
+  try {
+    const reg = await registrarServiceWorker();
+    if (!reg) { toast('Não consegui preparar o aviso. Tente de novo.', 'erro'); return; }
+    await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
+    const r = await fetch('/api/push-subscription', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acao: 'salvar', tipo: 'restaurante', restauranteId: restauranteAtual.id, subscription: sub, somenteGarcom: true })
+    });
+    if (!r.ok) { toast('Não consegui ligar o aviso. Tente de novo.', 'erro'); return; }
+    try { localStorage.setItem(chave, 'true'); } catch (e) {}
+    toast('Pronto! Quando uma mesa chamar, o celular avisa mesmo bloqueado. 🔔', 'ok', 6000);
+    avisoMesaMenu();
+  } catch (e) {
+    toast('Não consegui ligar o aviso. Tente de novo.', 'erro');
+  }
+}
+
 // ---------- PAINEL: ler e mostrar os chamados ----------
 var chamadosLista = [];
 var chamadosTimer = null;
@@ -76,6 +151,7 @@ function chamadoLojaAtual() {
 function chamadosIniciar() {
   if (chamadosTimer) { clearInterval(chamadosTimer); chamadosTimer = null; }
   chamadosLista = [];
+  try { avisoMesaMenu(); } catch (e) {}
   chamadosDesenhar();
   if (!chamadoLojaAtual()) return;
   chamadosBuscar();
