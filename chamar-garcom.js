@@ -1,12 +1,50 @@
 // ===== CHAMAR GARÇOM =====
 // 1) Cada mesa tem um QR do cardápio com o número dela dentro (?consulta=1&mesa=N). No topo do cardápio aparece o botão
 //    "Chamar o garçom". O aviso vai para o servidor (/api/consultar-pontos, ação chamar_garcom) e fica na tabela chamados_garcom.
-// 2) No painel (dono, gerente e garçom) a mesa que chamou pisca em verde neon, sem som: no mapa de mesas e numa faixa embaixo da tela.
+// 2) No painel (dono, gerente e garçom) a mesa que chamou pisca em verde neon: no mapa de mesas e numa faixa no topo da tela.
 //    Quando o garçom toca na mesa (ou na faixa), o chamado some.
-// Liberado para todas as lojas.
+// 3) SOM (ding-dong) quando chega chamado novo: só na loja Demo por enquanto (ver chamadoSomLiberado).
+// Pisca/faixa: liberado para todas as lojas.
 
 function chamadoLojaLiberada(slug) {
   return true; // liberado para todas as lojas
+}
+
+// SOM ao chegar um chamado novo (ding-dong, 2 vezes + vibração no celular).
+// Por enquanto só na loja Demo; para liberar às outras lojas é só trocar o teste abaixo por "return true".
+function chamadoSomLiberado() {
+  return !!(restauranteAtual && restauranteAtual.slug === 'servidelivery-demo');
+}
+function chamadoTocarSom() {
+  try {
+    if (!audioCtxAlerta) audioCtxAlerta = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = audioCtxAlerta;
+    const tocar = () => {
+      [0, 0.95].forEach(ini => {
+        [[784, 0], [587, 0.4]].forEach(([freq, atraso]) => {
+          const t0 = ctx.currentTime + ini + atraso;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.0001, t0);
+          gain.gain.exponentialRampToValueAtTime(0.45, t0 + 0.03);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.85);
+          osc.start(t0); osc.stop(t0 + 0.9);
+        });
+      });
+    };
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(() => {
+        if (ctx.state === 'suspended') toast('🔇 Mesa chamando — toque na tela para ligar o som', 'erro');
+        else tocar();
+      }).catch(() => {});
+    } else {
+      tocar();
+    }
+  } catch (e) { /* sem som: a mesa continua piscando */ }
+  try { if (navigator.vibrate) navigator.vibrate([250, 120, 250]); } catch (e) {}
 }
 
 (function () {
@@ -53,7 +91,9 @@ async function chamadosBuscar() {
     if (error) return;
     const novas = (data || []).map(x => x.mesa);
     const antes = chamadosLista.join(',');
+    const chegouNova = novas.some(n => !chamadosLista.includes(n));
     chamadosLista = novas;
+    if (chegouNova && chamadoSomLiberado()) chamadoTocarSom();
     if (antes !== novas.join(',')) chamadosDesenhar();
     chamadoPosicionar();
   } catch (e) { /* sem rede: tenta de novo no próximo ciclo */ }
