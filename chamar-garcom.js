@@ -69,7 +69,7 @@ function chamadoTocarSom() {
 // O garçom liga uma vez no menu "Aviso de mesa". Quando o cliente chama, o servidor manda uma notificação para o aparelho dele.
 // (O servidor também confere a loja: ver PUSH_MESA_LOJAS em api/consultar-pontos.js.)
 function avisoMesaLiberado() {
-  return !!(restauranteAtual && restauranteAtual.slug === 'servidelivery-demo' && meuPapel === 'garcom');
+  return !!(restauranteAtual && meuPapel === 'garcom');
 }
 function avisoMesaSuportado() {
   return ('Notification' in window) && ('serviceWorker' in navigator) && ('PushManager' in window);
