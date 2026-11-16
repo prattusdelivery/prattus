@@ -5061,10 +5061,9 @@ async function carregarRankingPublico(restId) {
   }
 }
 
-// Aviso "Imagem ilustrativa" nas fotos dos pratos (por enquanto só na Demo)
+// Aviso "Imagem ilustrativa" nas fotos dos pratos (todas as lojas)
 function imgIlustAtivo() {
-  const slug = (restPublico && restPublico.slug) || (restauranteAtual && restauranteAtual.slug);
-  return slug === 'servidelivery-demo';
+  return true; // liberado para todas as lojas
 }
 function seloIlust(grande) {
   if (!imgIlustAtivo()) return '';
@@ -5356,15 +5355,14 @@ async function gerarSlugUnico(nome) {
 
 // ===== "CONSULTE O VALOR" (item sem preço definido) =====
 // Item com preço 0 (e sem opções com preço) mostra "Consulte o valor" no lugar do preço e não tem botão de adicionar.
-// Liberado só na loja Demo e no Quiosque da Praça por enquanto (localStorage 'consulte_valor' = 'true'/'false' força).
+// Liberado para todas as lojas (localStorage 'consulte_valor' = 'true'/'false' ainda força, só para teste).
 function usarConsulteValor() {
   try {
     const v = localStorage.getItem('consulte_valor');
     if (v === 'true') return true;
     if (v === 'false') return false;
   } catch (e) {}
-  const slug = (restPublico && restPublico.slug) || (restauranteAtual && restauranteAtual.slug);
-  return slug === 'servidelivery-demo' || slug === 'quiosquedapraca';
+  return true; // liberado para todas as lojas
 }
 
 function itemSemPreco(item) {
@@ -7428,7 +7426,7 @@ async function garantirUserIdRestaurante() {
 <script src="pedidos.js?v=20261114e"></script>
 <script src="impressoras.js?v=20261029c"></script>
 <script src="relatorios.js"></script>
-<script src="financeiro.js?v=20261114a"></script>
+<script src="financeiro.js?v=20261116a"></script>
 <script src="clientes.js"></script>
 <script src="modo-facil.js?v=20261113a"></script>
 <script src="mapa-mesas.js?v=20261114a"></script>
@@ -7437,6 +7435,6 @@ async function garantirUserIdRestaurante() {
 <script src="sem-bebidas.js?v=20261113c"></script>
 <script src="editar-comanda.js?v=20261113d"></script>
 <script src="chamar-garcom.js?v=20261114g"></script>
-<script src="app-instalar.js?v=20261115a"></script>
+<script src="app-instalar.js?v=20261116a"></script>
 </body>
 </html>

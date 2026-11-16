@@ -1,12 +1,12 @@
 // ===== INSTALAR O PAINEL COMO APP NO CELULAR (atalho na tela inicial) =====
 // Serve para o garçom (e o dono) abrirem o painel com um toque, em tela cheia, como um app.
 // Não precisa de Play Store nem App Store: é o próprio site "instalado" pelo navegador.
-// Usa: restauranteAtual, meuPapel, toast. Por enquanto só na loja Demo (appInstalarLiberado).
+// Usa: restauranteAtual, meuPapel, toast. Vale para todas as lojas.
 
 var appInstalarEvento = null; // guardado no Android (Chrome) para abrir o aviso nativo de instalar
 
 function appInstalarLiberado() {
-  return !!restauranteAtual && restauranteAtual.slug === 'servidelivery-demo';
+  return !!restauranteAtual; // todas as lojas
 }
 function appInstalarEhCelular() {
   return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '') || (window.matchMedia && window.matchMedia('(pointer:coarse)').matches && window.innerWidth < 900);

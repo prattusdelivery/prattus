@@ -127,8 +127,8 @@ function finFormaPag(p) {
   return 'Outros';
 }
 
-// ----- Vendas por garçom (quem lançou o pedido) — por enquanto só na Demo -----
-function finGarcomLiberado() { return !!restauranteAtual && restauranteAtual.slug === 'servidelivery-demo'; }
+// ----- Vendas por garçom (quem lançou o pedido) — todas as lojas que têm o Financeiro -----
+function finGarcomLiberado() { return !!restauranteAtual; }
 function finGarcomCard(porGarcom) {
   const itens = Object.entries(porGarcom).sort((a, b) => b[1].v - a[1].v);
   let corpo;
