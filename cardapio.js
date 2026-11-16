@@ -370,6 +370,10 @@ function preencherAgendaItem(item) {
   itemTinhaAgenda = !!(item && (dias.length || item.hora_ini));
 }
 
+function precoObrigatorioAtivo() {
+  return !!restauranteAtual && restauranteAtual.slug === 'servidelivery-demo';
+}
+
 async function salvarItem() {
   const id = document.getElementById('item-id').value;
   const precoPromoVal = document.getElementById('item-preco-promo').value;
@@ -385,6 +389,17 @@ async function salvarItem() {
     etiquetas_ids: etiquetasSelecionadas,
     opcoes: gruposOpcoesValidos(),
   };
+  // Item sem preço não salva (só na Demo por enquanto). Vale o preço do item ou, se for "escolhe 1 (preço final)", o preço de alguma opção.
+  if (precoObrigatorioAtivo()) {
+    const temPrecoItem = (parseFloat(dados.preco) || 0) > 0;
+    const temPrecoOpcao = (dados.opcoes || []).some(g => g.tipo === 'unica_preco' && (g.opcoes || []).some(o => !o.subgrupo && (parseFloat(o.preco) || 0) > 0));
+    if (!temPrecoItem && !temPrecoOpcao) {
+      toast('Coloque o preço do item para poder salvar.', 'erro');
+      const campo = document.getElementById('item-preco');
+      if (campo) campo.focus();
+      return;
+    }
+  }
   // Dias e horário do item (prato do dia). Só manda pro banco se o dono usou, ou se o item já tinha.
   const horaIni = document.getElementById('item-hora-ini')?.value || '';
   const horaFim = document.getElementById('item-hora-fim')?.value || '';
