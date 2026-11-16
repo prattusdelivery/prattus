@@ -371,7 +371,7 @@ function preencherAgendaItem(item) {
 }
 
 function precoObrigatorioAtivo() {
-  return !!restauranteAtual && restauranteAtual.slug === 'servidelivery-demo';
+  return !!restauranteAtual; // todas as lojas
 }
 
 async function salvarItem() {
@@ -389,7 +389,7 @@ async function salvarItem() {
     etiquetas_ids: etiquetasSelecionadas,
     opcoes: gruposOpcoesValidos(),
   };
-  // Item sem preço não salva (só na Demo por enquanto). Vale o preço do item ou, se for "escolhe 1 (preço final)", o preço de alguma opção.
+  // Item sem preço não salva (todas as lojas). Vale o preço do item ou, se for "escolhe 1 (preço final)", o preço de alguma opção.
   if (precoObrigatorioAtivo()) {
     const temPrecoItem = (parseFloat(dados.preco) || 0) > 0;
     const temPrecoOpcao = (dados.opcoes || []).some(g => g.tipo === 'unica_preco' && (g.opcoes || []).some(o => !o.subgrupo && (parseFloat(o.preco) || 0) > 0));
