@@ -1827,7 +1827,6 @@ async function toggleDetalhesSA(restauranteId) {
         <button onclick="gerenciarLojaSA('${restauranteId}','desativar')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:#c0392b;color:#fff;border:none;cursor:pointer;">Desativar assinatura</button>
         <button onclick="estenderTesteSA('${restauranteId}')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:var(--laranja);color:#fff;border:none;cursor:pointer;">📅 Ajustar dias de teste</button>
         <button onclick="redefinirSenhaDonoSA('${restauranteId}')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:#3b4a63;color:#fff;border:none;cursor:pointer;">🔑 Redefinir senha do dono</button>
-        <button onclick="planoPainelSA('${restauranteId}', '${r?.plano_painel === 'simples' ? 'completo' : 'simples'}')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:${r?.plano_painel === 'simples' ? '#E8643A' : '#3b4a63'};color:#fff;border:none;cursor:pointer;">📱 Painel: ${r?.plano_painel === 'simples' ? 'SIMPLES (clique para Completo)' : 'COMPLETO (clique para Simples)'}</button>
         <button onclick="impressaoSeparadaSA('${restauranteId}', ${r?.impressao_separada ? 'false' : 'true'})" style="font-size:11px;padding:5px 10px;border-radius:6px;background:${r?.impressao_separada ? '#2ea043' : '#3b4a63'};color:#fff;border:none;cursor:pointer;">🖨️ Impressão separada: ${r?.impressao_separada ? 'LIGADA (clique para desligar)' : 'desligada (clique para ligar)'}</button>
       </div>
       <div id="sa-senha-${restauranteId}" style="margin-top:10px;"></div>
@@ -3391,7 +3390,8 @@ async function carregarHistoricoPeriodo() {
 }
 
 // Preços mostrados na tela (espelham api/_precos.js; quem decide o valor cobrado é o servidor)
-const TABELA_PRECOS = { simples: { mensal: 39.90, anual: 399.90 }, completo: { mensal: 49.90, anual: 499.90 } };
+// Plano único: R$ 39,90 por mês / R$ 399,90 por ano, com tudo incluído (a linha 'simples' fica só por compatibilidade e tem o mesmo preço)
+const TABELA_PRECOS = { simples: { mensal: 39.90, anual: 399.90 }, completo: { mensal: 39.90, anual: 399.90 } };
 // Loja no plano Simples? (esconde/desliga o que é só do Completo: pagamento online, cashback, agendamento)
 function planoSimplesLoja(r) { return !!r && r.plano_painel === 'simples'; }
 function precosLoja(r) {
@@ -3456,8 +3456,8 @@ async function renderMensalidade() {
 
 // ===== ESCOLHA DO PLANO (Simples / Completo) — lojas novas e a Demo =====
 function escolhaPlanoDisponivel(r) {
-  // Lojas antigas têm preço combinado (R$ 39,90 travado) e não trocam por aqui
-  return !!r && !(parseFloat(r.preco_mensal_travado) > 0);
+  // Plano único (R$ 39,90, tudo incluído): não existe mais escolha entre Simples e Completo
+  return false;
 }
 
 function escolhaPlanoHtml(r) {
