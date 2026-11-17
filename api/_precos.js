@@ -1,8 +1,9 @@
 // Tabela de preços do ServiDelivery (a ÚNICA que manda na cobrança). Quem decide o valor é o servidor, nunca o navegador.
-// Painel Simples (Básico) e Completo. Anual = 10 mensalidades (2 meses grátis), terminando em ,90.
+// PLANO ÚNICO: R$ 39,90/mês ou R$ 399,90/ano, com tudo incluído. Anual = 10 mensalidades (2 meses grátis), terminando em ,90.
+// (a linha 'simples' fica só por compatibilidade e tem o mesmo preço)
 export const TABELA_PRECOS = {
   simples:  { mensal: 39.90, anual: 399.90 },
-  completo: { mensal: 49.90, anual: 499.90 }
+  completo: { mensal: 39.90, anual: 399.90 }
 };
 
 // rest = linha da tabela restaurantes (precisa de plano_painel e preco_mensal_travado)
