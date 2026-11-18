@@ -760,6 +760,10 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
         <input type="checkbox" id="cad-maior-18" style="margin-top:2px;flex:none;width:16px;height:16px;">
         <span>Declaro que tenho <strong>18 anos ou mais</strong> e que os dados informados (CPF/CNPJ) são meus ou da minha empresa. Li a <a href="/privacidade.html" target="_blank" style="color:var(--laranja-dark,#C4522E);text-decoration:underline;">Política de Privacidade</a>.</span>
       </label>
+      <label id="campo-termos" style="display:none;gap:10px;align-items:flex-start;font-size:12.5px;color:var(--texto-muted);margin-bottom:16px;cursor:pointer;line-height:1.45;">
+        <input type="checkbox" id="cad-termos" style="margin-top:2px;flex:none;width:16px;height:16px;">
+        <span>Li e aceito os <a href="/termos.html" target="_blank" style="color:var(--laranja-dark,#C4522E);text-decoration:underline;">Termos de Uso</a>.</span>
+      </label>
       <details style="margin-bottom:16px;">
         <summary style="font-size:13px;color:var(--texto-muted);cursor:pointer;margin-bottom:10px;">Conte um pouco mais sobre seu negócio (opcional)</summary>
         <div class="form-group">
@@ -2483,6 +2487,7 @@ async function carregarRestaurante() {
     document.getElementById('topbar-avatar').textContent = data.nome.charAt(0).toUpperCase();
     document.querySelectorAll('.nav-somente-dono').forEach(el => el.style.display = meuPapel === 'dono' ? '' : 'none');
     aplicarRestricoesGarcom();
+    if (typeof termosVerificar === 'function') { try { termosVerificar(); } catch (e) {} }
 
     const st = statusTrial(data);
     if (st.bloqueado) {
@@ -2867,6 +2872,11 @@ async function fazerCadastro() {
       msg.textContent = 'Para criar a conta, marque que você tem 18 anos ou mais e que os dados são seus.';
       return;
     }
+    if (typeof termosCadastroAtivo === 'function' && termosCadastroAtivo() && !document.getElementById('cad-termos')?.checked) {
+      msg.className = 'auth-msg erro';
+      msg.textContent = 'Para criar a conta, marque que você leu e aceita os Termos de Uso.';
+      return;
+    }
 
     const whatsappLimpo = whatsapp.replace(/\D/g, '');
     try {
@@ -2923,6 +2933,9 @@ async function fazerCadastro() {
       return;
     }
     await db.from('restaurante_privado').insert({ restaurante_id: novoRest.id, cpf_cnpj: cpfCnpjLimpo });
+    if (typeof termosCadastroAtivo === 'function' && termosCadastroAtivo() && document.getElementById('cad-termos')?.checked) {
+      await termosRegistrar(novoRest.id, 'cadastro');
+    }
     fetch('/api/notificar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -7436,5 +7449,6 @@ async function garantirUserIdRestaurante() {
 <script src="editar-comanda.js?v=20261113d"></script>
 <script src="chamar-garcom.js?v=20261116e"></script>
 <script src="app-instalar.js?v=20261116a"></script>
+<script src="termos-aceite.js?v=20261118a"></script>
 </body>
 </html>
