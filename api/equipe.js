@@ -35,6 +35,32 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: 'Só o dono do restaurante pode gerenciar a equipe.' });
     }
 
+    // Aceite dos Termos de Uso: consulta e registro (guarda data/hora, versão e IP no servidor).
+    // Fica aqui por causa do limite de funções do plano gratuito da Vercel.
+    if (acao === 'consultar_aceite' || acao === 'registrar_aceite') {
+      const versao = String(req.body?.versao || '').slice(0, 20);
+      if (!versao) return res.status(400).json({ error: 'Versão dos Termos não informada.' });
+      const base = `${SUPABASE_URL}/rest/v1/aceites_termos`;
+      const jaResp = await fetch(`${base}?restaurante_id=eq.${restauranteId}&versao=eq.${encodeURIComponent(versao)}&select=id,aceito_em&limit=1`, { headers: svcHeaders });
+      if (!jaResp.ok) {
+        if (acao === 'consultar_aceite') return res.status(200).json({ ok: true, aceito: true, aviso: 'verificação indisponível' }); // nunca trava o painel por falha nossa
+        return res.status(500).json({ error: 'Não foi possível registrar o aceite agora.' });
+      }
+      const ja = await jaResp.json();
+      const aceitoEm = Array.isArray(ja) && ja[0] ? ja[0].aceito_em : null;
+      if (acao === 'consultar_aceite') return res.status(200).json({ ok: true, aceito: !!aceitoEm, aceito_em: aceitoEm });
+      if (aceitoEm) return res.status(200).json({ ok: true, aceito: true, aceito_em: aceitoEm });
+      const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim().slice(0, 64) || null;
+      const origemOk = ['cadastro', 'tela_login'].includes(req.body?.origem) ? req.body.origem : 'outro';
+      const insResp = await fetch(base, {
+        method: 'POST',
+        headers: { ...svcHeaders, 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ restaurante_id: restauranteId, user_id: userData.id, versao, ip, user_agent: String(req.headers['user-agent'] || '').slice(0, 300), origem: origemOk })
+      });
+      if (!insResp.ok) return res.status(500).json({ error: 'Não foi possível registrar o aceite agora.' });
+      return res.status(200).json({ ok: true, aceito: true });
+    }
+
     if (acao === 'criar') {
       const { nome, usuario, senha, funcao, nivel } = req.body || {};
       if (!nome || !usuario || !senha) return res.status(400).json({ error: 'Preencha nome, usuário e senha do funcionário.' });
