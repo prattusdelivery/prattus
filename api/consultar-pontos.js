@@ -703,7 +703,7 @@ async function criarPedidoPago(pend, headers) {
 async function chamarGarcom(req, res, headers) {
   const { restauranteId, mesa } = req.body || {};
   const n = Number(mesa);
-  if (!restauranteId || !/^[0-9a-f-]{36}$/i.test(String(restauranteId)) || !Number.isInteger(n) || n < 1 || n > 99) {
+  if (!restauranteId || !/^[0-9a-f-]{36}$/i.test(String(restauranteId)) || !Number.isInteger(n) || n < 1 || n > 200) {
     return res.status(400).json({ error: 'Mesa inválida.' });
   }
   const rr = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}&select=id,qtd_mesas`, { headers });
