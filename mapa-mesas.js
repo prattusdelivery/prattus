@@ -116,7 +116,7 @@ async function mapaMesaTocar(n) {
     const aberta = (abertas || []).filter(a => mapaNumerosDaMesa(a.mesa).includes(n));
     if (aberta.length) {
       if (typeof chamadoAtenderVarias === 'function') chamadoAtenderVarias(mapaNumerosDaMesa(aberta[0].mesa));
-      window.location.href = '?comanda=' + aberta[0].id; return;
+      await abrirComandaSemRecarregar(aberta[0].id); return;
     }
 
     // Mesa livre: usa a comanda "M<n>" (cria se ainda não existir)
@@ -134,7 +134,7 @@ async function mapaMesaTocar(n) {
       // Já diz o número da mesa pra tela de comanda não perguntar de novo
       try { sessionStorage.setItem('mapa_mesa_pre', JSON.stringify({ id: linha.id, mesa: String(n), t: Date.now() })); } catch (e) {}
     }
-    window.location.href = '?comanda=' + linha.id;
+    await abrirComandaSemRecarregar(linha.id);
   } finally {
     mapaTocando = false;
   }

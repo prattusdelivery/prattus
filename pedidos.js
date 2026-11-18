@@ -128,6 +128,29 @@ async function carregarModoComanda(comandaId) {
   toast(`Comanda aberta — ${textoMesa(codigo.mesa)}`, 'ok');
 }
 
+// Abre a comanda sem recarregar a página (recarregar fazia o garçom passar pela tela de login antes de entrar).
+// Por enquanto só na loja Demo; nas outras continua recarregando como sempre.
+async function abrirComandaSemRecarregar(id) {
+  if (!(typeof restauranteAtual !== 'undefined' && restauranteAtual && restauranteAtual.slug === 'servidelivery-demo')) {
+    window.location.href = '?comanda=' + id;
+    return;
+  }
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set('comanda', id);
+    window.history.replaceState({}, '', url.pathname + url.search);
+    await carregarModoComanda(id);
+  } catch (e) {
+    console.error(e);
+    toast('Não consegui abrir a mesa. Tente de novo.', 'erro');
+  }
+  if (!modoComandaAtivo) {
+    const u = new URL(window.location.href);
+    u.searchParams.delete('comanda');
+    window.history.replaceState({}, '', u.pathname + u.search);
+  }
+}
+
 // ===== COMANDA SEM MESA / PRATO POR PESO / LIVRE =====
 function textoMesa(mesa) {
   return mesa ? `Mesa ${mesa}` : 'Sem mesa';
