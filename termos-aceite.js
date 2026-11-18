@@ -1,17 +1,15 @@
 /* ServiDelivery — aceite dos Termos de Uso
-   - Cadastro: caixinha "Li e aceito os Termos de Uso" (só aparece com ?termos=1 enquanto está em teste)
-   - Quem já usa e ainda não aceitou vê uma tela única de aceite (só o dono; por enquanto só na loja Demo)
+   - Cadastro: caixinha "Li e aceito os Termos de Uso" (obrigatória)
+   - Quem já usa e ainda não aceitou vê uma tela única de aceite (só o dono)
    - A prova (data/hora, versão, IP) é guardada pelo servidor, na tabela aceites_termos */
 var TERMOS_VERSAO = '1';
 
 function termosGateAtivo() {
-  // Por enquanto só a loja Demo. Para liberar a todas, trocar o corpo por: return true;
-  return !!(typeof restauranteAtual !== 'undefined' && restauranteAtual && restauranteAtual.slug === 'servidelivery-demo');
+  return !!(typeof restauranteAtual !== 'undefined' && restauranteAtual);
 }
 
 function termosCadastroAtivo() {
-  // Por enquanto só quando o endereço tem ?termos=1. Para liberar a todos, trocar o corpo por: return true;
-  try { return new URLSearchParams(location.search).get('termos') === '1'; } catch (e) { return false; }
+  return true;
 }
 
 async function termosChamar(acao, restauranteId, extra) {
