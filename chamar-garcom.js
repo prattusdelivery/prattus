@@ -234,7 +234,7 @@ function chamadoAtenderVarias(nums) {
 function chamarGarcomMontar(rest, mesa) {
   if (!rest || !chamadoLojaLiberada(rest.slug)) return;
   mesa = parseInt(mesa);
-  if (!mesa || mesa < 1 || mesa > 99) return;
+  if (!mesa || mesa < 1 || mesa > 200) return;
   const card = document.querySelector('#tela-cliente .pub-card');
   if (!card || document.getElementById('btn-chamar-garcom')) return;
   const chave = 'chamou_garcom_' + rest.id + '_' + mesa;
@@ -295,7 +295,7 @@ function chamadoConfigInserir() {
   if (!restauranteAtual || !chamadoLojaLiberada(restauranteAtual.slug)) return;
   const alvo = document.getElementById('mesa-qr-unico');
   if (!alvo || document.getElementById('chamado-qr-bloco')) return;
-  const qtd = Math.min(parseInt(restauranteAtual.qtd_mesas) || 0, 99);
+  const qtd = Math.min(parseInt(restauranteAtual.qtd_mesas) || 0, limiteMesas());
   const bloco = document.createElement('div');
   bloco.id = 'chamado-qr-bloco';
   bloco.style.cssText = 'margin-top:20px;padding-top:16px;border-top:1px solid var(--creme-borda);';
@@ -310,7 +310,7 @@ function chamadoConfigInserir() {
 }
 
 async function chamadoImprimirQrMesas() {
-  const qtd = Math.min(parseInt(restauranteAtual.qtd_mesas) || 0, 99);
+  const qtd = Math.min(parseInt(restauranteAtual.qtd_mesas) || 0, limiteMesas());
   if (!qtd) { toast('Digite a quantidade de mesas e salve primeiro.', 'erro'); return; }
   const base = `https://servidelivery.com.br/${restauranteAtual.slug}?consulta=1&mesa=`;
   let html = '';

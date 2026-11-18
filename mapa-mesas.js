@@ -41,7 +41,7 @@ function mapaMesasInserir(mesas) {
   if (!mapaMesasAtivo()) return;
   const cont = document.getElementById('conteudo');
   if (!cont || document.getElementById('mapa-mesas-card')) return;
-  const qtd = Math.min(parseInt(restauranteAtual.qtd_mesas) || 0, 99);
+  const qtd = Math.min(parseInt(restauranteAtual.qtd_mesas) || 0, limiteMesas());
   const porMesa = {};
   // Mesas juntas ocupam todos os quadradinhos do grupo (cada um mostra "2/3" e a conta única)
   (mesas || []).forEach(m => {
@@ -181,6 +181,11 @@ function mapaMesaPreDefinida(codigo) {
   return null;
 }
 
+// Máximo de mesas (todas as lojas).
+function limiteMesas() {
+  return 200;
+}
+
 // ===== CONFIGURAÇÕES: quantas mesas e como abrir =====
 function mapaMesasConfigHtml(r) {
   if (!mapaMesasDisponivel()) return '';
@@ -198,7 +203,7 @@ function mapaMesasConfigHtml(r) {
         <div style="font-size:13px;color:var(--texto-muted);margin-bottom:14px;">Diga quantas mesas você tem e o sistema desenha um quadradinho para cada uma na tela de Comandas. O garçom toca na mesa e lança o pedido, sem precisar de cartão com QR Code.</div>
         <div class="form-group" style="margin:0 0 14px;">
           <label style="font-size:12px;">Quantas mesas você tem?</label>
-          <input type="number" id="mapa-qtd-mesas" value="${qtd || ''}" placeholder="Ex: 20" min="0" max="99" style="width:120px;">
+          <input type="number" id="mapa-qtd-mesas" value="${qtd || ''}" placeholder="Ex: 20" min="0" max="${limiteMesas()}" style="width:120px;">
         </div>
         ${simples ? '' : `
         <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Como o garçom abre a mesa?</div>
@@ -214,7 +219,7 @@ async function mapaMesasSalvar(silencioso) {
   if (!restauranteAtual) return;
   if (!document.getElementById('mapa-qtd-mesas')) return; // campos das mesas não estão na tela
   const qtd = parseInt((document.getElementById('mapa-qtd-mesas') || {}).value) || 0;
-  if (qtd < 0 || qtd > 99) { toast('Digite um número de mesas entre 1 e 99.', 'erro'); return; }
+  if (qtd < 0 || qtd > limiteMesas()) { toast('Digite um número de mesas entre 1 e ' + limiteMesas() + '.', 'erro'); return; }
   const simples = typeof planoSimplesLoja === 'function' && planoSimplesLoja(restauranteAtual);
   const marcado = document.querySelector('input[name="mapa-modo"]:checked');
   const modo = simples ? 'mapa' : (marcado ? marcado.value : 'qr');
@@ -301,7 +306,7 @@ async function mapaTrocaAbrir(modo) {
   });
   mapaTrocaDados = { cob, modo };
 
-  const qtd = Math.min(parseInt(restauranteAtual.qtd_mesas) || 0, 99);
+  const qtd = Math.min(parseInt(restauranteAtual.qtd_mesas) || 0, limiteMesas());
   const minha = mapaRotulo(meusNums);
   const botModo = (v, titulo) => `<button type="button" ${emGrupo ? 'disabled' : `onclick="mapaTrocaAbrir('${v}')"`} style="flex:1;padding:10px;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:${emGrupo ? 'default' : 'pointer'};
       border:2px solid ${modo === v ? 'var(--laranja)' : 'var(--creme-borda)'};background:${modo === v ? 'var(--laranja)' : '#fff'};color:${modo === v ? '#fff' : 'var(--texto)'};opacity:${emGrupo && v === 'trocar' ? .4 : 1};">${titulo}</button>`;
