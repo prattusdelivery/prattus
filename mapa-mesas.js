@@ -50,8 +50,9 @@ function mapaMesasInserir(mesas) {
     nums.forEach(n => { porMesa[String(n)] = { m, rot, primeira: Math.min.apply(null, nums) }; });
   });
 
-  // Computador com muitas mesas: quadradinhos menores para o mapa não tomar a tela toda (por enquanto só na Skina).
-  const compacto = !!(restauranteAtual && restauranteAtual.slug === 'sorveteria-skina' && window.innerWidth >= 900);
+  // Quadradinhos menores para o mapa não tomar a tela toda, no computador e no celular (por enquanto só na Skina).
+  const compacto = !!(restauranteAtual && restauranteAtual.slug === 'sorveteria-skina');
+  const telaGrande = window.innerWidth >= 900;
   let tiles = '';
   for (let n = 1; n <= qtd; n++) {
     const pm = porMesa[String(n)];
@@ -77,7 +78,7 @@ function mapaMesasInserir(mesas) {
         <span><i style="display:inline-block;width:12px;height:12px;border-radius:4px;background:#fff;border:2px solid var(--creme-borda);margin-right:6px;vertical-align:-1px;"></i>Livre</span>
         <span><i style="display:inline-block;width:12px;height:12px;border-radius:4px;background:var(--laranja);margin-right:6px;vertical-align:-1px;"></i>Com pedido</span>
       </div>
-      <div style="display:grid;grid-template-columns:${compacto ? 'repeat(auto-fill,minmax(58px,64px))' : 'repeat(auto-fill,minmax(78px,1fr))'};gap:${compacto ? 6 : 10}px;">${tiles}</div>
+      <div style="display:grid;grid-template-columns:${compacto ? (telaGrande ? 'repeat(auto-fill,minmax(58px,64px))' : 'repeat(auto-fill,minmax(56px,1fr))') : 'repeat(auto-fill,minmax(78px,1fr))'};gap:${compacto ? 6 : 10}px;">${tiles}</div>
       <div style="font-size:12px;color:var(--texto-muted);margin-top:12px;text-align:center;">Toque numa mesa para abrir ou continuar o pedido</div>
     </div>`);
 
