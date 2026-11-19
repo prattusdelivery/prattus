@@ -129,12 +129,8 @@ async function carregarModoComanda(comandaId) {
 }
 
 // Abre a comanda sem recarregar a página (recarregar fazia o garçom passar pela tela de login antes de entrar).
-// Por enquanto só na loja Demo; nas outras continua recarregando como sempre.
+// Vale para todas as lojas.
 async function abrirComandaSemRecarregar(id) {
-  if (!(typeof restauranteAtual !== 'undefined' && restauranteAtual && restauranteAtual.slug === 'servidelivery-demo')) {
-    window.location.href = '?comanda=' + id;
-    return;
-  }
   try {
     const url = new URL(window.location.href);
     url.searchParams.set('comanda', id);
