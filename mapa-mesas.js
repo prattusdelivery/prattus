@@ -50,8 +50,8 @@ function mapaMesasInserir(mesas) {
     nums.forEach(n => { porMesa[String(n)] = { m, rot, primeira: Math.min.apply(null, nums) }; });
   });
 
-  // Quadradinhos menores para o mapa não tomar a tela toda, no computador e no celular (por enquanto só na Skina).
-  const compacto = !!(restauranteAtual && restauranteAtual.slug === 'sorveteria-skina');
+  // Lojas com muitas mesas (mais de 20): quadradinhos menores para o mapa não tomar a tela toda, no computador e no celular.
+  const compacto = qtd > 20;
   const telaGrande = window.innerWidth >= 900;
   let tiles = '';
   for (let n = 1; n <= qtd; n++) {
