@@ -103,7 +103,6 @@ async function appInstalarAbrir() {
       if (r && r.outcome === 'accepted') return;
     } catch (e) {}
   }
-  var demo = !!(typeof restauranteAtual !== 'undefined' && restauranteAtual && restauranteAtual.slug === 'servidelivery-demo');
   var passosNovo =
     '<li>Use o <b>Safari</b> (o navegador azul com uma bússola). Se abriu dentro do WhatsApp ou do Instagram, toque nos três pontinhos e em <b>Abrir no Safari</b>.</li>' +
     '<li>Na barra de baixo, toque nos <b>três pontinhos (⋯)</b>, no canto direito.</li>' +
@@ -111,11 +110,8 @@ async function appInstalarAbrir() {
     '<li>Role a lista para cima e toque em <b>Adicionar à Tela de Início</b>. Se não achar, toque em <b>Ver mais</b>.</li>' +
     '<li>Toque em <b>Adicionar</b>. Pronto: o ícone aparece na tela do celular.</li>' +
     '<li>Abra pelo ícone e entre com o seu login <b>uma vez</b>.</li>';
-  var passos = (appInstalarEhIphone() && demo) ? passosNovo : appInstalarEhIphone()
-    ? '<li>Toque no botão <b>Compartilhar</b> (o quadradinho com uma setinha para cima), lá embaixo no Safari.</li>' +
-      '<li>Role a lista e toque em <b>Adicionar à Tela de Início</b>.</li>' +
-      '<li>Toque em <b>Adicionar</b>. Pronto: o ícone aparece na tela do celular.</li>' +
-      '<li>Abra pelo ícone e entre com o seu login <b>uma vez</b>.</li>'
+  var passos = appInstalarEhIphone()
+    ? passosNovo
     : '<li>Toque nos <b>3 pontinhos</b> no canto de cima do Chrome.</li>' +
       '<li>Toque em <b>Instalar app</b> (ou <b>Adicionar à tela inicial</b>).</li>' +
       '<li>Toque em <b>Instalar</b>. Pronto: o ícone aparece na tela do celular.</li>';
