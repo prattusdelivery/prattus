@@ -50,6 +50,8 @@ function mapaMesasInserir(mesas) {
     nums.forEach(n => { porMesa[String(n)] = { m, rot, primeira: Math.min.apply(null, nums) }; });
   });
 
+  // Computador com muitas mesas: quadradinhos menores para o mapa não tomar a tela toda (por enquanto só na Skina).
+  const compacto = !!(restauranteAtual && restauranteAtual.slug === 'sorveteria-skina' && window.innerWidth >= 900);
   let tiles = '';
   for (let n = 1; n <= qtd; n++) {
     const pm = porMesa[String(n)];
@@ -61,11 +63,11 @@ function mapaMesasInserir(mesas) {
     const total = ocupada ? 'R$ ' + (m.total || 0).toFixed(2).replace('.', ',') : (rot ? 'juntas' : 'livre');
     const numsTile = pm ? mapaNumerosDaMesa(pm.m.mesa) : [n];
     tiles += `<button type="button" data-mesas="${numsTile.join(',')}" onclick="mapaMesaTocar(${n})" style="
-        display:flex;flex-direction:column;align-items:center;justify-content:center;height:78px;border-radius:14px;cursor:pointer;font-family:inherit;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;height:${compacto ? 52 : 78}px;border-radius:${compacto ? 10 : 14}px;cursor:pointer;font-family:inherit;
         border:2px solid ${ocupada || rot ? 'var(--laranja)' : 'var(--creme-borda)'};
         background:${ocupada ? 'var(--laranja)' : '#fff'};color:${ocupada ? '#fff' : 'var(--texto)'};">
-        <span style="font-size:${rot ? (rot.length > 5 ? 15 : 20) : 24}px;font-weight:800;line-height:1.1;">${rot ? rot : n}</span>
-        <span style="font-size:12px;margin-top:2px;${ocupada ? 'font-weight:700;' : 'color:var(--texto-muted);'}">${total}</span>
+        <span style="font-size:${compacto ? (rot ? (rot.length > 5 ? 11 : 14) : 17) : (rot ? (rot.length > 5 ? 15 : 20) : 24)}px;font-weight:800;line-height:1.1;">${rot ? rot : n}</span>
+        <span style="font-size:${compacto ? 10 : 12}px;margin-top:${compacto ? 0 : 2}px;${ocupada ? 'font-weight:700;' : 'color:var(--texto-muted);'}">${total}</span>
       </button>`;
   }
   cont.insertAdjacentHTML('afterbegin', `
@@ -75,7 +77,7 @@ function mapaMesasInserir(mesas) {
         <span><i style="display:inline-block;width:12px;height:12px;border-radius:4px;background:#fff;border:2px solid var(--creme-borda);margin-right:6px;vertical-align:-1px;"></i>Livre</span>
         <span><i style="display:inline-block;width:12px;height:12px;border-radius:4px;background:var(--laranja);margin-right:6px;vertical-align:-1px;"></i>Com pedido</span>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:10px;">${tiles}</div>
+      <div style="display:grid;grid-template-columns:${compacto ? 'repeat(auto-fill,minmax(58px,64px))' : 'repeat(auto-fill,minmax(78px,1fr))'};gap:${compacto ? 6 : 10}px;">${tiles}</div>
       <div style="font-size:12px;color:var(--texto-muted);margin-top:12px;text-align:center;">Toque numa mesa para abrir ou continuar o pedido</div>
     </div>`);
 
