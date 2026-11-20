@@ -7411,8 +7411,7 @@ if (reciboParam) {
   carregarPublico(restParam);
 } else if (!pathIgnorado) {
   // Tela de carregamento: evita piscar os textos padrão (nome "Restaurante", selo amarelo) antes dos dados da loja chegarem.
-  // Por enquanto só na loja Demo.
-  if (pathSlug.toLowerCase() === 'servidelivery-demo') coberturaPublicoMostrar();
+  coberturaPublicoMostrar();
   mostrarTela('cliente');
   Promise.resolve(carregarPublicoPorSlug(pathSlug)).finally(coberturaPublicoTirar);
 } else {
