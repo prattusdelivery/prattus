@@ -16,6 +16,7 @@ function enviarCardapioMensagem() {
 function enviarCardapioIniciar() {
   if (!enviarCardapioLiberado()) return;
   if (typeof meuPapel !== 'undefined' && meuPapel === 'garcom') return; // o garçom não vê
+  try { pedirAjudaIniciar(); } catch (e) {}
   if (document.getElementById('btn-enviar-cardapio')) return;
   var ref = document.getElementById('btn-pausar-loja');
   if (!ref || !ref.parentNode) return;
@@ -74,4 +75,30 @@ function enviarCardapioCopiar() {
   };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(ok, antigo);
   else antigo();
+}
+
+
+// ===== "PEDIR AJUDA" NO MENU DA ESQUERDA (seção Ajuda, embaixo de Tutoriais) =====
+// Abre o WhatsApp do ServiDelivery com uma mensagem já escrita com o nome da loja.
+var PEDIR_AJUDA_WHATS = '5555997267239';
+function pedirAjudaIniciar() {
+  if (document.getElementById('nav-pedir-ajuda')) return;
+  var itens = document.querySelectorAll('.nav-item');
+  var ref = null;
+  for (var i = 0; i < itens.length; i++) {
+    if ((itens[i].getAttribute('onclick') || '').indexOf('abrirTutoriais') >= 0) { ref = itens[i]; break; }
+  }
+  if (!ref || !ref.parentNode) return;
+  var d = document.createElement('div');
+  d.className = 'nav-item';
+  d.id = 'nav-pedir-ajuda';
+  d.onclick = pedirAjudaAbrir;
+  d.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 01-12.4 7.4L3 21l2.1-5.6A8.5 8.5 0 1121 11.5z"/></svg>Pedir ajuda';
+  ref.parentNode.insertBefore(d, ref.nextSibling);
+}
+function pedirAjudaAbrir() {
+  var nome = (typeof restauranteAtual !== 'undefined' && restauranteAtual && restauranteAtual.nome) ? restauranteAtual.nome : '';
+  var msg = 'Olá! Preciso de ajuda no ServiDelivery.' + (nome ? '\nMinha loja: ' + nome : '') + '\nMeu problema é: ';
+  window.open('https://wa.me/' + PEDIR_AJUDA_WHATS + '?text=' + encodeURIComponent(msg), '_blank', 'noopener');
+  if (typeof fecharMenuMobile === 'function') { try { fecharMenuMobile(); } catch (e) {} }
 }
