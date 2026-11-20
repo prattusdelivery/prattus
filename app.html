@@ -7376,6 +7376,22 @@ function toast(msg, tipo='', ms=3000) {
   setTimeout(() => el.className = 'toast', ms);
 }
 
+// ===== TELA DE CARREGAMENTO DO CARDÁPIO PÚBLICO =====
+function coberturaPublicoMostrar() {
+  try {
+    const d = document.createElement('div');
+    d.id = 'cobertura-publico';
+    d.style.cssText = 'position:fixed;inset:0;z-index:99998;background:var(--creme,#fbf5ee);display:flex;align-items:center;justify-content:center;';
+    d.innerHTML = '<div class="spinner"></div>';
+    document.body.appendChild(d);
+    setTimeout(coberturaPublicoTirar, 12000);
+  } catch (e) {}
+}
+function coberturaPublicoTirar() {
+  const d = document.getElementById('cobertura-publico');
+  if (d) d.remove();
+}
+
 // ===== ROTEAMENTO =====
 const params = new URLSearchParams(window.location.search);
 const restParam = params.get('rest');
@@ -7394,8 +7410,11 @@ if (reciboParam) {
   mostrarTela('cliente');
   carregarPublico(restParam);
 } else if (!pathIgnorado) {
+  // Tela de carregamento: evita piscar os textos padrão (nome "Restaurante", selo amarelo) antes dos dados da loja chegarem.
+  // Por enquanto só na loja Demo.
+  if (pathSlug.toLowerCase() === 'servidelivery-demo') coberturaPublicoMostrar();
   mostrarTela('cliente');
-  carregarPublicoPorSlug(pathSlug);
+  Promise.resolve(carregarPublicoPorSlug(pathSlug)).finally(coberturaPublicoTirar);
 } else {
   initComTimeout();
 }
