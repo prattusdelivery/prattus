@@ -2482,6 +2482,7 @@ async function carregarRestaurante() {
     document.body.classList.add('fix-topbar-cel');
   if (typeof chamadosIniciar === 'function') { try { chamadosIniciar(); } catch (e) {} }
   if (typeof appInstalarIniciar === 'function') { try { appInstalarIniciar(); } catch (e) {} }
+  if (typeof enviarCardapioIniciar === 'function') { try { enviarCardapioIniciar(); } catch (e) {} }
     document.getElementById('sb-rest-nome').textContent = data.nome;
     document.getElementById('topbar-rest').textContent = data.nome;
     document.getElementById('topbar-avatar').textContent = data.nome.charAt(0).toUpperCase();
@@ -7450,5 +7451,6 @@ async function garantirUserIdRestaurante() {
 <script src="chamar-garcom.js?v=20261118a"></script>
 <script src="app-instalar.js?v=20261116a"></script>
 <script src="termos-aceite.js?v=20261118b"></script>
+<script src="enviar-cardapio.js?v=20261120a"></script>
 </body>
 </html>
