@@ -1317,7 +1317,9 @@ async function avancarStatus(id, novoStatus, nomeCliente, telefone, numPedido) {
   const chaveConfigAviso = novoStatus === 'entregue' ? 'entrega' : novoStatus;
   const configAviso = avisosConfig[chaveConfigAviso];
   // Compatibilidade: formato antigo era só true/false; o novo é {ativo, texto}
-  const avisoAtivo = typeof configAviso === 'object' && configAviso !== null ? configAviso.ativo !== false : configAviso !== false;
+  const avisoAtivo = chaveConfigAviso === 'preparando'
+    ? (typeof configAviso === 'object' && configAviso !== null ? configAviso.ativo === true : configAviso === true) // "Pedido confirmado": desligado de fábrica
+    : (typeof configAviso === 'object' && configAviso !== null ? configAviso.ativo !== false : configAviso !== false);
   const textoCustom = typeof configAviso === 'object' && configAviso !== null ? configAviso.texto : null;
 
   if (telefone && avisoAtivo) {
