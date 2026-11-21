@@ -1,10 +1,10 @@
 // ===== BOTÃO "ENVIAR CARDÁPIO" NO TOPO DO PAINEL =====
 // Para quem não entende de computador conseguir mandar o link do cardápio ao cliente sem procurar em menu.
 // Toque no botão -> abre uma janelinha com "Enviar pelo WhatsApp" e "Copiar o link".
-// Usa: restauranteAtual, meuPapel, toast. Por enquanto só na loja Demo.
+// Usa: restauranteAtual, meuPapel, toast. Liberado para todas as lojas.
 
 function enviarCardapioLiberado() {
-  return !!(typeof restauranteAtual !== 'undefined' && restauranteAtual && restauranteAtual.slug === 'servidelivery-demo');
+  return !!(typeof restauranteAtual !== 'undefined' && restauranteAtual && restauranteAtual.slug); // liberado para todas as lojas
 }
 function enviarCardapioLink() {
   return 'https://servidelivery.com.br/' + (restauranteAtual.slug || '');
