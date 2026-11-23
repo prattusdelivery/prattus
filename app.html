@@ -764,8 +764,8 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
         <input type="checkbox" id="cad-termos" style="margin-top:2px;flex:none;width:16px;height:16px;">
         <span>Li e aceito os <a href="/termos.html" target="_blank" style="color:var(--laranja-dark,#C4522E);text-decoration:underline;">Termos de Uso</a>.</span>
       </label>
-      <details style="margin-bottom:16px;">
-        <summary style="font-size:13px;color:var(--texto-muted);cursor:pointer;margin-bottom:10px;">Conte um pouco mais sobre seu negócio (opcional)</summary>
+      <details id="cad-negocio" style="margin-bottom:16px;">
+        <summary id="cad-negocio-titulo" style="font-size:13px;color:var(--texto-muted);cursor:pointer;margin-bottom:10px;">Conte um pouco mais sobre seu negócio (opcional)</summary>
         <div class="form-group">
           <label>Quantos pedidos você faz por dia hoje, mais ou menos?</label>
           <select id="cad-pedidos-dia">
@@ -2837,6 +2837,37 @@ function abrirBoasVindas(email) {
 }
 function fecharBoasVindas() { document.getElementById('modal-boas-vindas')?.classList.remove('aberto'); }
 
+// ===== PERGUNTAS DO CADASTRO OBRIGATÓRIAS (evita cadastro só de curioso) =====
+// Teste: abrir /painel?cadastro=true&obrig=1. Para liberar para todos, cadastroPerguntasAtivo() passa a retornar true.
+function cadastroPerguntasAtivo() {
+  try { if (/[?&]obrig=1/.test(location.search)) return true; } catch (e) {}
+  return false;
+}
+function cadastroPerguntasAplicar() {
+  if (!cadastroPerguntasAtivo()) return;
+  const det = document.getElementById('cad-negocio');
+  if (!det || det.dataset.obrig) return;
+  det.dataset.obrig = '1';
+  det.open = true;
+  const t = document.getElementById('cad-negocio-titulo');
+  if (t) { t.textContent = 'Sobre o seu negócio'; t.style.fontWeight = '700'; t.style.cursor = 'default'; t.style.listStyle = 'none'; t.onclick = (e) => e.preventDefault(); }
+  ['cad-pedidos-dia', 'cad-tem-computador'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    if (sel.options[0]) sel.options[0].textContent = 'Escolha uma resposta';
+    const lab = sel.parentNode && sel.parentNode.querySelector('label');
+    if (lab && !/\*/.test(lab.textContent)) lab.textContent += ' *';
+  });
+  const ped = document.getElementById('cad-pedidos-dia');
+  if (ped && !ped.querySelector('option[value="ainda nao faco delivery"]')) {
+    const o = document.createElement('option'); o.value = 'ainda nao faco delivery'; o.textContent = 'Ainda não faço delivery';
+    ped.insertBefore(o, ped.options[1]);
+  }
+  const fat = document.getElementById('cad-faturamento');
+  if (fat && fat.options[0]) fat.options[0].textContent = 'Prefiro não informar (opcional)';
+}
+document.addEventListener('DOMContentLoaded', cadastroPerguntasAplicar);
+
 async function fazerCadastro() {
   const tipo = document.getElementById('cad-tipo').value;
   const nome = document.getElementById('cad-nome').value;
@@ -2867,6 +2898,14 @@ async function fazerCadastro() {
       msg.className = 'auth-msg erro';
       msg.textContent = 'CPF ou CNPJ inválido. Confira os números digitados.';
       return;
+    }
+    if (cadastroPerguntasAtivo()) {
+      if (!document.getElementById('cad-pedidos-dia')?.value || !document.getElementById('cad-tem-computador')?.value) {
+        const det = document.getElementById('cad-negocio'); if (det) det.open = true;
+        msg.className = 'auth-msg erro';
+        msg.textContent = 'Responda as duas perguntas sobre o seu negócio (quantos pedidos por dia e se usa computador).';
+        return;
+      }
     }
     if (!document.getElementById('cad-maior-18')?.checked) {
       msg.className = 'auth-msg erro';
