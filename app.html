@@ -2838,10 +2838,9 @@ function abrirBoasVindas(email) {
 function fecharBoasVindas() { document.getElementById('modal-boas-vindas')?.classList.remove('aberto'); }
 
 // ===== PERGUNTAS DO CADASTRO OBRIGATÓRIAS (evita cadastro só de curioso) =====
-// Teste: abrir /painel?cadastro=true&obrig=1. Para liberar para todos, cadastroPerguntasAtivo() passa a retornar true.
+// Liberado para todos (era teste com ?obrig=1).
 function cadastroPerguntasAtivo() {
-  try { if (/[?&]obrig=1/.test(location.search)) return true; } catch (e) {}
-  return false;
+  return true; // liberado para todos os cadastros novos
 }
 function cadastroPerguntasAplicar() {
   if (!cadastroPerguntasAtivo()) return;
