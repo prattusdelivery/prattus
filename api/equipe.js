@@ -85,9 +85,10 @@ export default async function handler(req, res) {
         body: JSON.stringify({ email: emailInterno, password: senha, email_confirm: true, user_metadata: { nome, tipo: 'restaurante' } })
       });
       let criaData = await criaResp.json();
+      let criaOk = criaResp.ok;
       // Sobra de um funcionário antigo que foi removido: a conta interna ficou, mas o vínculo não existe mais.
       // Aqui limpamos só essa conta interna (e-mail exato, terminando em .equipe.servidelivery.internal) e tentamos de novo.
-      if (!criaResp.ok && (criaData?.error_code === 'email_exists' || /already been registered/i.test(String(criaData?.msg || criaData?.message || '')))) {
+      if (!criaOk && (criaData?.error_code === 'email_exists' || /already been registered/i.test(String(criaData?.msg || criaData?.message || '')))) {
         let orfaoId = null;
         for (let pagina = 1; pagina <= 20 && !orfaoId; pagina++) {
           const listaResp = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?page=${pagina}&per_page=1000`, { headers: svcHeaders });
@@ -108,12 +109,12 @@ export default async function handler(req, res) {
               headers: svcHeaders,
               body: JSON.stringify({ email: emailInterno, password: senha, email_confirm: true, user_metadata: { nome, tipo: 'restaurante' } })
             });
-            criaResp.ok = novaResp.ok;
+            criaOk = novaResp.ok;
             criaData = await novaResp.json();
           }
         }
       }
-      if (!criaResp.ok) {
+      if (!criaOk) {
         const msg = criaData?.msg || criaData?.error_description || criaData?.message || 'Erro ao criar a conta.';
         return res.status(400).json({ error: msg });
       }
