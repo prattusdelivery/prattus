@@ -29,10 +29,9 @@ function modoFacilAtivo() {
   return false;
 }
 
-// Tela de Pedidos com os cartões grandes: no Modo Fácil, e na Demo (teste que já existia) mesmo no Modo Completo
+// Tela de Pedidos com os cartões grandes: só no Modo Fácil (a Demo agora é igual às outras lojas: no Modo Completo usa as 3 colunas)
 function modoFacilCartoes() {
-  if (modoFacilAtivo()) return true;
-  return !!restauranteAtual && meuPapel !== 'garcom' && restauranteAtual.slug === 'servidelivery-demo';
+  return modoFacilAtivo();
 }
 
 function modoFacilTrocar(facil) {
