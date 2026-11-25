@@ -84,7 +84,35 @@ export default async function handler(req, res) {
         headers: svcHeaders,
         body: JSON.stringify({ email: emailInterno, password: senha, email_confirm: true, user_metadata: { nome, tipo: 'restaurante' } })
       });
-      const criaData = await criaResp.json();
+      let criaData = await criaResp.json();
+      // Sobra de um funcionário antigo que foi removido: a conta interna ficou, mas o vínculo não existe mais.
+      // Aqui limpamos só essa conta interna (e-mail exato, terminando em .equipe.servidelivery.internal) e tentamos de novo.
+      if (!criaResp.ok && (criaData?.error_code === 'email_exists' || /already been registered/i.test(String(criaData?.msg || criaData?.message || '')))) {
+        let orfaoId = null;
+        for (let pagina = 1; pagina <= 20 && !orfaoId; pagina++) {
+          const listaResp = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?page=${pagina}&per_page=1000`, { headers: svcHeaders });
+          if (!listaResp.ok) break;
+          const lista = await listaResp.json();
+          const usuarios = Array.isArray(lista?.users) ? lista.users : [];
+          const achado = usuarios.find(u => String(u.email || '').toLowerCase() === emailInterno.toLowerCase());
+          if (achado) orfaoId = achado.id;
+          if (usuarios.length < 1000) break;
+        }
+        if (orfaoId) {
+          const vinc = await fetch(`${SUPABASE_URL}/rest/v1/usuarios_restaurante?user_id=eq.${orfaoId}&select=id`, { headers: svcHeaders });
+          const vincData = await vinc.json();
+          if (Array.isArray(vincData) && vincData.length === 0) {
+            await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${orfaoId}`, { method: 'DELETE', headers: svcHeaders });
+            const novaResp = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
+              method: 'POST',
+              headers: svcHeaders,
+              body: JSON.stringify({ email: emailInterno, password: senha, email_confirm: true, user_metadata: { nome, tipo: 'restaurante' } })
+            });
+            criaResp.ok = novaResp.ok;
+            criaData = await novaResp.json();
+          }
+        }
+      }
       if (!criaResp.ok) {
         const msg = criaData?.msg || criaData?.error_description || criaData?.message || 'Erro ao criar a conta.';
         return res.status(400).json({ error: msg });
@@ -105,9 +133,23 @@ export default async function handler(req, res) {
     if (acao === 'remover') {
       const { vinculoId } = req.body || {};
       if (!vinculoId) return res.status(400).json({ error: 'vinculoId é obrigatório' });
+      // Antes de apagar o vínculo, guarda quem é o funcionário para apagar também a conta interna dele
+      const vResp = await fetch(`${SUPABASE_URL}/rest/v1/usuarios_restaurante?id=eq.${encodeURIComponent(vinculoId)}&restaurante_id=eq.${encodeURIComponent(restauranteId)}&select=user_id,papel`, { headers: svcHeaders });
+      const vData = await vResp.json();
+      const alvo = Array.isArray(vData) && vData[0] ? vData[0] : null;
       await fetch(`${SUPABASE_URL}/rest/v1/usuarios_restaurante?id=eq.${vinculoId}&restaurante_id=eq.${restauranteId}`, {
         method: 'DELETE', headers: svcHeaders
       });
+      // Só apaga a conta interna de funcionário (e-mail sintético). Nunca a conta de um dono.
+      if (alvo && alvo.papel === 'funcionario' && alvo.user_id) {
+        try {
+          const uResp = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${alvo.user_id}`, { headers: svcHeaders });
+          const u = uResp.ok ? await uResp.json() : null;
+          if (u && String(u.email || '').toLowerCase().endsWith('.equipe.servidelivery.internal')) {
+            await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${alvo.user_id}`, { method: 'DELETE', headers: svcHeaders });
+          }
+        } catch (e) { /* se falhar, o vínculo já foi removido; a limpeza acontece na próxima criação */ }
+      }
       return res.status(200).json({ ok: true });
     }
 
