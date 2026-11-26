@@ -21,6 +21,42 @@ function enviarCardapioMensagem() {
   return 'Olá! 😊 Faça o seu pedido na ' + (restauranteAtual.nome || 'nossa loja') + ' pelo nosso cardápio:\n' + enviarCardapioLink();
 }
 
+// Texto editável direto na janela (sem precisar entrar em Configurações). Por enquanto só na loja Demo.
+// Para liberar para todas: troque a linha "return" abaixo por "return enviarCardapioMensagemGrande();" (e tire o bloco da Demo em Configurações, no app.html: cfg-msg-business-box).
+function enviarCardapioEditavel() {
+  return !!(restauranteAtual && restauranteAtual.slug === 'servidelivery-demo' && enviarCardapioMensagemGrande());
+}
+function enviarCardapioTextoAtual() {
+  var t = document.getElementById('enviar-cardapio-msg');
+  return t && String(t.value).trim() ? t.value : enviarCardapioMensagem();
+}
+// Guarda o texto na loja (banco). O nome e o link voltam a ser etiquetas {nome} e {link}, como em Configurações.
+async function enviarCardapioSalvar(silencioso) {
+  var t = document.getElementById('enviar-cardapio-msg');
+  if (!t || !restauranteAtual) return;
+  var texto = String(t.value).trim();
+  if (!texto) { toast('Escreva a mensagem antes.', 'erro'); return; }
+  var link = enviarCardapioLink();
+  if (restauranteAtual.slug) texto = texto.split(link).join('{link}');
+  if (restauranteAtual.nome) texto = texto.split(restauranteAtual.nome).join('{nome}');
+  var novo = Object.assign({}, restauranteAtual.avisos_whatsapp || {}, { business: texto });
+  var r = await db.from('restaurantes').update({ avisos_whatsapp: novo }).eq('id', restauranteAtual.id);
+  if (r && r.error) { toast('Não deu certo salvar. Tente de novo.', 'erro'); return; }
+  restauranteAtual = Object.assign({}, restauranteAtual, { avisos_whatsapp: novo });
+  if (!silencioso) toast('Texto salvo!', 'ok');
+}
+async function enviarCardapioRestaurar() {
+  var t = document.getElementById('enviar-cardapio-msg');
+  if (!t || !restauranteAtual) return;
+  var novo = Object.assign({}, restauranteAtual.avisos_whatsapp || {});
+  delete novo.business;
+  var r = await db.from('restaurantes').update({ avisos_whatsapp: novo }).eq('id', restauranteAtual.id);
+  if (r && r.error) { toast('Não deu certo. Tente de novo.', 'erro'); return; }
+  restauranteAtual = Object.assign({}, restauranteAtual, { avisos_whatsapp: novo });
+  t.value = enviarCardapioMensagem();
+  toast('Texto padrão de volta!', 'ok');
+}
+
 function enviarCardapioIniciar() {
   if (!enviarCardapioLiberado()) return;
   if (typeof meuPapel !== 'undefined' && meuPapel === 'garcom') return; // o garçom não vê
@@ -54,7 +90,9 @@ function enviarCardapioAbrir() {
     '<div style="background:#fff;border-radius:16px;max-width:400px;width:100%;padding:22px 20px;box-shadow:0 20px 50px rgba(0,0,0,.35);font-family:inherit;">' +
       '<div style="font-size:19px;font-weight:700;color:#2B1F14;margin-bottom:6px;">📲 Enviar o cardápio ao cliente</div>' +
       '<div style="font-size:14px;color:#5b4a3a;line-height:1.45;margin-bottom:14px;">O cliente abre o link, escolhe e faz o pedido sozinho.</div>' +
-      (enviarCardapioMensagemGrande()
+      (enviarCardapioEditavel()
+        ? '<div style="font-size:12px;color:#8a7766;margin-bottom:4px;">Esta mensagem vai para o cliente. Pode mudar o texto:</div><textarea id="enviar-cardapio-msg" rows="7" onchange="enviarCardapioSalvar()" style="width:100%;box-sizing:border-box;background:var(--creme,#fbf5ee);border:1px solid var(--creme-borda,#e5d9cc);border-radius:10px;padding:10px 12px;font-size:13px;color:#2B1F14;line-height:1.45;font-family:inherit;margin-bottom:6px;resize:vertical;">' + String(enviarCardapioMensagem()).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</textarea><div style="font-size:11px;color:#8a7766;margin-bottom:14px;">O que você mudar fica guardado. <a href="#" onclick="event.preventDefault();enviarCardapioRestaurar();" style="color:#C4522E;font-weight:700;">↩️ Voltar ao texto padrão</a></div>'
+      : enviarCardapioMensagemGrande()
         ? '<div style="font-size:12px;color:#8a7766;margin-bottom:4px;">Esta mensagem vai para o cliente:</div><div style="background:var(--creme,#fbf5ee);border-radius:10px;padding:10px 12px;font-size:13px;color:#2B1F14;line-height:1.45;white-space:pre-wrap;word-break:break-word;max-height:190px;overflow:auto;margin-bottom:6px;">' + String(enviarCardapioMensagem()).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</div><div style="font-size:11px;color:#8a7766;margin-bottom:14px;">Para mudar o texto: Configurações → Mensagem automática para WhatsApp Business.</div>'
         : '<div style="background:var(--creme,#fbf5ee);border-radius:10px;padding:10px 12px;font-size:13px;color:#2B1F14;word-break:break-all;margin-bottom:14px;">' + enviarCardapioLink().replace(/^https:\/\//, '') + '</div>') +
       '<button type="button" onclick="enviarCardapioWhats()" style="width:100%;padding:14px;border:none;border-radius:10px;background:#25D366;color:#fff;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;font-family:inherit;">💬 Enviar pelo WhatsApp</button>' +
@@ -70,12 +108,12 @@ function enviarCardapioFechar() {
 }
 
 function enviarCardapioWhats() {
-  window.open('https://wa.me/?text=' + encodeURIComponent(enviarCardapioMensagem()), '_blank');
+  window.open('https://wa.me/?text=' + encodeURIComponent(enviarCardapioTextoAtual()), '_blank');
 }
 
 function enviarCardapioCopiar() {
   var grande = enviarCardapioMensagemGrande();
-  var txt = grande ? enviarCardapioMensagem() : enviarCardapioLink();
+  var txt = grande ? enviarCardapioTextoAtual() : enviarCardapioLink();
   var ok = function () { toast(grande ? 'Mensagem copiada!' : 'Link copiado!', 'ok'); enviarCardapioFechar(); };
   var antigo = function () {
     var t = document.createElement('textarea');
