@@ -172,6 +172,20 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, ligado, mensal: p.mensal, travado: p.travado, assinaturaAtiva: !!linhas[0].plano_ativo });
     }
 
+    if (acao === 'recurso_liberado') {
+      // Libera ou tira, numa loja, o Mercado Pago (Pix/cartão online) ou o agendamento de pedidos. Só o Super Admin muda isso.
+      const campo = req.body.recurso === 'mercadopago' ? 'mp_liberado' : (req.body.recurso === 'agendamento' ? 'agendamento_liberado' : null);
+      if (!campo) return res.status(400).json({ error: 'Recurso inválido.' });
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${encodeURIComponent(restauranteId)}`, {
+        method: 'PATCH',
+        headers: { ...svcHeaders, 'Prefer': 'return=representation' },
+        body: JSON.stringify({ [campo]: req.body.ligado === true })
+      });
+      const linhas = await r.json().catch(() => []);
+      if (!r.ok || !Array.isArray(linhas) || !linhas[0]) return res.status(500).json({ error: 'Não consegui salvar.' });
+      return res.status(200).json({ ok: true, recurso: req.body.recurso, ligado: req.body.ligado === true });
+    }
+
     if (acao === 'estender_teste') {
       const diasNum = Number.isFinite(parseInt(dias)) ? parseInt(dias) : 7;
       const buscaResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}&select=trial_extra_dias`, { headers: svcHeaders });
