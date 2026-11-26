@@ -6,7 +6,7 @@
 // Usa: restauranteAtual.
 
 function comandasRecursoLiberado() {
-  return !!(typeof restauranteAtual !== 'undefined' && restauranteAtual && restauranteAtual.slug === 'servidelivery-demo');
+  return true;
 }
 
 // true = a loja usa Comandas (padrão). Só fica false se o recurso estiver liberado E o Super Admin tiver desligado.
