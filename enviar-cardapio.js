@@ -9,7 +9,15 @@ function enviarCardapioLiberado() {
 function enviarCardapioLink() {
   return 'https://servidelivery.com.br/' + (restauranteAtual.slug || '');
 }
+// Mensagem maior (a mesma "Mensagem automática para WhatsApp Business" salva em Configurações).
+// Por enquanto só na loja Demo. Para liberar para todas: troque a linha "return" abaixo por "return typeof msgBusinessTexto === 'function';"
+function enviarCardapioMensagemGrande() {
+  return !!(restauranteAtual && restauranteAtual.slug === 'servidelivery-demo' && typeof msgBusinessTexto === 'function');
+}
 function enviarCardapioMensagem() {
+  if (enviarCardapioMensagemGrande()) {
+    try { return msgBusinessTexto(restauranteAtual); } catch (e) {}
+  }
   return 'Olá! 😊 Faça o seu pedido na ' + (restauranteAtual.nome || 'nossa loja') + ' pelo nosso cardápio:\n' + enviarCardapioLink();
 }
 
@@ -46,7 +54,9 @@ function enviarCardapioAbrir() {
     '<div style="background:#fff;border-radius:16px;max-width:400px;width:100%;padding:22px 20px;box-shadow:0 20px 50px rgba(0,0,0,.35);font-family:inherit;">' +
       '<div style="font-size:19px;font-weight:700;color:#2B1F14;margin-bottom:6px;">📲 Enviar o cardápio ao cliente</div>' +
       '<div style="font-size:14px;color:#5b4a3a;line-height:1.45;margin-bottom:14px;">O cliente abre o link, escolhe e faz o pedido sozinho.</div>' +
-      '<div style="background:var(--creme,#fbf5ee);border-radius:10px;padding:10px 12px;font-size:13px;color:#2B1F14;word-break:break-all;margin-bottom:14px;">' + enviarCardapioLink().replace(/^https:\/\//, '') + '</div>' +
+      (enviarCardapioMensagemGrande()
+        ? '<div style="font-size:12px;color:#8a7766;margin-bottom:4px;">Esta mensagem vai para o cliente:</div><div style="background:var(--creme,#fbf5ee);border-radius:10px;padding:10px 12px;font-size:13px;color:#2B1F14;line-height:1.45;white-space:pre-wrap;word-break:break-word;max-height:190px;overflow:auto;margin-bottom:6px;">' + String(enviarCardapioMensagem()).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</div><div style="font-size:11px;color:#8a7766;margin-bottom:14px;">Para mudar o texto: Configurações → Mensagem automática para WhatsApp Business.</div>'
+        : '<div style="background:var(--creme,#fbf5ee);border-radius:10px;padding:10px 12px;font-size:13px;color:#2B1F14;word-break:break-all;margin-bottom:14px;">' + enviarCardapioLink().replace(/^https:\/\//, '') + '</div>') +
       '<button type="button" onclick="enviarCardapioWhats()" style="width:100%;padding:14px;border:none;border-radius:10px;background:#25D366;color:#fff;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;font-family:inherit;">💬 Enviar pelo WhatsApp</button>' +
       '<button type="button" onclick="enviarCardapioCopiar()" style="width:100%;padding:12px;border:1.5px solid var(--creme-borda,#e5d9cc);border-radius:10px;background:#fff;color:#2B1F14;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;">📋 Copiar o link</button>' +
       '<div style="text-align:center;margin-top:10px;"><a href="#" onclick="event.preventDefault();enviarCardapioFechar();" style="font-size:13px;color:#8a7766;">Fechar</a></div>' +
