@@ -23,6 +23,13 @@ function mnCss() {
   st.textContent =
     'body.menu-novo .sidebar-scroll .nav-section{display:none !important;}' +
     'body.menu-novo .mn-oculto{display:none !important;}' +
+    // letra maior e em negrito, para o menu ficar fácil de ver (26/11/2026)
+    'body.menu-novo .sidebar-scroll .nav-item{font-size:15px;font-weight:700;color:rgba(255,255,255,0.88);padding:11px 20px;gap:12px;}' +
+    'body.menu-novo .sidebar-scroll .nav-item:hover{color:#fff;}' +
+    'body.menu-novo .sidebar-scroll .nav-item.ativo{color:var(--laranja);}' +
+    'body.menu-novo .sidebar-scroll .nav-item svg{width:19px;height:19px;}' +
+    'body.menu-novo #nav-mais-lista .nav-item{font-size:14px;font-weight:600;padding:9px 20px 9px 34px;color:rgba(255,255,255,0.75);}' +
+    'body.menu-novo #nav-mais-lista .nav-item.ativo{color:var(--laranja);}' +
     '#nav-mais-lista{display:none;}#nav-mais-lista.aberto{display:block;}' +
     '#nav-mais-lista .nav-item{padding-left:34px;}' +
     '#nav-mais .mn-seta{margin-left:auto;font-size:11px;transition:transform .15s;}' +
