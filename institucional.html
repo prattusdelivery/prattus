@@ -56,6 +56,10 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:18px 2
 .nav-links a:hover{color:var(--laranja-dark);}
 .nav-cta{background:var(--preto);color:var(--branco);padding:11px 22px;border-radius:8px;font-size:14px;font-weight:600;white-space:nowrap;}
 .nav-cta:hover{background:var(--laranja-dark);}
+.nav-dir{display:flex;align-items:center;gap:10px}
+.nav-entrar{border:1.5px solid var(--preto);color:var(--preto);padding:9.5px 18px;border-radius:8px;font-size:14px;font-weight:600;white-space:nowrap;background:transparent}
+.nav-entrar:hover{border-color:var(--laranja-dark);color:var(--laranja-dark)}
+@media(max-width:480px){.nav-entrar{padding:8px 12px}.nav-cta{padding:9px 12px}}
 @media(max-width:760px){.nav-links{display:none;}}
 
 .hero{padding:76px 0 40px;position:relative;}
@@ -306,7 +310,10 @@ src="https://www.facebook.com/tr?id=1675050637615207&ev=PageView&noscript=1"
       <a href="#recursos">Recursos</a>
       <a href="#precos">Preços</a>
     </div>
-    <a class="nav-cta" href="https://servidelivery.com.br/painel?cadastro=true">Começar agora</a>
+    <div class="nav-dir">
+      <a class="nav-entrar" href="https://servidelivery.com.br/painel">Entrar</a>
+      <a class="nav-cta" href="https://servidelivery.com.br/painel?cadastro=true">Começar agora</a>
+    </div>
   </nav>
 </header>
 
