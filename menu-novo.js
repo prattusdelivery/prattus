@@ -13,17 +13,8 @@ var MN_PAGINAS_RESULTADOS = ['dashboard', 'relatorios', 'financeiro', 'historico
 var MN_PAGINAS_MAIS = ['clientes', 'cupons', 'fretes', 'equipe', 'mensalidade', 'config'];
 
 function menuNovoLiberado() {
-  if (typeof restauranteAtual === 'undefined' || !restauranteAtual) return false;
-  if (restauranteAtual.plano_painel === 'simples') return false;
-  if (restauranteAtual.slug === 'servidelivery-demo') return true;
-  // Lojas NOVAS (cadastradas depois de 26/11/2026 12h) já nascem com o menu enxuto.
-  // As lojas antigas continuam com o menu de sempre até o Alessandro liberar.
-  try {
-    var c = restauranteAtual.criado_em;
-    if (!c) return false;
-    var d = new Date(/Z$|[+-]\d{2}:\d{2}$/.test(c) ? c : c + 'Z');
-    return d.getTime() >= Date.UTC(2026, 10, 26, 15, 0, 0);
-  } catch (e) { return false; }
+  // Liberado para todas as lojas (exceto o painel 'simples').
+  return !!(typeof restauranteAtual !== 'undefined' && restauranteAtual && restauranteAtual.plano_painel !== 'simples');
 }
 
 function mnCss() {

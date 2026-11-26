@@ -6,7 +6,7 @@
 // Usa: restauranteAtual.
 
 function comandasRecursoLiberado() {
-  return true;
+  return false; // por enquanto Comandas aparecem para todas as lojas (sem cobrança extra)
 }
 
 // true = a loja usa Comandas (padrão). Só fica false se o recurso estiver liberado E o Super Admin tiver desligado.

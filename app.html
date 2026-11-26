@@ -1831,7 +1831,7 @@ async function toggleDetalhesSA(restauranteId) {
         <button onclick="gerenciarLojaSA('${restauranteId}','desativar')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:#c0392b;color:#fff;border:none;cursor:pointer;">Desativar assinatura</button>
         <button onclick="estenderTesteSA('${restauranteId}')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:var(--laranja);color:#fff;border:none;cursor:pointer;">📅 Ajustar dias de teste</button>
         <button onclick="redefinirSenhaDonoSA('${restauranteId}')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:#3b4a63;color:#fff;border:none;cursor:pointer;">🔑 Redefinir senha do dono</button>
-        <button onclick="comandasSA('${restauranteId}', ${r?.comandas_ativas === false ? 'true' : 'false'})" style="font-size:11px;padding:5px 10px;border-radius:6px;background:${r?.comandas_ativas === false ? '#3b4a63' : '#2ea043'};color:#fff;border:none;cursor:pointer;">🍽️ Comandas: ${r?.comandas_ativas === false ? 'desligadas (clique para ligar)' : 'LIGADAS (clique para desligar)'}</button>
+        ${COBRAR_COMANDAS ? `<button onclick="comandasSA('${restauranteId}', ${r?.comandas_ativas === false ? 'true' : 'false'})" style="font-size:11px;padding:5px 10px;border-radius:6px;background:${r?.comandas_ativas === false ? '#3b4a63' : '#2ea043'};color:#fff;border:none;cursor:pointer;">🍽️ Comandas: ${r?.comandas_ativas === false ? 'desligadas (clique para ligar)' : 'LIGADAS (clique para desligar)'}</button>` : ''}
       </div>
       <div id="sa-senha-${restauranteId}" style="margin-top:10px;"></div>
     `;
@@ -3456,10 +3456,12 @@ async function carregarHistoricoPeriodo() {
 const TABELA_PRECOS = { simples: { mensal: 39.90, anual: 399.90 }, completo: { mensal: 39.90, anual: 399.90 } };
 // Loja no plano Simples? (esconde/desliga o que é só do Completo: pagamento online, cashback, agendamento)
 function planoSimplesLoja(r) { return !!r && r.plano_painel === 'simples'; }
+// Por enquanto as Comandas NÃO têm cobrança extra (tudo a R$ 39,90). Para voltar a cobrar +R$ 10, troque para true (e em api/_precos.js).
+const COBRAR_COMANDAS = false;
 function precosLoja(r) {
   const t = TABELA_PRECOS[r && r.plano_painel === 'simples' ? 'simples' : 'completo'];
   let mensal = t.mensal, anual = t.anual;
-  if (r && r.comandas_ativas === true) { mensal += 10; anual += 100; } // Comandas (mesas): +R$ 10 por mês (espelha api/_precos.js)
+  if (COBRAR_COMANDAS && r && r.comandas_ativas === true) { mensal += 10; anual += 100; } // Comandas (mesas): +R$ 10 por mês (espelha api/_precos.js)
   const travado = parseFloat(r && r.preco_mensal_travado);
   if (travado > 0) { mensal = Math.round(travado * 100) / 100; anual = Math.floor(travado * 10 + 1e-6) + 0.90; }
   const f = v => 'R$' + v.toFixed(2).replace('.', ',');
@@ -7516,8 +7518,8 @@ async function garantirUserIdRestaurante() {
 <script src="conta-mesa.js?v=20261112c"></script>
 <script src="primeiros-passos.js?v=20261126a"></script>
 <script src="sem-bebidas.js?v=20261113c"></script>
-<script src="comandas-extra.js?v=20261126b"></script>
-<script src="menu-novo.js?v=20261126d"></script>
+<script src="comandas-extra.js?v=20261126c"></script>
+<script src="menu-novo.js?v=20261126e"></script>
 <script src="editar-comanda.js?v=20261113d"></script>
 <script src="chamar-garcom.js?v=20261118a"></script>
 <script src="app-instalar.js?v=20261116a"></script>
