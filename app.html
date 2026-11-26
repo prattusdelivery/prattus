@@ -2655,11 +2655,13 @@ function alternarSomSistema(ligado) {
 }
 
 // ===== RECURSOS LIBERADOS PELO SUPER ADMIN (Mercado Pago, agendamento) + PAUSA COM DATA =====
-// Chave: por enquanto só a loja Demo segue as regras novas. Para liberar para todas as lojas, troque o return por true.
+// Chave da PAUSA COM DATA: por enquanto só a loja Demo. Para liberar para todas as lojas, troque o return por true.
 function novasRegrasAtivas(r) { return !!(r && r.slug === 'servidelivery-demo'); }
 // Mercado Pago e agendamento: só funcionam se o Super Admin liberou na loja (nas lojas que seguem a regra nova)
-function mpLiberado(r) { return !novasRegrasAtivas(r) || r.mp_liberado === true; }
-function agendamentoLiberado(r) { return !novasRegrasAtivas(r) || r.agendamento_liberado === true; }
+// Regra valendo para TODAS as lojas (inclusive a Demo): Mercado Pago e agendamento só funcionam onde o Super Admin liberou.
+function restricaoRecursosAtiva(r) { return !!r; }
+function mpLiberado(r) { return !restricaoRecursosAtiva(r) || r.mp_liberado === true; }
+function agendamentoLiberado(r) { return !restricaoRecursosAtiva(r) || r.agendamento_liberado === true; }
 function maisUmDiaISO(iso) {
   const [a, m, d] = iso.split('-').map(Number);
   return new Date(Date.UTC(a, m - 1, d + 1)).toISOString().slice(0, 10);
@@ -2683,7 +2685,7 @@ function pedidoBloqueadoAgora() {
   const p = pausaDaLoja(restPublico);
   if (p.pausada) return { bloqueado: true, msg: 'Este restaurante pausou os pedidos no momento. Tente novamente mais tarde.' };
   const emComanda = (typeof modoComandaAtivo !== 'undefined' && modoComandaAtivo);
-  if (!emComanda && novasRegrasAtivas(restPublico) && !agendamentoLiberado(restPublico) && (modoAtual === 'delivery' || modoAtual === 'retirada') && lojaFechadaPorHorario()) {
+  if (!emComanda && restricaoRecursosAtiva(restPublico) && !agendamentoLiberado(restPublico) && (modoAtual === 'delivery' || modoAtual === 'retirada') && lojaFechadaPorHorario()) {
     return { bloqueado: true, msg: 'Estamos fechados agora. Faça seu pedido quando a loja estiver aberta.' };
   }
   return { bloqueado: false };
