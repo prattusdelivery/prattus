@@ -119,6 +119,43 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, ligado });
     }
 
+    if (acao === 'excluir_loja_teste') {
+      // Apaga de vez uma loja de TESTE que nunca foi usada (sem pedidos e sem assinatura). Não tem botão na tela: só é chamada de propósito.
+      // Trava: precisa mandar o "slug" certo da loja; recusa loja com assinatura ativa ou com pedidos.
+      const slugConfirma = String(req.body.slugConfirma || '');
+      const rResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${encodeURIComponent(restauranteId)}&select=id,slug,user_id,plano_ativo`, { headers: svcHeaders });
+      const rData = await rResp.json();
+      const loja = Array.isArray(rData) ? rData[0] : null;
+      if (!loja) return res.status(404).json({ error: 'Loja não encontrada.' });
+      if (!slugConfirma || loja.slug !== slugConfirma) return res.status(400).json({ error: 'O nome do link não confere.' });
+      if (loja.plano_ativo) return res.status(400).json({ error: 'Essa loja tem assinatura ativa. Não apaguei.' });
+      const pResp = await fetch(`${SUPABASE_URL}/rest/v1/pedidos?restaurante_id=eq.${encodeURIComponent(restauranteId)}&select=id&limit=1`, { headers: svcHeaders });
+      const pData = await pResp.json();
+      if (Array.isArray(pData) && pData.length) return res.status(400).json({ error: 'Essa loja já tem pedidos. Não apaguei.' });
+
+      const rid = encodeURIComponent(restauranteId);
+      // limpa o que pode estar ligado à loja (se alguma tabela não existir, segue em frente)
+      for (const t of ['restaurante_privado', 'itens', 'categorias']) {
+        await fetch(`${SUPABASE_URL}/rest/v1/${t}?${t === 'restaurante_privado' ? 'restaurante_id' : 'restaurante_id'}=eq.${rid}`, { method: 'DELETE', headers: { ...svcHeaders, 'Prefer': 'return=minimal' } }).catch(() => {});
+      }
+      const dResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${rid}`, { method: 'DELETE', headers: { ...svcHeaders, 'Prefer': 'return=minimal' } });
+      if (!dResp.ok) {
+        const t = await dResp.json().catch(() => ({}));
+        return res.status(500).json({ error: 'Não consegui apagar a loja.', detalhe: t });
+      }
+      // apaga o login do dono só se ele não tiver outra loja
+      let loginApagado = false;
+      if (loja.user_id) {
+        const outras = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?user_id=eq.${encodeURIComponent(loja.user_id)}&select=id&limit=1`, { headers: svcHeaders });
+        const outrasData = await outras.json();
+        if (Array.isArray(outrasData) && !outrasData.length) {
+          const del = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${loja.user_id}`, { method: 'DELETE', headers: svcHeaders });
+          loginApagado = del.ok;
+        }
+      }
+      return res.status(200).json({ ok: true, loginApagado });
+    }
+
     if (acao === 'estender_teste') {
       const diasNum = Number.isFinite(parseInt(dias)) ? parseInt(dias) : 7;
       const buscaResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}&select=trial_extra_dias`, { headers: svcHeaders });
