@@ -1793,12 +1793,12 @@ function pnDetalhes(id) {
 }
 
 function renderPedidosNovo(lista) {
+  pnBusca = ''; // a busca por nome/telefone foi retirada da tela (26/11/2026); o cliente acompanha o pedido pelo celular
   pnInjetarCss();
   pnFecharGaveta();
   document.getElementById('conteudo').innerHTML = `
     <div class="pn-topo">
       <div class="pn-chips">${[['todos', 'Todos'], ['entregas', 'Entregas'], ['retirada', 'Retirada']].map(([k, t]) => `<button class="pn-chip${pnFiltro === k ? ' on' : ''}" data-f="${k}" onclick="pnFiltrar('${k}')">${t}</button>`).join('')}</div>
-      <input class="pn-busca" type="search" placeholder="Buscar por nome, telefone ou número" value="${esc(pnBusca)}" oninput="pnBuscar(this.value)" aria-label="Buscar pedido">
     </div>
     ${pnFaixaAgendados(lista)}
     <div id="pn-colunas"></div>`;
