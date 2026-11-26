@@ -12,8 +12,8 @@ function modoFacilPlanoSimples() {
 }
 
 function modoFacilDisponivel() {
-  // Teste de retirada do Modo Fácil (26/11/2026): por enquanto só na loja Demo. Para liberar para todas, apague as 3 linhas abaixo.
-  if (typeof restauranteAtual !== 'undefined' && restauranteAtual && restauranteAtual.slug === 'servidelivery-demo') return false;
+  // 26/11/2026: o Modo Fácil deixou de ser oferecido (nenhuma loja usava). Só continua para lojas do plano "Simples" (plano_painel = 'simples'), que dependem dele.
+  if (!modoFacilPlanoSimples()) return false;
   // O botão "Mudar para o Modo Fácil" existe para toda loja (dono). O plano não muda: a loja Completa só troca a tela.
   try {
     const v = localStorage.getItem('modo_facil_disponivel');

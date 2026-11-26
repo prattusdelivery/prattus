@@ -12,7 +12,7 @@ function enviarCardapioLink() {
 // Mensagem maior (a mesma "Mensagem automática para WhatsApp Business" salva em Configurações).
 // Por enquanto só na loja Demo. Para liberar para todas: troque a linha "return" abaixo por "return typeof msgBusinessTexto === 'function';"
 function enviarCardapioMensagemGrande() {
-  return !!(restauranteAtual && restauranteAtual.slug === 'servidelivery-demo' && typeof msgBusinessTexto === 'function');
+  return !!(restauranteAtual && typeof msgBusinessTexto === 'function'); // liberado para todas as lojas (26/11/2026)
 }
 function enviarCardapioMensagem() {
   if (enviarCardapioMensagemGrande()) {

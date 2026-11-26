@@ -4119,7 +4119,7 @@ async function renderConfig() {
       </div>
       <div class="form-group"><label>Descrição do restaurante</label><input type="text" id="cfg-categoria" value="${esc(r.categoria||'')}" placeholder="Ex: Lanchonete, Pizzaria, Marmitaria..."><div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Esse texto aparece no seu cardápio público, embaixo do nome da loja.</div></div>
 
-      <div class="form-group" id="cfg-retirada-box" style="${r.slug === 'servidelivery-demo' ? 'display:none;' : 'display:flex;'}justify-content:space-between;align-items:center;background:var(--creme);border-radius:10px;padding:14px;margin-top:16px;">
+      <div class="form-group" id="cfg-retirada-box" style="display:none;justify-content:space-between;align-items:center;background:var(--creme);border-radius:10px;padding:14px;margin-top:16px;">
         <div>
           <label style="font-weight:700;">Retirada no local disponível hoje?</label>
           <div style="font-size:12px;color:var(--texto-muted);margin-top:2px;">Desligue quando não tiver ninguém pra atender quem for buscar o pedido. O Delivery continua funcionando normalmente.</div>
@@ -7498,7 +7498,7 @@ async function garantirUserIdRestaurante() {
 <script src="relatorios.js"></script>
 <script src="financeiro.js?v=20261116a"></script>
 <script src="clientes.js"></script>
-<script src="modo-facil.js?v=20261126a"></script>
+<script src="modo-facil.js?v=20261126b"></script>
 <script src="mapa-mesas.js?v=20261118b"></script>
 <script src="conta-mesa.js?v=20261112c"></script>
 <script src="primeiros-passos.js?v=20261126a"></script>
@@ -7507,7 +7507,7 @@ async function garantirUserIdRestaurante() {
 <script src="chamar-garcom.js?v=20261118a"></script>
 <script src="app-instalar.js?v=20261116a"></script>
 <script src="termos-aceite.js?v=20261118b"></script>
-<script src="enviar-cardapio.js?v=20261126b"></script>
-<script src="retirada-hoje.js?v=20261125a"></script>
+<script src="enviar-cardapio.js?v=20261126c"></script>
+<script src="retirada-hoje.js?v=20261126a"></script>
 </body>
 </html>

@@ -6,7 +6,7 @@
 // Usa: restauranteAtual, meuPapel, paginaAtual, db, toast.
 
 function retiradaBotaoLiberado() {
-  return !!(typeof restauranteAtual !== 'undefined' && restauranteAtual && restauranteAtual.slug === 'servidelivery-demo');
+  return !!(typeof restauranteAtual !== 'undefined' && restauranteAtual); // liberado para todas as lojas (26/11/2026)
 }
 
 function retiradaBotaoLigada() {
