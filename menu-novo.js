@@ -1,8 +1,8 @@
 // ===== MENU ENXUTO (26/11/2026) =====
 // Menu da esquerda com menos itens:
-//   Pedidos · Comandas (só se ligadas) · Cardápio · Resultados · Mais ▾ · Ajuda
+//   Pedidos · Comandas (só se ligadas) · Equipe (só se Comandas ligadas) · Cardápio · Resultados · Mais ▾ · Ajuda
 //   Resultados = Dashboard + Relatórios + Financeiro + Histórico + Avaliações (abas no topo da tela).
-//   Mais (fechado) = Clientes, Cupons, Fretes, Equipe, Mensalidade, Configurações.
+//   Mais (fechado) = Clientes, Cupons, Fretes, Equipe (quando a loja não tem Comandas), Mensalidade, Configurações.
 //   Ajuda = janelinha com Tutoriais e Falar com o suporte.
 // Nada é apagado: as telas são as mesmas, só mudou onde ficam no menu. O painel abre direto em Pedidos.
 // POR ENQUANTO SÓ NA DEMO (servidelivery-demo). Para liberar para todas: troque a linha "return" de menuNovoLiberado() por
@@ -99,6 +99,22 @@ function menuNovoMontar() {
   });
 }
 
+// "Equipe" fica no menu, logo abaixo de Comandas, quando a loja usa Comandas (é onde se cria o garçom).
+// Sem Comandas, ela volta para dentro do "Mais".
+function menuNovoEquipe() {
+  var eq = mnItemPor('equipe'), lista = document.getElementById('nav-mais-lista');
+  if (!eq || !lista) return;
+  var comComandas = typeof comandasLigadas === 'function' ? comandasLigadas() : true;
+  var dentro = eq.parentNode === lista;
+  if (comComandas && dentro) {
+    var com = mnItemPor('comandas');
+    if (com && com.parentNode) com.parentNode.insertBefore(eq, com.nextSibling);
+  } else if (!comComandas && !dentro) {
+    var antes = mnItemPor('mensalidade');
+    if (antes && antes.parentNode === lista) lista.insertBefore(eq, antes); else lista.appendChild(eq);
+  }
+}
+
 function menuNovoAlternarMais(forcar) {
   var lista = document.getElementById('nav-mais-lista'), bt = document.getElementById('nav-mais');
   if (!lista || !bt) return;
@@ -165,7 +181,8 @@ function menuNovoAcender() {
   if (res) res.classList.toggle('ativo', emResultados);
   if (mnUltimaPagina !== paginaAtual) {
     mnUltimaPagina = paginaAtual;
-    if (MN_PAGINAS_MAIS.indexOf(paginaAtual) >= 0) menuNovoAlternarMais(true);
+    var itemAtual = MN_PAGINAS_MAIS.indexOf(paginaAtual) >= 0 ? mnItemPor(paginaAtual) : null;
+    if (itemAtual && itemAtual.parentNode && itemAtual.parentNode.id === 'nav-mais-lista') menuNovoAlternarMais(true);
   }
   // se nenhum item visível está aceso (ex.: logo ao abrir o painel), acende o da tela atual
   var acesos = document.querySelectorAll('.sidebar-scroll .nav-item.ativo:not(.mn-oculto)');
@@ -192,6 +209,7 @@ function menuNovoPapel() {
     try {
       if (!menuNovoLiberado()) return;
       menuNovoMontar();
+      menuNovoEquipe();
       menuNovoPapel();
       menuNovoAcender();
       var c = document.getElementById('conteudo');
