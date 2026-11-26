@@ -3741,8 +3741,8 @@ async function trocarPlano(plano, btnEl) {
       return;
     }
     if (data.checkoutUrl) {
-      toast('Agora é só pagar. O Completo liga sozinho quando o pagamento for confirmado.', 'ok');
-      window.location.href = data.checkoutUrl;
+      if (irParaPagamento(data.checkoutUrl, null, d => d.plano_painel === plano)) soltar();
+      else toast('Agora é só pagar. O Completo liga sozinho quando o pagamento for confirmado.', 'ok');
       return;
     }
     toast(data.efeito === 'proxima_cobranca' ? 'Combinado! Você volta ao Simples na próxima cobrança.' : (plano === 'completo' ? 'Plano Completo ligado!' : 'Plano trocado!'), 'ok');
@@ -5391,6 +5391,53 @@ function statusTrial(rest) {
   return { trial: true, bloqueado: diasRestantes <= 0, diasRestantes: Math.max(0, diasRestantes) };
 }
 
+// ===== Pagamento do Asaas em OUTRA aba (o sistema continua aberto na aba de trás) =====
+// Antes o pagamento abria na mesma aba: se o cliente fechava o Asaas, fechava o sistema junto.
+// Se o navegador bloquear a aba nova, abre na mesma aba como antes (nunca deixa o cliente sem conseguir pagar).
+function abrirJanelaPagamento() {
+  let j = null;
+  try {
+    j = window.open('', '_blank');
+    if (j) {
+      try { j.opener = null; } catch (e) {}
+      try { j.document.write('<p style="font-family:sans-serif;padding:24px;font-size:18px;">Abrindo o pagamento...</p>'); } catch (e) {}
+    }
+  } catch (e) { j = null; }
+  return j;
+}
+function fecharJanelaPagamento(j) { try { if (j && !j.closed) j.close(); } catch (e) {} }
+function irParaPagamento(url, janela, teste) {
+  let aberta = false;
+  try {
+    if (janela && !janela.closed) { janela.location.href = url; aberta = true; }
+    else {
+      const j2 = window.open(url, '_blank');
+      if (j2) { try { j2.opener = null; } catch (e) {} aberta = true; }
+    }
+  } catch (e) { aberta = false; }
+  if (!aberta) { window.location.href = url; return false; }
+  toast('O pagamento abriu em outra aba. Depois de pagar, volte aqui.', 'ok');
+  if (typeof teste === 'function') esperarPagamentoConfirmar(teste);
+  return true;
+}
+let __pollPagamento = null;
+function esperarPagamentoConfirmar(teste) {
+  if (__pollPagamento) clearInterval(__pollPagamento);
+  let n = 0;
+  __pollPagamento = setInterval(async () => {
+    n++;
+    if (n > 150 || !restauranteAtual) { clearInterval(__pollPagamento); __pollPagamento = null; return; } // 150 x 8 s = 20 min
+    try {
+      const { data } = await db.from('restaurantes').select('plano_ativo,plano_painel').eq('id', restauranteAtual.id).maybeSingle();
+      if (data && teste(data)) {
+        clearInterval(__pollPagamento); __pollPagamento = null;
+        toast('Pagamento confirmado! Obrigado.', 'ok');
+        setTimeout(() => location.reload(), 1500);
+      }
+    } catch (e) {}
+  }, 8000);
+}
+
 async function iniciarAssinatura(plano, btnEl, metodo) {
   if (!restauranteAtual || !usuarioAtual) return;
 
@@ -5410,6 +5457,7 @@ async function iniciarAssinatura(plano, btnEl, metodo) {
 
   const textoOriginal = btnEl ? btnEl.textContent : '';
   if (btnEl) { btnEl.textContent = metodo === 'cartao' ? 'Abrindo pagamento no cartão...' : 'Gerando link de pagamento...'; btnEl.disabled = true; }
+  const janelaPag = abrirJanelaPagamento();
   try {
     const resp = await fetch('/api/criar-cobranca', {
       method: 'POST',
@@ -5425,12 +5473,15 @@ async function iniciarAssinatura(plano, btnEl, metodo) {
     });
     const data = await resp.json();
     if (!resp.ok || !data.checkoutUrl) {
+      fecharJanelaPagamento(janelaPag);
       toast('Erro ao gerar pagamento: ' + (data.error || 'tente novamente'), 'erro');
       if (btnEl) { btnEl.textContent = textoOriginal; btnEl.disabled = false; }
       return;
     }
-    window.location.href = data.checkoutUrl;
+    const abriuOutraAba = irParaPagamento(data.checkoutUrl, janelaPag, r => r.plano_ativo === true);
+    if (abriuOutraAba && btnEl) { btnEl.textContent = textoOriginal; btnEl.disabled = false; }
   } catch (e) {
+    fecharJanelaPagamento(janelaPag);
     toast('Erro ao gerar pagamento. Tente novamente.', 'erro');
     if (btnEl) { btnEl.textContent = textoOriginal; btnEl.disabled = false; }
   }
