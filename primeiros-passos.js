@@ -8,6 +8,9 @@
 var psCache = { t: 0, f: null };
 
 function psAtivo() {
+  // DESLIGADO (26/11/2026): o "Primeiros passos" foi retirado. O Alessandro acompanha o cliente do início ao fim, então o quadro não é necessário.
+  // Para voltar a usar, apague a linha abaixo.
+  return false;
   try {
     const v = localStorage.getItem('primeiros_passos');
     if (v === '1') return true;
