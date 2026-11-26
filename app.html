@@ -1339,10 +1339,20 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
     <div class="modal-titulo">🔴 Pausar pedidos</div>
     <button class="modal-fechar" onclick="fecharModal('modal-pausar-loja')">×</button>
   </div>
-  <div style="font-size:13px;color:var(--texto-muted);margin-bottom:14px;">Seu cardápio vai mostrar "fechado" pros clientes até você reabrir manualmente. Esses dois campos são só informativos — não reabrem a loja sozinhos.</div>
+  <div id="pausa-txt-antigo" style="font-size:13px;color:var(--texto-muted);margin-bottom:14px;">Seu cardápio vai mostrar "fechado" pros clientes até você reabrir manualmente. Esses dois campos são só informativos — não reabrem a loja sozinhos.</div>
+  <div id="pausa-txt-novo" style="display:none;font-size:13px;color:var(--texto-muted);margin-bottom:14px;">Seu cardápio vai mostrar "fechado" pros clientes. Escolha até que dia a loja fica fechada e ela <b>abre sozinha no dia seguinte</b>. Se deixar as datas em branco, ela fecha agora e só reabre quando você mandar.</div>
+  <div id="pausa-agendada-aviso" style="display:none;background:var(--creme);border-radius:8px;padding:10px;margin-bottom:12px;font-size:13px;">
+    <span id="pausa-agendada-txt"></span>
+    <button type="button" class="btn-sm" style="margin-top:8px;width:100%;" onclick="cancelarPausaMarcada()">Cancelar essa pausa marcada</button>
+  </div>
+  <div class="form-group" id="pausa-g-de" style="display:none;">
+    <label>Fechar a partir de (em branco = hoje)</label>
+    <input type="date" id="pausa-de">
+  </div>
   <div class="form-group">
-    <label>Prevê reabrir em (opcional)</label>
+    <label id="pausa-lbl-ate">Prevê reabrir em (opcional)</label>
     <input type="date" id="pausa-reabre-em">
+    <div id="pausa-dica-ate" style="display:none;font-size:11px;color:var(--texto-muted);margin-top:4px;">Ex.: feriado de 25/12 → coloque 25/12. A loja abre sozinha no dia 26.</div>
   </div>
   <div class="form-group">
     <label>Motivo (opcional)</label>
@@ -1831,6 +1841,8 @@ async function toggleDetalhesSA(restauranteId) {
         <button onclick="gerenciarLojaSA('${restauranteId}','desativar')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:#c0392b;color:#fff;border:none;cursor:pointer;">Desativar assinatura</button>
         <button onclick="estenderTesteSA('${restauranteId}')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:var(--laranja);color:#fff;border:none;cursor:pointer;">📅 Ajustar dias de teste</button>
         <button onclick="redefinirSenhaDonoSA('${restauranteId}')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:#3b4a63;color:#fff;border:none;cursor:pointer;">🔑 Redefinir senha do dono</button>
+        <button onclick="recursoLiberadoSA('${restauranteId}', 'mercadopago', ${r?.mp_liberado === true ? 'false' : 'true'})" style="font-size:11px;padding:5px 10px;border-radius:6px;background:${r?.mp_liberado === true ? '#2ea043' : '#3b4a63'};color:#fff;border:none;cursor:pointer;">💳 Mercado Pago: ${r?.mp_liberado === true ? 'LIBERADO (clique para tirar)' : 'não liberado (clique para liberar)'}</button>
+        <button onclick="recursoLiberadoSA('${restauranteId}', 'agendamento', ${r?.agendamento_liberado === true ? 'false' : 'true'})" style="font-size:11px;padding:5px 10px;border-radius:6px;background:${r?.agendamento_liberado === true ? '#2ea043' : '#3b4a63'};color:#fff;border:none;cursor:pointer;">📅 Agendar pedido: ${r?.agendamento_liberado === true ? 'LIBERADO (clique para tirar)' : 'não liberado (clique para liberar)'}</button>
         ${COBRAR_COMANDAS ? `<button onclick="comandasSA('${restauranteId}', ${r?.comandas_ativas === false ? 'true' : 'false'})" style="font-size:11px;padding:5px 10px;border-radius:6px;background:${r?.comandas_ativas === false ? '#3b4a63' : '#2ea043'};color:#fff;border:none;cursor:pointer;">🍽️ Comandas: ${r?.comandas_ativas === false ? 'desligadas (clique para ligar)' : 'LIGADAS (clique para desligar)'}</button>` : ''}
       </div>
       <div id="sa-senha-${restauranteId}" style="margin-top:10px;"></div>
@@ -1892,6 +1904,26 @@ async function planoPainelSA(restauranteId, plano) {
   const data = await resp.json();
   if (resp.ok) {
     toast(plano === 'simples' ? 'Painel SIMPLES ligado. Vale na próxima vez que o dono abrir o painel.' : 'Painel COMPLETO ligado.', 'ok');
+    carregarSuperAdmin();
+  } else {
+    toast(data.error || 'Erro ao atualizar.', 'erro');
+  }
+}
+
+async function recursoLiberadoSA(restauranteId, recurso, ligar) {
+  const r = restaurantesSA.find(x => x.id === restauranteId);
+  const nome = recurso === 'mercadopago' ? 'o Mercado Pago (Pix e cartão online)' : 'o agendamento de pedidos';
+  if (!confirm(`${ligar ? 'Liberar' : 'Tirar'} ${nome} na loja "${r?.nome || 'essa loja'}"?`)) return;
+  const { data: sessao } = await db.auth.getSession();
+  const tokenAdmin = sessao?.session?.access_token;
+  const resp = await fetch('/api/super-admin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ acao: 'recurso_liberado', restauranteId, recurso, ligado: ligar, tokenAdmin })
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (resp.ok && data.ok) {
+    toast(ligar ? 'Liberado nessa loja.' : 'Tirado dessa loja.', 'ok');
     carregarSuperAdmin();
   } else {
     toast(data.error || 'Erro ao atualizar.', 'erro');
@@ -2622,12 +2654,50 @@ function alternarSomSistema(ligado) {
   toast(ligado ? 'Som de pedido novo ativado.' : 'Som de pedido novo desativado.', 'ok');
 }
 
+// ===== RECURSOS LIBERADOS PELO SUPER ADMIN (Mercado Pago, agendamento) + PAUSA COM DATA =====
+// Chave: por enquanto só a loja Demo segue as regras novas. Para liberar para todas as lojas, troque o return por true.
+function novasRegrasAtivas(r) { return !!(r && r.slug === 'servidelivery-demo'); }
+// Mercado Pago e agendamento: só funcionam se o Super Admin liberou na loja (nas lojas que seguem a regra nova)
+function mpLiberado(r) { return !novasRegrasAtivas(r) || r.mp_liberado === true; }
+function agendamentoLiberado(r) { return !novasRegrasAtivas(r) || r.agendamento_liberado === true; }
+function maisUmDiaISO(iso) {
+  const [a, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(a, m - 1, d + 1)).toISOString().slice(0, 10);
+}
+function dataBRtxt(iso) { return iso ? iso.split('-').reverse().join('/') : ''; }
+// Diz se a loja está com os pedidos pausados agora (pausa manual, ou pausa com datas — a loja reabre sozinha no dia seguinte)
+function pausaDaLoja(r) {
+  if (!r) return { pausada: false };
+  if (r.pausado_manual) return { pausada: true, motivo: r.motivo_pausa || null, reabreEm: r.reabre_em || null };
+  if (novasRegrasAtivas(r) && r.pausa_ate) {
+    const hoje = dataBR(new Date());
+    const de = r.pausa_de || hoje;
+    if (hoje > r.pausa_ate) return { pausada: false };
+    if (hoje >= de) return { pausada: true, agendada: true, motivo: r.motivo_pausa || null, reabreEm: maisUmDiaISO(r.pausa_ate) };
+    return { pausada: false, futura: true, de: de, ate: r.pausa_ate, motivo: r.motivo_pausa || null };
+  }
+  return { pausada: false };
+}
+// Cardápio do cliente: pedido bloqueado agora? (pausa, ou loja fechada por horário nas lojas sem agendamento liberado)
+function pedidoBloqueadoAgora() {
+  const p = pausaDaLoja(restPublico);
+  if (p.pausada) return { bloqueado: true, msg: 'Este restaurante pausou os pedidos no momento. Tente novamente mais tarde.' };
+  const emComanda = (typeof modoComandaAtivo !== 'undefined' && modoComandaAtivo);
+  if (!emComanda && novasRegrasAtivas(restPublico) && !agendamentoLiberado(restPublico) && (modoAtual === 'delivery' || modoAtual === 'retirada') && lojaFechadaPorHorario()) {
+    return { bloqueado: true, msg: 'Estamos fechados agora. Faça seu pedido quando a loja estiver aberta.' };
+  }
+  return { bloqueado: false };
+}
+setInterval(function () {
+  try { if (restauranteAtual && novasRegrasAtivas(restauranteAtual) && document.getElementById('btn-pausar-loja')) atualizarBotaoPausa(); } catch (e) {}
+}, 60000);
+
 function atualizarBotaoPausa() {
   const btn = document.getElementById('btn-pausar-loja');
   if (!restauranteAtual) return;
   if (meuPapel === 'garcom') { btn.style.display = 'none'; return; }
   btn.style.display = 'inline-block';
-  if (restauranteAtual.pausado_manual) {
+  if (pausaDaLoja(restauranteAtual).pausada) {
     btn.textContent = '🔴 Pedidos pausados · Reabrir';
     btn.style.background = 'var(--laranja-light)';
     btn.style.color = 'var(--laranja-dark)';
@@ -2640,22 +2710,35 @@ function atualizarBotaoPausa() {
 
 async function alternarPausaLoja() {
   if (!restauranteAtual) return;
+  const p = pausaDaLoja(restauranteAtual);
+  const novo = novasRegrasAtivas(restauranteAtual);
 
-  if (!restauranteAtual.pausado_manual) {
+  if (!p.pausada) {
     document.getElementById('pausa-reabre-em').value = '';
     document.getElementById('pausa-motivo').value = '';
+    document.getElementById('pausa-de').value = '';
+    // Texto e campos: na regra nova a pausa tem datas e a loja reabre sozinha
+    document.getElementById('pausa-txt-antigo').style.display = novo ? 'none' : 'block';
+    document.getElementById('pausa-txt-novo').style.display = novo ? 'block' : 'none';
+    document.getElementById('pausa-g-de').style.display = novo ? 'block' : 'none';
+    document.getElementById('pausa-lbl-ate').textContent = novo ? 'Até que dia a loja fica fechada (último dia fechado)' : 'Prevê reabrir em (opcional)';
+    document.getElementById('pausa-dica-ate').style.display = novo ? 'block' : 'none';
+    const av = document.getElementById('pausa-agendada-aviso');
+    av.style.display = 'none';
+    if (novo && p.futura) {
+      av.style.display = 'block';
+      document.getElementById('pausa-agendada-txt').textContent = 'Já tem uma pausa marcada: de ' + dataBRtxt(p.de) + ' até ' + dataBRtxt(p.ate) + (p.motivo ? ' (' + p.motivo + ')' : '') + '.';
+    }
     abrirModal('modal-pausar-loja');
     return;
   }
 
   if (!confirm('Reabrir a loja e voltar a aceitar pedidos agora?')) return;
-  const { error } = await db.from('restaurantes').update({
-    pausado_manual: false, reabre_em: null, motivo_pausa: null
-  }).eq('id', restauranteAtual.id);
+  const dados = { pausado_manual: false, reabre_em: null, motivo_pausa: null };
+  if (novo) { dados.pausa_de = null; dados.pausa_ate = null; }
+  const { error } = await db.from('restaurantes').update(dados).eq('id', restauranteAtual.id);
   if (!error) {
-    restauranteAtual.pausado_manual = false;
-    restauranteAtual.reabre_em = null;
-    restauranteAtual.motivo_pausa = null;
+    restauranteAtual = { ...restauranteAtual, ...dados };
     atualizarBotaoPausa();
     toast('Loja reaberta!', 'ok');
   } else {
@@ -2664,22 +2747,51 @@ async function alternarPausaLoja() {
 }
 
 async function confirmarPausaLoja() {
-  const reabreEm = document.getElementById('pausa-reabre-em').value || null;
+  const novo = novasRegrasAtivas(restauranteAtual);
   const motivo = document.getElementById('pausa-motivo').value.trim() || null;
+  const ateVal = document.getElementById('pausa-reabre-em').value || null;
+  let dados;
+  let aviso = 'Pedidos pausados.';
 
-  const { error } = await db.from('restaurantes').update({
-    pausado_manual: true, reabre_em: reabreEm, motivo_pausa: motivo
-  }).eq('id', restauranteAtual.id);
+  if (novo) {
+    const deVal = document.getElementById('pausa-de').value || null;
+    const hoje = dataBR(new Date());
+    if (deVal && !ateVal) { toast('Escolha também até que dia a loja fica fechada.', 'erro'); return; }
+    if (ateVal && ateVal < (deVal || hoje)) { toast('O último dia fechado não pode ser antes do primeiro.', 'erro'); return; }
+    if (ateVal) {
+      // Pausa com datas: fecha no dia certo e abre sozinha no dia seguinte ao último dia fechado
+      dados = { pausado_manual: false, pausa_de: deVal || hoje, pausa_ate: ateVal, reabre_em: maisUmDiaISO(ateVal), motivo_pausa: motivo };
+      aviso = (deVal && deVal > hoje) ? ('Pausa marcada: de ' + dataBRtxt(deVal) + ' até ' + dataBRtxt(ateVal) + '. A loja reabre sozinha.')
+                                      : ('Loja fechada até ' + dataBRtxt(ateVal) + '. Ela reabre sozinha no dia seguinte.');
+    } else {
+      // Sem datas: fecha agora e só reabre quando o dono mandar
+      dados = { pausado_manual: true, pausa_de: null, pausa_ate: null, reabre_em: null, motivo_pausa: motivo };
+    }
+  } else {
+    dados = { pausado_manual: true, reabre_em: ateVal, motivo_pausa: motivo };
+  }
 
+  const { error } = await db.from('restaurantes').update(dados).eq('id', restauranteAtual.id);
   if (!error) {
-    restauranteAtual.pausado_manual = true;
-    restauranteAtual.reabre_em = reabreEm;
-    restauranteAtual.motivo_pausa = motivo;
+    restauranteAtual = { ...restauranteAtual, ...dados };
     atualizarBotaoPausa();
     fecharModal('modal-pausar-loja');
-    toast('Pedidos pausados.', 'ok');
+    toast(aviso, 'ok');
   } else {
     toast('Erro ao pausar. Tente de novo.', 'erro');
+  }
+}
+
+async function cancelarPausaMarcada() {
+  const dados = { pausa_de: null, pausa_ate: null, reabre_em: null, motivo_pausa: null };
+  const { error } = await db.from('restaurantes').update(dados).eq('id', restauranteAtual.id);
+  if (!error) {
+    restauranteAtual = { ...restauranteAtual, ...dados };
+    atualizarBotaoPausa();
+    document.getElementById('pausa-agendada-aviso').style.display = 'none';
+    toast('Pausa marcada cancelada.', 'ok');
+  } else {
+    toast('Erro ao cancelar. Tente de novo.', 'erro');
   }
 }
 
@@ -3973,7 +4085,7 @@ async function renderConfig() {
       </div>
       ${meuPapel==='dono' ? '' : `<input type="hidden" id="cfg-pix" value="${esc(chavePixAtual)}">`}
       ${meuPapel==='dono' ? `
-      <div class="form-group" style="background:var(--creme);border-radius:10px;padding:14px;${escCfg}">
+      <div class="form-group" style="background:var(--creme);border-radius:10px;padding:14px;${escCfg}${mpLiberado(r) ? '' : 'display:none;'}">
         <label style="font-size:14px;font-weight:700;">⚡ Receber Pix e cartão online (Mercado Pago)</label>
         <div style="font-size:12px;color:var(--texto-muted);margin:4px 0 10px;">O cliente paga o Pix ou o cartão na hora de pedir e o pedido entra aqui no painel já como <b>pago</b>, sem precisar conferir comprovante. O dinheiro cai direto na sua conta do Mercado Pago.</div>
         <div style="font-size:12px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin:0 0 10px;line-height:1.6;">
@@ -4012,7 +4124,7 @@ async function renderConfig() {
           <span><b>📲 Pix na maquininha</b> <span style="font-size:10px;background:#E1F5EE;color:#0F6E56;padding:2px 6px;border-radius:6px;font-weight:700;">RECOMENDADO</span><br><span style="font-size:11px;color:var(--texto-muted);">O cliente paga o Pix na hora que o pedido chega, na sua maquininha. Você não precisa conferir comprovante. Só aparece se a <b>Maquininha</b> (abaixo) estiver marcada.</span></span>
         </label>` : ''}
         <div style="font-size:13px;font-weight:700;margin-bottom:6px;">Pix (escolha só um)</div>
-        <label style="display:${simplesCfg ? 'none' : 'flex'};align-items:flex-start;gap:10px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;font-size:13px;">
+        <label style="display:${(simplesCfg || !mpLiberado(r)) ? 'none' : 'flex'};align-items:flex-start;gap:10px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;font-size:13px;">
           <input type="checkbox" id="pg-pix-auto" ${(r.pgto_pix || 'auto') === 'auto' ? 'checked' : ''} onchange="pgMarcarPix('auto', this.checked)" style="width:18px;height:18px;margin-top:2px;">
           <span><b>⚡ Pix automático</b><br><span style="font-size:11px;color:var(--texto-muted);">O pedido chega já pago, sem conferir comprovante (pelo Mercado Pago).${r.pix_online_ativo ? '' : ' <b style="color:#B26A00;">Precisa conectar o Mercado Pago acima.</b>'}</span></span>
         </label>
@@ -4025,7 +4137,7 @@ async function renderConfig() {
           <div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Pode ser CPF, CNPJ, telefone, e-mail ou chave aleatória.</div>
         </div>
         <div style="font-size:13px;font-weight:700;margin:10px 0 6px;">${simplesCfg ? 'Cartão' : 'Cartão (pode marcar os dois)'}</div>
-        <label style="display:${simplesCfg ? 'none' : 'flex'};align-items:flex-start;gap:10px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;font-size:13px;">
+        <label style="display:${(simplesCfg || !mpLiberado(r)) ? 'none' : 'flex'};align-items:flex-start;gap:10px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;font-size:13px;">
           <input type="checkbox" id="pg-cartao-auto" ${r.pgto_cartao_online !== false ? 'checked' : ''} style="width:18px;height:18px;margin-top:2px;">
           <span><b>⚡ Cartão automático (online)</b><br><span style="font-size:11px;color:var(--texto-muted);">O cliente paga no cartão na hora de pedir (pelo Mercado Pago).${r.pix_online_ativo ? '' : ' <b style="color:#B26A00;">Precisa conectar o Mercado Pago acima.</b>'}</span></span>
         </label>
@@ -4301,7 +4413,7 @@ async function renderConfig() {
         `}).join('')}
       </div>
 
-      <div class="form-group" style="background:var(--creme);border-radius:10px;padding:14px;margin-top:14px;${escCfg}">
+      <div class="form-group" style="background:var(--creme);border-radius:10px;padding:14px;margin-top:14px;${escCfg}${agendamentoLiberado(r) ? '' : 'display:none;'}">
         <label style="font-weight:700;">Quando a loja estiver fechada (fora do horário)</label>
         <div style="font-size:12px;color:var(--texto-muted);margin:4px 0 10px;">O cliente sempre consegue abrir o cardápio. Escolha o que ele pode fazer:</div>
         ${r.pix_online_ativo ? '' : '<div style="font-size:12px;background:#FFF3E0;color:#B26A00;border-radius:8px;padding:8px 10px;margin-bottom:10px;">⚠️ O Mercado Pago ainda não está conectado. A opção "Só agendamento" só passa a valer depois que você conectar (quadro "Receber Pix e cartão online", mais acima). Enquanto isso, o cardápio funciona como "Sempre aberto".</div>'}
@@ -4878,12 +4990,13 @@ async function carregarPublico(restId) {
 
   // Verifica pausa manual + horário de funcionamento
   const elFechado = document.getElementById('pub-fechado');
-  if (rest.pausado_manual) {
+  const pausaPub = pausaDaLoja(rest);
+  if (pausaPub.pausada) {
     elFechado.style.display = 'block';
     elFechado.style.background = 'rgba(0,0,0,0.6)';
     const partes = [];
-    if (rest.reabre_em) partes.push(`Reabrimos em ${new Date(rest.reabre_em+'T00:00:00').toLocaleDateString('pt-BR')}`);
-    if (rest.motivo_pausa) partes.push(esc(rest.motivo_pausa));
+    if (pausaPub.reabreEm) partes.push(`Reabrimos em ${new Date(pausaPub.reabreEm+'T00:00:00').toLocaleDateString('pt-BR')}`);
+    if (pausaPub.motivo) partes.push(esc(pausaPub.motivo));
     elFechado.innerHTML = partes.length
       ? `🔴 Fechado no momento<br><span style="font-size:12px;font-weight:400;">${partes.join(' · ')}</span>`
       : '🔴 Fechado no momento · O restaurante pausou os pedidos';
@@ -4914,7 +5027,7 @@ async function carregarPublico(restId) {
         elFechado.textContent = diaConfig.ativo
           ? `🔴 Fechado · Funciona ${textoTurnos(diaConfig)}`
           : `🔴 Fechado hoje`;
-        if (rest.avisos_whatsapp?.fechado_so_agendar !== false && !!rest.pix_online_ativo && !planoSimplesLoja(rest)) {
+        if (rest.avisos_whatsapp?.fechado_so_agendar !== false && !!rest.pix_online_ativo && !planoSimplesLoja(rest) && mpLiberado(rest) && agendamentoLiberado(rest)) {
           elFechado.innerHTML = esc(elFechado.textContent) + '<br><span style="font-size:12px;font-weight:400;">Você pode agendar seu pedido 📅</span>';
         }
       }
@@ -5472,10 +5585,7 @@ function renderCardItem(item) {
 }
 
 function adicionarItemRapidoPorId(id) {
-  if (restPublico?.pausado_manual) {
-    toast('Este restaurante pausou os pedidos no momento. Tente novamente mais tarde.', 'erro');
-    return;
-  }
+  { const bl = pedidoBloqueadoAgora(); if (bl.bloqueado) { toast(bl.msg, 'erro'); return; } }
   const item = todosItensPublico.find(i => i.id === id);
   if (!item) return;
   if (!modoComandaAtivo && !itemNoDiaHora(item)) { toast('Este prato não está disponível agora (' + textoDiasItem(item) + ').', 'erro'); return; }
@@ -5681,11 +5791,7 @@ function micAtualizarTotal() {
 
 function micAdicionar() {
   if (itemSemPreco(micItemAtual)) return;
-  if (restPublico?.pausado_manual) {
-    toast('Este restaurante pausou os pedidos no momento. Tente novamente mais tarde.', 'erro');
-    fecharModal('modal-item-cliente');
-    return;
-  }
+  { const bl = pedidoBloqueadoAgora(); if (bl.bloqueado) { toast(bl.msg, 'erro'); fecharModal('modal-item-cliente'); return; } }
   const item = micItemAtual;
   const grupos = item.opcoes || [];
 
@@ -6045,7 +6151,7 @@ function selecionarModo(modo) {
   const blocoAgendamento = document.getElementById('bloco-agendamento');
   const campoMesa = document.getElementById('campo-mesa');
   if (blocoEndereco) blocoEndereco.style.display = modo === 'delivery' ? 'block' : 'none';
-  if (blocoAgendamento) blocoAgendamento.style.display = ((modo === 'retirada' || modo === 'delivery') && !planoSimplesLoja(restPublico)) ? 'block' : 'none';
+  if (blocoAgendamento) blocoAgendamento.style.display = ((modo === 'retirada' || modo === 'delivery') && !planoSimplesLoja(restPublico) && agendamentoLiberado(restPublico)) ? 'block' : 'none';
   const lblAg = document.getElementById('lbl-data-agend');
   if (lblAg) lblAg.textContent = modo === 'delivery' ? 'Data da entrega' : 'Data para retirada';
   if (modo === 'retirada' || modo === 'delivery') {
@@ -6281,7 +6387,7 @@ var pagEntregaAberto = null;
 // Quais formas de pagamento o restaurante deixou ligadas (valores vazios = comportamento antigo)
 function opcoesPagamento(r) {
   const simples = planoSimplesLoja(r); // plano Simples não tem Pix/cartão online (Mercado Pago)
-  const online = !!r.pix_online_ativo && !simples;
+  const online = !!r.pix_online_ativo && !simples && mpLiberado(r);
   let pix = r.pgto_pix || 'auto';
   if (simples && pix === 'auto') pix = 'nenhum';
   const maquininha = r.pgto_maquininha != null ? !!r.pgto_maquininha : !r.so_online;
@@ -6436,7 +6542,7 @@ function atualizarBotaoFinalizar() {
   const btn = document.getElementById('btn-finalizar-pedido');
   const sel = document.getElementById('ped-pagamento');
   if (!btn || !sel || modoComandaAtivo) return;
-  const pausado = !!restPublico?.pausado_manual;
+  const pausado = pedidoBloqueadoAgora().bloqueado;
   const aviso = document.getElementById('aviso-rodape-carrinho');
   const v = sel.value;
   if (!v) {
@@ -6560,8 +6666,9 @@ function abrirCarrinho() {
 function atualizarAvisoPausado() {
   const aviso = document.getElementById('aviso-pausado-carrinho');
   const btn = document.getElementById('btn-finalizar-pedido');
-  const pausado = !!restPublico?.pausado_manual;
-  if (aviso) aviso.style.display = pausado ? 'block' : 'none';
+  const bloq = pedidoBloqueadoAgora();
+  const pausado = bloq.bloqueado;
+  if (aviso) { aviso.style.display = pausado ? 'block' : 'none'; if (pausado) aviso.textContent = '🔴 ' + bloq.msg; }
   if (btn) {
     btn.disabled = pausado;
     btn.style.opacity = pausado ? '0.5' : '1';
@@ -6660,6 +6767,7 @@ function lojaFechadaPorHorario() {
 // Fechado e o dono escolheu "só agendamento" (padrão)?
 // "Só agendamento" só vale quando o restaurante recebe Pix/cartão online (Mercado Pago conectado); senão funciona como "sempre aberto"
 function modoSoAgendamento() {
+  if (!agendamentoLiberado(restPublico)) return false;
   if (restPublico?.avisos_whatsapp?.fechado_so_agendar === false) return false;
   try { const o = opcoesPagamento(restPublico || {}); return !!(o.pixAuto || o.cartaoAuto); } catch (e) { return false; }
 }
@@ -6724,10 +6832,7 @@ async function finalizarPedido() {
 
 async function finalizarPedidoInterno() {
   if (!carrinho.length) { toast('Seu carrinho está vazio.', 'erro'); return; }
-  if (restPublico?.pausado_manual) {
-    toast('Este restaurante pausou os pedidos no momento. Tente novamente mais tarde.', 'erro');
-    return;
-  }
+  { const bl = pedidoBloqueadoAgora(); if (bl.bloqueado) { toast(bl.msg, 'erro'); return; } }
   if (modoAtual === 'retirada' && restPublico?.retirada_disponivel === false) {
     toast('A retirada no local não está disponível hoje. Escolha Delivery.', 'erro');
     selecionarModo('delivery');
