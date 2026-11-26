@@ -4312,7 +4312,7 @@ async function renderConfig() {
           </div>
           <button type="button" onclick="navigator.clipboard.writeText('https://servidelivery.com.br/${r.slug||''}');toast('Link copiado!','ok')" style="padding:0 14px;border-radius:8px;border:1px solid var(--creme-borda);background:none;cursor:pointer;white-space:nowrap;">📋 Copiar</button>
         </div>
-        <div id="cfg-msg-business-box" style="${r.slug === 'servidelivery-demo' ? 'display:none;' : ''}">
+        <div id="cfg-msg-business-box" style="display:none;">
         <div style="font-size:13px;color:var(--texto-muted);margin-bottom:6px;">📱 Mensagem automática para WhatsApp Business:</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
           <button type="button" onclick="usarModeloMsgBusiness('ambos')" style="font-size:12px;padding:6px 10px;border-radius:6px;border:1px solid var(--creme-borda);background:none;cursor:pointer;">Cardápio ou pelo WhatsApp</button>
@@ -7509,7 +7509,7 @@ async function garantirUserIdRestaurante() {
 <script src="chamar-garcom.js?v=20261118a"></script>
 <script src="app-instalar.js?v=20261116a"></script>
 <script src="termos-aceite.js?v=20261118b"></script>
-<script src="enviar-cardapio.js?v=20261126d"></script>
+<script src="enviar-cardapio.js?v=20261126e"></script>
 <script src="retirada-hoje.js?v=20261126a"></script>
 </body>
 </html>
