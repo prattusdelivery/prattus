@@ -829,7 +829,7 @@ body.dark-mode{background-color:#181818;color:#f0f0f0;}
       Pedidos
       <span id="badge-pedidos-novos" style="display:none;margin-left:auto;background:#E85D3D;color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;"></span>
     </div>
-    <div class="nav-item" onclick="irPara('comandas')">
+    <div class="nav-item so-comandas" onclick="irPara('comandas')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v7c0 1.1.9 2 2 2h1v11h2V4H3z"/><path d="M17 2v7a2 2 0 002 2v11"/><path d="M19 2v20"/></svg>
       Comandas
       <span id="badge-comandas-pendentes" style="display:none;margin-left:auto;background:#E85D3D;color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;"></span>
@@ -1831,6 +1831,7 @@ async function toggleDetalhesSA(restauranteId) {
         <button onclick="gerenciarLojaSA('${restauranteId}','desativar')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:#c0392b;color:#fff;border:none;cursor:pointer;">Desativar assinatura</button>
         <button onclick="estenderTesteSA('${restauranteId}')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:var(--laranja);color:#fff;border:none;cursor:pointer;">📅 Ajustar dias de teste</button>
         <button onclick="redefinirSenhaDonoSA('${restauranteId}')" style="font-size:11px;padding:5px 10px;border-radius:6px;background:#3b4a63;color:#fff;border:none;cursor:pointer;">🔑 Redefinir senha do dono</button>
+        <button onclick="comandasSA('${restauranteId}', ${r?.comandas_ativas === false ? 'true' : 'false'})" style="font-size:11px;padding:5px 10px;border-radius:6px;background:${r?.comandas_ativas === false ? '#3b4a63' : '#2ea043'};color:#fff;border:none;cursor:pointer;">🍽️ Comandas: ${r?.comandas_ativas === false ? 'desligadas (clique para ligar)' : 'LIGADAS (clique para desligar)'}</button>
       </div>
       <div id="sa-senha-${restauranteId}" style="margin-top:10px;"></div>
     `;
@@ -1891,6 +1892,36 @@ async function planoPainelSA(restauranteId, plano) {
   const data = await resp.json();
   if (resp.ok) {
     toast(plano === 'simples' ? 'Painel SIMPLES ligado. Vale na próxima vez que o dono abrir o painel.' : 'Painel COMPLETO ligado.', 'ok');
+    carregarSuperAdmin();
+  } else {
+    toast(data.error || 'Erro ao atualizar.', 'erro');
+  }
+}
+
+async function comandasSA(restauranteId, ligar) {
+  const r = restaurantesSA.find(x => x.id === restauranteId);
+  const travado = parseFloat(r?.preco_mensal_travado) > 0;
+  let aviso = '';
+  if (ligar) {
+    aviso = travado
+      ? `\n\nEssa loja tem preço combinado (R$ ${parseFloat(r.preco_mensal_travado).toFixed(2).replace('.', ',')} por mês). O valor NÃO muda.`
+      : '\n\nA mensalidade dessa loja passa a ser R$ 49,90 (em vez de R$ 39,90).';
+    if (r?.plano_ativo && !travado) aviso += '\nEla já assina: depois mude o valor da assinatura dela na Asaas.';
+  } else if (!travado) {
+    aviso = '\n\nA mensalidade volta a ser R$ 39,90.' + (r?.plano_ativo ? '\nEla já assina: depois mude o valor da assinatura dela na Asaas.' : '');
+  }
+  if (!confirm(`${ligar ? 'Ligar' : 'Desligar'} as Comandas (mesas) na loja "${r?.nome || 'essa loja'}"?${aviso}`)) return;
+
+  const { data: sessao } = await db.auth.getSession();
+  const tokenAdmin = sessao?.session?.access_token;
+  const resp = await fetch('/api/super-admin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ restauranteId, tokenAdmin, acao: 'comandas', ligado: ligar })
+  });
+  const data = await resp.json();
+  if (resp.ok) {
+    toast(ligar ? 'Comandas ligadas.' : 'Comandas desligadas.', 'ok');
     carregarSuperAdmin();
   } else {
     toast(data.error || 'Erro ao atualizar.', 'erro');
@@ -3000,6 +3031,7 @@ function fecharSidebar() {
 
 // ===== NAVEGACAO =====
 function irPara(pagina) {
+  if (pagina === 'comandas' && typeof comandasLigadas === 'function' && !comandasLigadas()) pagina = 'pedidos'; // loja sem o recurso Comandas
   if (meuPapel === 'garcom' && pagina !== 'comandas') {
     toast('Seu acesso é só para as comandas.', 'erro');
     return;
@@ -3313,7 +3345,7 @@ async function renderHistorico() {
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn-sm ativo" id="hist-tab-delivery" onclick="trocarAbaHistorico('delivery')">🛵 Delivery</button>
-        <button class="btn-sm" id="hist-tab-comanda" onclick="trocarAbaHistorico('comanda')">🍽️ Comandas</button>
+        <button class="btn-sm so-comandas" id="hist-tab-comanda" onclick="trocarAbaHistorico('comanda')">🍽️ Comandas</button>
       </div>
     </div>
     <div id="historico-resultado">Carregando...</div>
@@ -3427,6 +3459,7 @@ function planoSimplesLoja(r) { return !!r && r.plano_painel === 'simples'; }
 function precosLoja(r) {
   const t = TABELA_PRECOS[r && r.plano_painel === 'simples' ? 'simples' : 'completo'];
   let mensal = t.mensal, anual = t.anual;
+  if (r && r.comandas_ativas === true) { mensal += 10; anual += 100; } // Comandas (mesas): +R$ 10 por mês (espelha api/_precos.js)
   const travado = parseFloat(r && r.preco_mensal_travado);
   if (travado > 0) { mensal = Math.round(travado * 100) / 100; anual = Math.floor(travado * 10 + 1e-6) + 0.90; }
   const f = v => 'R$' + v.toFixed(2).replace('.', ',');
@@ -3625,7 +3658,7 @@ async function renderEquipe() {
       <div class="form-group"><label>Nível de acesso</label>
         <select id="eq-nivel">
           <option value="gerente">Gerente / Caixa — usa o painel (sem as áreas do dono)</option>
-          <option value="garcom">Garçom — só comandas (lança os pedidos da mesa)</option>
+          ${(typeof comandasLigadas === 'function' && !comandasLigadas()) ? '' : '<option value="garcom">Garçom — só comandas (lança os pedidos da mesa)</option>'}
         </select>
       </div>
       <button class="btn btn-laranja" onclick="criarFuncionario()">+ Adicionar funcionário</button>
@@ -4156,7 +4189,7 @@ async function renderConfig() {
           <div style="font-size:12px;color:var(--texto-muted);margin:2px 0 6px;line-height:1.5;">Pedidos que chegam pelo seu cardápio online. Você sempre aceita na mão (por causa das formas de pagamento).</div>
           ${linha('imprimir_auto', 'Imprimir o pedido sozinho ao aceitar', 'Desligue se esse aparelho não tem impressora. O botão 🖨️ de cada pedido continua funcionando.', imprDel, 'Impressão automática (delivery)')}
         </div>
-        <div style="background:#EDF7F0;border:2px solid #98CFAA;border-radius:12px;padding:14px;margin-top:14px;">
+        <div class="so-comandas" style="background:#EDF7F0;border:2px solid #98CFAA;border-radius:12px;padding:14px;margin-top:14px;">
           <div style="font-weight:800;font-size:16px;">🍽️ Comandas das mesas</div>
           <div style="font-size:12px;color:var(--texto-muted);margin:2px 0 6px;line-height:1.5;">Pedidos feitos na mesa, pelo QR Code ou pelo garçom.</div>
           ${linha('aceitar_auto_comanda', 'Aceitar o pedido da mesa sozinho', 'O pedido da mesa já entra como aceito (Em preparo) sem esperar o seu clique. Se a impressão sozinha estiver ligada, o papel sai junto.', lig('aceitar_auto_comanda', false), 'Aceite sozinho (comanda)')}
@@ -4173,11 +4206,11 @@ async function renderConfig() {
         </select>
       </div>
 
-      ${typeof semBebidasBlocoHtml === 'function' ? semBebidasBlocoHtml() : ''}
+      ${typeof semBebidasBlocoHtml === 'function' ? (typeof comandasEnvolver === 'function' ? comandasEnvolver(semBebidasBlocoHtml()) : semBebidasBlocoHtml()) : ''}
 
       ${typeof impBlocoConfig === 'function' ? impBlocoConfig() : ''}
 
-      <div class="form-group" style="margin-top:24px;">
+      <div class="form-group so-comandas" style="margin-top:24px;">
         <label style="font-size:14px;font-weight:700;">Comandas</label>
         <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Todo pedido de mesa passa por "Aguardando Confirmação" antes do preparo — garante que alguém sempre veja e avise a cozinha. Se preferir, ligue "Aceitar o pedido da mesa sozinho" ali em cima (só no aparelho da cozinha/impressora).</div>
       </div>
@@ -4231,8 +4264,8 @@ async function renderConfig() {
         <div class="form-group"><label>Pedido mínimo (R$)</label><input type="number" id="cfg-minimo" value="${r.pedido_minimo||''}" placeholder="0.00" step="0.01" min="0"></div>
       </div>
 
-      <div class="config-titulo" style="margin-top:20px;">Comanda (restaurante por peso / livre)</div>
-      <div class="form-group"><label>Preço do prato "Livre" (R$)</label><input type="number" id="cfg-comanda-livre" value="${r.comanda_livre_preco||''}" placeholder="Ex: 20.00" step="0.01" min="0" style="max-width:200px;"><div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Se o seu restaurante tem rodízio/"come à vontade", coloque o valor aqui. Ele aparece como botão "♾️ Livre" na comanda do garçom. Deixe vazio se não usa.</div></div>
+      <div class="config-titulo so-comandas" style="margin-top:20px;">Comanda (restaurante por peso / livre)</div>
+      <div class="form-group so-comandas"><label>Preço do prato "Livre" (R$)</label><input type="number" id="cfg-comanda-livre" value="${r.comanda_livre_preco||''}" placeholder="Ex: 20.00" step="0.01" min="0" style="max-width:200px;"><div style="font-size:11px;color:var(--texto-muted);margin-top:4px;">Se o seu restaurante tem rodízio/"come à vontade", coloque o valor aqui. Ele aparece como botão "♾️ Livre" na comanda do garçom. Deixe vazio se não usa.</div></div>
 
       <div class="config-titulo" style="margin-top:4px;">Horário de funcionamento</div>
       <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;">Configure um horário diferente pra cada dia, ou deixe desmarcado nos dias que ficar fechado.${usarSegundoHorario() ? ' Abre no almoço e de novo à noite? Use o botão "+ 2º horário".' : ''}</div>
@@ -4305,9 +4338,9 @@ async function renderConfig() {
         </div>
       </div>
 
-      ${typeof mapaMesasConfigHtml === 'function' ? mapaMesasConfigHtml(r) : ''}
+      ${typeof mapaMesasConfigHtml === 'function' ? (typeof comandasEnvolver === 'function' ? comandasEnvolver(mapaMesasConfigHtml(r)) : mapaMesasConfigHtml(r)) : ''}
 
-      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--creme-borda);">
+      <div class="so-comandas" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--creme-borda);">
         <div style="font-size:15px;font-weight:600;margin-bottom:6px;">📋 QR Codes de comanda (uso do garçom)</div>
         <div style="font-size:13px;color:var(--texto-muted);margin-bottom:14px;">Gere códigos reutilizáveis pra plastificar e levar no bolso. O garçom escaneia um código livre, informa a mesa, e monta o pedido — logado no painel dele. O mesmo código serve pra adicionar mais itens depois, e pra fechar a conta no caixa.</div>
         <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:14px;">
@@ -4320,7 +4353,7 @@ async function renderConfig() {
         <div id="comandas-qr-grid" style="display:flex;flex-wrap:wrap;gap:16px;"></div>
       </div>
 
-      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--creme-borda);">
+      <div class="so-comandas" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--creme-borda);">
         <div style="font-size:15px;font-weight:600;margin-bottom:6px;">🍽️ QR Code de consulta (fica na mesa)</div>
         <div style="font-size:13px;color:var(--texto-muted);margin-bottom:14px;">É só 1 código, genérico — imprima quantas cópias quiser e cole em todas as mesas. O cliente escaneia e vê o cardápio com fotos, descrição e preço — sem conseguir adicionar ao carrinho. É só pra ele escolher o que vai pedir com o garçom (quem define a mesa é o garçom, no código de comanda dele).</div>
         <div id="mesa-qr-unico"></div>
@@ -4480,7 +4513,7 @@ function cfgOrganizarEmAbas() {
     b.type = 'button';
     b.className = 'cfg-aba-bt';
     b.dataset.aba = id;
-    b.textContent = nome;
+    b.textContent = (id === 'impressao' && typeof comandasLigadas === 'function' && !comandasLigadas()) ? 'Impressão' : nome;
     b.onclick = () => { cfgIrAba(id); window.scrollTo({ top: 0 }); };
     nav.appendChild(b);
     const s = document.createElement('div');
@@ -7483,6 +7516,7 @@ async function garantirUserIdRestaurante() {
 <script src="conta-mesa.js?v=20261112c"></script>
 <script src="primeiros-passos.js?v=20261126a"></script>
 <script src="sem-bebidas.js?v=20261113c"></script>
+<script src="comandas-extra.js?v=20261126a"></script>
 <script src="editar-comanda.js?v=20261113d"></script>
 <script src="chamar-garcom.js?v=20261118a"></script>
 <script src="app-instalar.js?v=20261116a"></script>
