@@ -1,5 +1,6 @@
 import { reportarErro } from './_sentry.js';
 import { randomInt } from 'crypto';
+import { calcularPreco } from './_precos.js';
 // Devolve detalhes protegidos de uma loja, ou ativa/desativa/estende teste — só se quem chamar for o Super Admin de verdade.
 const SUPABASE_URL = 'https://qdyhmtccahlqscvrckpx.supabase.co';
 const ADMIN_EMAIL = 'alessandro.reval@hotmail.com';
@@ -154,6 +155,21 @@ export default async function handler(req, res) {
         }
       }
       return res.status(200).json({ ok: true, loginApagado });
+    }
+
+    if (acao === 'comandas') {
+      // Liga ou desliga as Comandas (mesas) numa loja. Com Comandas a mensalidade passa a R$ 49,90 (lojas com preço travado não mudam).
+      // Não mexe na assinatura que já existe na Asaas: se a loja já assina, o valor lá é ajustado à mão.
+      const ligado = req.body.ligado === true;
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${encodeURIComponent(restauranteId)}`, {
+        method: 'PATCH',
+        headers: { ...svcHeaders, 'Prefer': 'return=representation' },
+        body: JSON.stringify({ comandas_ativas: ligado })
+      });
+      const linhas = await r.json().catch(() => []);
+      if (!r.ok || !Array.isArray(linhas) || !linhas[0]) return res.status(500).json({ error: 'Não consegui salvar.' });
+      const p = calcularPreco(linhas[0], 'mensal');
+      return res.status(200).json({ ok: true, ligado, mensal: p.mensal, travado: p.travado, assinaturaAtiva: !!linhas[0].plano_ativo });
     }
 
     if (acao === 'estender_teste') {

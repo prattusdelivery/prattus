@@ -36,7 +36,7 @@ export default async function handler(req, res) {
     if (!process.env.SUPABASE_SERVICE_KEY) {
       return res.status(500).json({ error: 'Chave de serviço não configurada no servidor' });
     }
-    const restResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${encodeURIComponent(restauranteId)}&select=plano_painel,preco_mensal_travado`, {
+    const restResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${encodeURIComponent(restauranteId)}&select=plano_painel,preco_mensal_travado,comandas_ativas`, {
       headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` }
     });
     const restData = await restResp.json();
