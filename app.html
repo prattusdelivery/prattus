@@ -4125,7 +4125,7 @@ async function renderConfig() {
           <input type="checkbox" id="pg-pix-maq" ${r.avisos_whatsapp?.pix_maquininha !== false ? 'checked' : ''} style="width:18px;height:18px;margin-top:2px;">
           <span><b>📲 Pix na maquininha</b> <span style="font-size:10px;background:#E1F5EE;color:#0F6E56;padding:2px 6px;border-radius:6px;font-weight:700;">RECOMENDADO</span><br><span style="font-size:11px;color:var(--texto-muted);">O cliente paga o Pix na hora que o pedido chega, na sua maquininha. Você não precisa conferir comprovante. Só aparece se a <b>Maquininha</b> (abaixo) estiver marcada.</span></span>
         </label>` : ''}
-        <div style="font-size:13px;font-weight:700;margin-bottom:6px;">Pix (escolha só um)</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px;">${(simplesCfg || !mpLiberado(r)) ? 'Pix' : 'Pix (escolha só um)'}</div>
         <label style="display:${(simplesCfg || !mpLiberado(r)) ? 'none' : 'flex'};align-items:flex-start;gap:10px;background:#fff;border:1px solid var(--creme-borda);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;font-size:13px;">
           <input type="checkbox" id="pg-pix-auto" ${(r.pgto_pix || 'auto') === 'auto' ? 'checked' : ''} onchange="pgMarcarPix('auto', this.checked)" style="width:18px;height:18px;margin-top:2px;">
           <span><b>⚡ Pix automático</b><br><span style="font-size:11px;color:var(--texto-muted);">O pedido chega já pago, sem conferir comprovante (pelo Mercado Pago).${r.pix_online_ativo ? '' : ' <b style="color:#B26A00;">Precisa conectar o Mercado Pago acima.</b>'}</span></span>
