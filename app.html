@@ -1754,15 +1754,36 @@ function pararAutoRefresh() {
   if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
 }
 
+// Chave do número de Comandas corrigido: por enquanto só a loja Demo. Para liberar para todas, troque o return por !!r.
+function badgeComandasNovoAtivo(r) { return !!(r && r.slug === 'servidelivery-demo'); }
 async function atualizarBadgeComandasPendentes() {
   const badge = document.getElementById('badge-comandas-pendentes');
   if (!badge || !restauranteAtual) return;
-  const { count } = await db.from('pedidos')
-    .select('id', { count: 'exact', head: true })
-    .eq('restaurante_id', restauranteAtual.id)
-    .eq('status', 'novo')
-    .not('codigo_comanda_id', 'is', null);
-  const qtd = count ?? 0;
+  let qtd = null;
+  // Regra nova (por enquanto só na Demo): conta só pedidos de mesas AINDA ABERTAS e dos últimos 3 dias (igual à tela de Comandas).
+  // Antes, pedido que ficou "novo" e cuja conta já tinha sido fechada contava para sempre.
+  if (badgeComandasNovoAtivo(restauranteAtual)) {
+    try {
+      const desde = new Date(Date.now() - 3*24*3600*1000).toISOString();
+      const [rp, rm] = await Promise.all([
+        db.from('pedidos').select('id,codigo_comanda_id').eq('restaurante_id', restauranteAtual.id).eq('status', 'novo')
+          .not('codigo_comanda_id', 'is', null).gte('criado_em', desde).limit(500),
+        db.from('codigos_comanda').select('id').eq('restaurante_id', restauranteAtual.id).eq('status', 'em_uso')
+      ]);
+      if (!rp.error && !rm.error) {
+        const abertas = new Set((rm.data || []).map(m => m.id));
+        qtd = (rp.data || []).filter(p => abertas.has(p.codigo_comanda_id)).length;
+      }
+    } catch (e) { qtd = null; }
+  }
+  if (qtd === null) {
+    const { count } = await db.from('pedidos')
+      .select('id', { count: 'exact', head: true })
+      .eq('restaurante_id', restauranteAtual.id)
+      .eq('status', 'novo')
+      .not('codigo_comanda_id', 'is', null);
+    qtd = count ?? 0;
+  }
   if (qtd > 0) {
     badge.textContent = qtd;
     badge.style.display = 'inline-block';
