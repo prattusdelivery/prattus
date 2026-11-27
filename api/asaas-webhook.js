@@ -106,6 +106,23 @@ export default async function handler(req, res) {
     if (eventosQueCancelam.includes(tipo) && restauranteIdEvento) {
       const restauranteId = restauranteIdEvento;
 
+      // Só trata como cancelamento quem JÁ PAGOU antes (plano ativo agora, ou pagamento confirmado no passado).
+      // Cobrança esquecida/vencida de quem nunca pagou (ex.: clicou em assinar no teste grátis) não muda nada
+      // e não manda aviso falso de "assinante cancelou".
+      let jaPagou = true; // se não conseguir conferir, mantém o comportamento antigo
+      try {
+        const confResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}&select=plano_ativo,proxima_cobranca`, {
+          headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` }
+        });
+        const confData = await confResp.json();
+        if (confResp.ok && Array.isArray(confData) && confData[0]) {
+          jaPagou = confData[0].plano_ativo === true || !!confData[0].proxima_cobranca;
+        }
+      } catch (e) {}
+      if (!jaPagou) {
+        return res.status(200).json({ received: true, ignorado: 'cobranca-de-quem-nunca-pagou' });
+      }
+
       await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${restauranteId}`, {
         method: 'PATCH',
         headers: {
