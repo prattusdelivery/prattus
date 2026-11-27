@@ -5465,9 +5465,8 @@ function confirmarAssinatura(plano, btnEl, metodo) {
 }
 
 function iniciarAssinatura(plano, btnEl, metodo) {
-  // Só na Demo por enquanto (depois que ele aprovar, vale para todas as lojas)
-  if (novasRegrasAtivas(restauranteAtual)) { confirmarAssinatura(plano, btnEl, metodo); return; }
-  return iniciarAssinaturaDireto(plano, btnEl, metodo);
+  // Vale para todas as lojas (liberado em 27/11/2026)
+  confirmarAssinatura(plano, btnEl, metodo);
 }
 
 async function iniciarAssinaturaDireto(plano, btnEl, metodo) {
