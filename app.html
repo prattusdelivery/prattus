@@ -2332,7 +2332,9 @@ function statusDeSA(r) {
   const diasDesde = Math.floor((Date.now() - dataDoBanco(r.criado_em)) / 86400000);
   const limiteTeste = 14 + (r.trial_extra_dias || 0);
   if (r.plano_ativo) return 'ativo';
-  if (r.plano_tipo) return 'cancelado'; // já foi assinante de verdade, mas não está ativo agora
+  // "Cancelada" só para quem JÁ PAGOU antes (pagamento confirmado deixa proxima_cobranca preenchida).
+  // Quem só clicou em assinar e não pagou continua em Teste (ou Vencido quando os dias acabam).
+  if (r.plano_tipo && r.proxima_cobranca) return 'cancelado';
   if (diasDesde <= limiteTeste) return 'teste';
   return 'vencido';
 }
@@ -5438,7 +5440,37 @@ function esperarPagamentoConfirmar(teste) {
   }, 8000);
 }
 
-async function iniciarAssinatura(plano, btnEl, metodo) {
+// Janela de confirmação: a cobrança no Asaas só é criada depois que o dono toca em "Continuar para o pagamento".
+// (Antes, um clique em "Assinar" já criava a cobrança, e clique sem querer deixava cobrança vencida pendurada.)
+function confirmarAssinatura(plano, btnEl, metodo) {
+  document.getElementById('modal-confirma-assinatura')?.remove();
+  let precoTxt = '';
+  try { const PRc = precosLoja(restauranteAtual); precoTxt = plano === 'anual' ? PRc.anualTxt + '/ano' : PRc.mensalTxt + '/mês'; } catch (e) {}
+  const forma = metodo === 'pix' ? 'Pix ou boleto' : 'cartão de crédito';
+  const el = document.createElement('div');
+  el.id = 'modal-confirma-assinatura';
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+  el.innerHTML = `
+    <div style="background:#fff;color:#222;border-radius:14px;max-width:380px;width:100%;padding:22px;text-align:center;">
+      <div style="font-size:18px;font-weight:700;margin-bottom:8px;">Assinar o ServiDelivery</div>
+      <div style="font-size:15px;line-height:1.5;margin-bottom:6px;">Plano <b>${plano === 'anual' ? 'anual' : 'mensal'}</b>${precoTxt ? ' — <b>' + precoTxt + '</b>' : ''}</div>
+      <div style="font-size:13px;color:#666;margin-bottom:18px;">Pagamento no ${forma}. A cobrança só é criada depois que você tocar em <b>Continuar</b>.</div>
+      <button id="conf-ass-ok" class="btn btn-laranja" style="width:100%;margin-bottom:8px;">Continuar para o pagamento</button>
+      <button id="conf-ass-voltar" class="btn btn-outline" style="width:100%;">Voltar</button>
+    </div>`;
+  document.body.appendChild(el);
+  document.getElementById('conf-ass-voltar').onclick = () => el.remove();
+  el.addEventListener('click', ev => { if (ev.target === el) el.remove(); });
+  document.getElementById('conf-ass-ok').onclick = () => { el.remove(); iniciarAssinaturaDireto(plano, btnEl, metodo); };
+}
+
+function iniciarAssinatura(plano, btnEl, metodo) {
+  // Só na Demo por enquanto (depois que ele aprovar, vale para todas as lojas)
+  if (novasRegrasAtivas(restauranteAtual)) { confirmarAssinatura(plano, btnEl, metodo); return; }
+  return iniciarAssinaturaDireto(plano, btnEl, metodo);
+}
+
+async function iniciarAssinaturaDireto(plano, btnEl, metodo) {
   if (!restauranteAtual || !usuarioAtual) return;
 
   const { data: privado } = await db.from('restaurante_privado').select('cpf_cnpj').eq('restaurante_id', restauranteAtual.id).maybeSingle();
