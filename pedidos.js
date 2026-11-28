@@ -647,7 +647,7 @@ async function renderPedidos() {
   await autoFinalizarEntregasAntigas();
   if (!restauranteAtual) return;
   const { data: pedidos } = await db.from('pedidos')
-    .select('*,pedido_itens(nome,quantidade,preco,observacao)')
+    .select('*,pedido_itens(id,nome,quantidade,preco,observacao)')
     .eq('restaurante_id', restauranteAtual.id)
     .order('criado_em', {ascending: false});
 
@@ -1164,6 +1164,10 @@ function imprimirComanda(p, forcarNormal) {
   const mesa = ehCom ? ((obs.match(/Mesa\s+(\S+)/) || [])[1] || (String(p.endereco || '').match(/Mesa\s+(\S+)/) || [])[1] || '') : '';
   const ehDelivery = /Modo:\s*Delivery/i.test(obs);
   const frete = parseFloat(p.frete) || 0;
+  // Pedido editado depois de ir para a cozinha: faixa grande no topo do papel novo
+  const faixaAlterado = p.__alterado
+    ? '<div style="text-align:center;font-weight:900;font-size:20px;border:3px solid #000;padding:6px;margin:0 0 6px;">*** PEDIDO ALTERADO ***</div><div style="text-align:center;font-weight:800;font-size:13px;margin-bottom:6px;">Jogue fora o papel anterior deste pedido</div>'
+    : '';
 
   // Impressão anterior: continua igual nas outras lojas até a impressão nova ser aprovada.
   if (!usarTelaPedidosNova()) {
@@ -1172,6 +1176,7 @@ function imprimirComanda(p, forcarNormal) {
     `).join('');
   const linhaFrete = ehDelivery ? `<div class="cp-info">Frete: ${frete > 0 ? 'R$ ' + frete.toFixed(2).replace('.', ',') : 'Grátis'}</div>` : '';
     document.getElementById('comanda-print').innerHTML = `
+      ${faixaAlterado}
       ${mesa ? `<div class="cp-mesa">MESA ${esc(mesa)}</div>` : ''}
       <h2>${esc(restauranteAtual?.nome) || 'Pedido'}</h2>
       <div style="text-align:center;">Pedido #${p.id.slice(-4).toUpperCase()}</div>
@@ -1236,6 +1241,7 @@ function imprimirComanda(p, forcarNormal) {
     ${p.bairro ? `<div class="cp-info">Bairro: ${esc(p.bairro)}</div>` : ''}` : '';
 
   document.getElementById('comanda-print').innerHTML = `
+    ${faixaAlterado}
     ${mesa ? `<div class="cp-mesa">MESA ${esc(mesa)}</div>` : ''}
     <h2>${esc(restauranteAtual?.nome) || 'Pedido'}</h2>
     <div style="text-align:center;">Pedido #${p.id.slice(-4).toUpperCase()}</div>
@@ -1290,11 +1296,12 @@ function montaBotoesStatus(p, telefone) {
     return `
       <button class="btn-sm" style="background:var(--verde);color:#fff;border:none;" onclick="avancarStatus('${p.id}','preparando','${nomeCliente.replace(/'/g,"")}','${telefone||''}','${p.id.slice(-4).toUpperCase()}')">${ehComanda ? 'Enviar para Cozinha' : 'Aceitar pedido'}</button>
       <button class="btn-sm perigo" onclick="mudarStatus('${p.id}','cancelado')">Recusar</button>
-      ${typeof editarComandaPode === 'function' && editarComandaPode(p) ? `<button class="btn-sm" onclick="editarComandaAbrir('${p.id}')">✏️ Editar comanda</button>` : ''}
+      ${typeof editarComandaPode === 'function' && editarComandaPode(p) ? `<button class="btn-sm" onclick="editarComandaAbrir('${p.id}')">✏️ ${ehComanda ? 'Editar comanda' : 'Editar pedido'}</button>` : ''}
     `;
   }
   if (p.status === 'preparando') {
-    return `<button class="btn-sm" style="background:var(--laranja);color:#fff;border:none;" onclick="avancarStatus('${p.id}','entrega','${nomeCliente.replace(/'/g,"")}','${telefone||''}','${p.id.slice(-4).toUpperCase()}')">${ehComanda ? 'Pronto para Servir' : 'Pedido pronto, saiu p/ entrega'}</button>`;
+    return `<button class="btn-sm" style="background:var(--laranja);color:#fff;border:none;" onclick="avancarStatus('${p.id}','entrega','${nomeCliente.replace(/'/g,"")}','${telefone||''}','${p.id.slice(-4).toUpperCase()}')">${ehComanda ? 'Pronto para Servir' : 'Pedido pronto, saiu p/ entrega'}</button>
+      ${typeof editarComandaPode === 'function' && editarComandaPode(p) ? `<button class="btn-sm" onclick="editarComandaAbrir('${p.id}')">✏️ ${ehComanda ? 'Editar comanda' : 'Editar pedido'}</button>` : ''}`;
   }
   if (ehComanda) {
     return `<button class="btn-sm" disabled style="background:#ccc;color:#fff;border:none;cursor:default;">Servido</button>`;
@@ -1636,6 +1643,7 @@ function pnCard(p) {
       <div class="pn-links">
         <button class="pn-link" onclick="pnDetalhes('${p.id}')">Ver detalhes</button>
         <button class="pn-link" onclick="imprimirComandaPorId('${p.id}')">Imprimir</button>
+        ${typeof editarComandaPode === 'function' && editarComandaPode(p) ? `<button class="pn-link" onclick="editarComandaAbrir('${p.id}')">✏️ Editar pedido</button>` : ''}
         ${p.status === 'novo' && meuPapel !== 'garcom' ? `<button class="pn-link perigo" onclick="pnRecusar('${p.id}')">Recusar</button>` : ''}
       </div>
     </div>`;
