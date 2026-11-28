@@ -13,10 +13,10 @@ function editarComandaLiberado() {
   return !!restauranteAtual;
 }
 
-// Editar pedido DEPOIS de aceito ("Em preparo") e também em delivery/retirada que ainda NÃO foi pago:
-// por enquanto só na loja Demo. Para liberar para todas as lojas, troque o return por !!restauranteAtual.
+// Editar pedido DEPOIS de aceito ("Em preparo"), com "Adicionar item", e também em delivery/retirada que ainda NÃO foi pago.
+// Liberado para todas as lojas.
 function editarPedidoNovoAtivo() {
-  return !!(restauranteAtual && restauranteAtual.slug === 'servidelivery-demo');
+  return !!restauranteAtual;
 }
 
 function editarComandaPode(p) {
