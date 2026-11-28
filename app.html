@@ -5757,7 +5757,7 @@ function abrirModalItemPorId(id) {
 }
 
 function abrirModalItem(item) {
-  if (!modoComandaAtivo && !itemNoDiaHora(item)) {
+  if (!modoComandaAtivo && !(window.ecomAdicionando && window.ecomEstado) && !itemNoDiaHora(item)) {
     toast('Este prato não está disponível agora (' + textoDiasItem(item) + ').', 'erro');
     return;
   }
@@ -5896,7 +5896,8 @@ function micAtualizarTotal() {
 
 function micAdicionar() {
   if (itemSemPreco(micItemAtual)) return;
-  { const bl = pedidoBloqueadoAgora(); if (bl.bloqueado) { toast(bl.msg, 'erro'); fecharModal('modal-item-cliente'); return; } }
+  const ecomAdd = !!(window.ecomAdicionando && window.ecomEstado && typeof ecomReceberNovo === 'function'); // "Adicionar item" dentro de Editar pedido (só Demo)
+  if (!ecomAdd) { const bl = pedidoBloqueadoAgora(); if (bl.bloqueado) { toast(bl.msg, 'erro'); fecharModal('modal-item-cliente'); return; } }
   const item = micItemAtual;
   const grupos = item.opcoes || [];
 
@@ -5934,6 +5935,12 @@ function micAdicionar() {
   const variacaoFinal = variacaoPartes.length ? variacaoPartes.join(' · ') : null;
   const obsFinal = obsPartes.join(' · ');
   const precoUnit = micCalcularUnitario();
+
+  if (ecomAdd) {
+    ecomReceberNovo({ item_id: item.id, nome: item.nome, preco: precoUnit, qtd: micQtd, obs: [variacaoFinal, obsFinal].filter(Boolean).join(' · ') });
+    fecharModal('modal-item-cliente');
+    return;
+  }
 
   const idx = carrinho.findIndex(c => c.id === item.id && c.variacao === variacaoFinal && c.obs === obsFinal);
   if (idx >= 0) {
@@ -7730,7 +7737,7 @@ async function garantirUserIdRestaurante() {
 <script src="sem-bebidas.js?v=20261113c"></script>
 <script src="comandas-extra.js?v=20261126c"></script>
 <script src="menu-novo.js?v=20261126e"></script>
-<script src="editar-comanda.js?v=20261127a"></script>
+<script src="editar-comanda.js?v=20261127b"></script>
 <script src="chamar-garcom.js?v=20261118a"></script>
 <script src="app-instalar.js?v=20261116a"></script>
 <script src="termos-aceite.js?v=20261118b"></script>
